@@ -62,6 +62,7 @@ export function paintEarthTexture(canvas: HTMLCanvasElement, options: EarthTextu
   paintLand(env, land);
   paintIceCaps(env);
   paintGraticule(env, options.graticule);
+  paintCoastlines(env, land);
   paintLabels(env, options.labels);
   paintPaperGrain(env);
 }
@@ -179,24 +180,6 @@ function paintLand(env: PaintEnv, land: LandPath[]): void {
   for (const item of land) ctx.fill(item.path, 'evenodd');
   ctx.restore();
 
-  // 海岸外侧的浅色"洗"，模拟油画堆在边缘的颜料
-  ctx.save();
-  ctx.globalAlpha = 0.16;
-  ctx.strokeStyle = colors.coastWash;
-  ctx.lineWidth = Math.max(4, 7 * s);
-  ctx.lineJoin = 'round';
-  for (const item of land) ctx.stroke(item.path);
-  ctx.restore();
-
-  // 墨色海岸线
-  ctx.save();
-  ctx.globalAlpha = 0.5;
-  ctx.strokeStyle = colors.landEdge;
-  ctx.lineWidth = Math.max(1.1, 1.9 * s);
-  ctx.lineJoin = 'round';
-  for (const item of land) ctx.stroke(item.path);
-  ctx.restore();
-
   // 大块陆地内部再叠笔触（小岛略过，省下大量 clip 开销）
   const textureColors = [colors.landWarm, colors.landBase, colors.landCool, colors.coastWash];
   const canvasArea = w * h;
@@ -224,6 +207,22 @@ function paintLand(env: PaintEnv, land: LandPath[]): void {
     }
     ctx.restore();
   }
+}
+
+/** 先勾浅金外缘，再画深墨海岸线，缩小地球后仍能分清陆海。 */
+function paintCoastlines({ ctx, colors, s }: PaintEnv, land: LandPath[]): void {
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.globalAlpha = 0.68;
+  ctx.strokeStyle = colors.coastWash;
+  ctx.lineWidth = Math.max(4, 7 * s);
+  for (const { path } of land) ctx.stroke(path);
+
+  ctx.globalAlpha = 0.95;
+  ctx.strokeStyle = colors.landEdge;
+  ctx.lineWidth = Math.max(2, 3.5 * s);
+  for (const { path } of land) ctx.stroke(path);
+  ctx.restore();
 }
 
 /* ------------------------------------------------------------------ 冰与经纬网 */

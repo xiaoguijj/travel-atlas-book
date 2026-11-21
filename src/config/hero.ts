@@ -24,9 +24,9 @@ export const heroGlobe = {
   centerY: 461.5,
   /** 画里那个静态地球被挖掉的半径（含高光带外缘） */
   holeRadius: 292,
-  /** 3D 球体的屏幕半径，比孔略大一点，边缘被画盖住，看不出两个圆 */
-  liveRadius: 300,
-  /** WebGL 容器的位置：正方形，边长 741，球体占其中 600，缩放时两边都留余量 */
+  /** 缩小球体，给桌面地图上的圆形底托留出边缘 */
+  liveRadius: 240,
+  /** WebGL 容器的位置：正方形，边长 741 */
   stage: { x: 623, y: 91, size: 741 },
 } as const;
 
@@ -42,7 +42,7 @@ export const heroArtMask = `radial-gradient(circle at ${((100 * heroGlobe.center
   heroArt.height).toFixed(3)}%, transparent 0 ${cqw(heroGlobe.holeRadius)}cqw, #000 ${cqw(heroGlobe.holeRadius + 1.5)}cqw)`;
 
 /** 标记层用同一个孔裁剪：放大地球时，转到边缘的图钉不会飘到纸上 */
-export const heroPinMask = `radial-gradient(circle at 50% 50%, transparent 0 ${cqw(heroGlobe.holeRadius)}cqw, #000 ${cqw(
+export const heroPinMask = `radial-gradient(circle at 50% 50%, #000 0 ${cqw(heroGlobe.holeRadius)}cqw, transparent ${cqw(
   heroGlobe.holeRadius + 1.5,
 )}cqw)`;
 
@@ -75,8 +75,9 @@ export const heroGlobeBedBox: HeroBox = {
   h: heroGlobe.holeRadius * 2,
 };
 
-/** 右侧三张明信片，按画里从上到下的顺序对应城市数据 */
-export const heroCardBoxes: (HeroBox & { cityId: string })[] = [
+/** 右侧明信片的热区，伦敦另画一张小明信片 */
+export const heroCardBoxes: (HeroBox & { cityId: string; painted?: boolean })[] = [
+  { cityId: 'london', x: 1434, y: 112, w: 185, h: 103, painted: false },
   { cityId: 'nanjing', x: 1322, y: 228, w: 278, h: 160 },
   { cityId: 'shanghai', x: 1305, y: 393, w: 287, h: 165 },
   { cityId: 'beijing', x: 1278, y: 570, w: 307, h: 175 },

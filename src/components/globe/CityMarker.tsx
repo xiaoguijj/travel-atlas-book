@@ -32,7 +32,7 @@ export function CityMarker({ city, active, register, onSelect }: CityMarkerProps
       <span className={styles.pin} aria-hidden="true" />
       <span className={city.labelSide === 'left' ? `${styles.name} ${styles.nameLeft}` : styles.name}>
         {city.name}
-        <small>{city.nameEn}</small>
+        <small>{active ? coordinates : city.nameEn}</small>
       </span>
     </button>
   );

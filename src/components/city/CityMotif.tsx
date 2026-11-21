@@ -31,6 +31,7 @@ export function CityMotif({ motif, className, minimal = false }: CityMotifProps)
       {motif === 'city-gate' && <CityGate />}
       {motif === 'pearl-tower' && <PearlTower />}
       {motif === 'hall-of-prayer' && <HallOfPrayer />}
+      {motif === 'elizabeth-tower' && <ElizabethTower />}
       <path className={styles.ground} d="M6 126 H234" />
     </svg>
   );
@@ -96,6 +97,23 @@ function HallOfPrayer() {
   );
 }
 
+/** 伦敦：伊丽莎白塔与威斯敏斯特宫 */
+function ElizabethTower() {
+  return (
+    <g>
+      <path
+        className={styles.silhouette}
+        d="M14 126 V96 h8 v-9 l5 -9 5 9 v9 h22 V80 h7 v-8 l5 -9 5 9 v8 h24 v46 Z
+           M86 126 V51 h-4 l8 -11 14 -26 3 -14 3 14 14 26 8 11 h-4 v75 Z
+           M120 126 V87 h13 V76 l5 -12 5 12 v11 h18 V75 l5 -10 5 10 v12 h18
+           V79 l5 -10 5 10 v8 h17 v39 Z"
+      />
+      <circle className={styles.opening} cx="107" cy="62" r="10" />
+      <path className={styles.windowRow} d="M107 55 v7 l4 2 M96 83 h22 M96 93 h22 M96 104 h22 M96 115 h22 M29 105 h44 M138 97 h62 M138 107 h62" />
+    </g>
+  );
+}
+
 function ariaLabel(motif: MotifKind): string {
   switch (motif) {
     case 'city-gate':
@@ -104,5 +122,7 @@ function ariaLabel(motif: MotifKind): string {
       return '上海：明珠塔与外滩楼群剪影';
     case 'hall-of-prayer':
       return '北京：祈年殿三重檐剪影';
+    case 'elizabeth-tower':
+      return '伦敦：伊丽莎白塔与威斯敏斯特宫剪影';
   }
 }

@@ -22,8 +22,18 @@
   z-index: 0;
   border-radius: 50%;
   background:
-    radial-gradient(78% 78% at 42% 34%, rgb(234 178 125 / 0.9), transparent 72%),
-    radial-gradient(circle at 50% 50%, #c8934f 0 58%, #b07c42 78%, #96683a 100%);
+    radial-gradient(circle, transparent 66%, rgb(100 57 24 / 0.32) 76%, rgb(82 43 18 / 0.1) 100%),
+    radial-gradient(circle at 37% 30%, #eac79a, #bc8e5a);
+  box-shadow: inset 0 0 0 0.24cqw rgb(110 63 27 / 0.35), inset 0 0 1.8cqw rgb(95 55 26 / 0.4);
+}
+
+.globeBed::after {
+  content: '';
+  position: absolute;
+  inset: 4%;
+  border-radius: inherit;
+  background: repeating-conic-gradient(from -0.45deg, rgb(93 59 29 / 0.52) 0deg 0.9deg, transparent 0.9deg 10deg);
+  mask-image: radial-gradient(circle closest-side, transparent 91%, #000 91% 98%, transparent 98%);
 }
 
 /* 1 层是 WebGL 画布，2 层是背景画，3 层是城市图钉，都在 Globe.tsx / hero.ts 里排好 */
@@ -113,6 +123,50 @@
 .card:focus-visible {
   transform: translateY(-4px);
   box-shadow: 0 14px 26px -14px rgb(28 16 6 / 0.7), 0 0 0 1px rgb(176 141 87 / 0.62);
+}
+
+.londonCard {
+  rotate: 4deg;
+  padding: 0.29cqw;
+  background: #f0dcba;
+  box-shadow: 0 0.3cqw 0.8cqw rgb(54 25 10 / 0.38);
+}
+
+.londonArtwork {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  align-items: end;
+  justify-items: end;
+  overflow: hidden;
+  border: 1px solid rgb(110 72 45 / 0.32);
+  background: linear-gradient(165deg, #c2cad1, #f0cfab 64%, #bc8e6a);
+}
+
+.londonArtwork svg {
+  color: #59453a;
+  width: 76%;
+  height: 91%;
+}
+
+.londonName {
+  position: absolute;
+  top: 8%;
+  left: 6%;
+  display: grid;
+  justify-items: start;
+  color: #503224;
+  font-family: var(--tab-font-display);
+  font-size: 1.46cqw;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.londonName small {
+  font-size: 0.53em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .cardActive {

@@ -19,6 +19,7 @@ export interface GlobeSceneOptions {
   cities: City[];
   /** 由 React 提供：根据城市 id 取到对应的标记 DOM 元素 */
   getMarkerElement: (cityId: string) => HTMLElement | null;
+  onCityArrival: (cityId: string) => void;
   /** 用户设置了"减少动效"时不再自动旋转 */
   respectReducedMotion: boolean;
   /** 球体直径占容器短边的比例，省略则用 globeConfig 里的值 */
@@ -26,10 +27,8 @@ export interface GlobeSceneOptions {
 }
 
 export interface GlobeSceneHandle {
-  /** 聚焦某个城市：高亮标记并暂停自转，传 null 恢复 */
-  setFocusedCity: (cityId: string | null) => void;
-  /** 把镜头转到某座城市正前方，用来兑现"开始探索" */
-  flyToCity: (cityId: string) => void;
+  /** 飞到城市正前方，传 null 取消并恢复交互 */
+  setTargetCity: (cityId: string | null) => void;
   /** 指针移动进来时告诉场景位置，用来决定哪个图钉算"被指着" */
   setPointer: (clientX: number, clientY: number) => void;
   clearPointer: () => void;
@@ -49,7 +48,7 @@ interface MarkerBinding {
 }
 
 export function createGlobeScene(options: GlobeSceneOptions): GlobeSceneHandle {
-  const { host, cities, getMarkerElement } = options;
+  const { host, cities, getMarkerElement, onCityArrival } = options;
   const colors = activeTheme.globe;
   const cfg = globeConfig;
 
@@ -73,7 +72,9 @@ export function createGlobeScene(options: GlobeSceneOptions): GlobeSceneHandle {
   const scene = new THREE.Scene();
   const fill = options.fill ?? cfg.camera.fill;
   // 机位由"球体要占画面多少"反算，容器多大都能正好嵌进预留的圆孔
-  const viewDistance = cameraDistanceForFill(fill, cfg.camera.fov, cfg.radius);
+  const distanceForCurrentSize = () =>
+    cameraDistanceForFill(fill * Math.min(1, width / height), cfg.camera.fov, cfg.radius);
+  let viewDistance = distanceForCurrentSize();
   const camera = new THREE.PerspectiveCamera(cfg.camera.fov, width / height, cfg.camera.near, cfg.camera.far);
   // 初始机位直接由经纬度算出，进场就正对东亚
   camera.position.copy(
@@ -142,45 +143,51 @@ export function createGlobeScene(options: GlobeSceneOptions): GlobeSceneHandle {
   controls.autoRotateSpeed = cfg.controls.autoRotateSpeed;
   controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_ROTATE };
 
-  let focusedCity: string | null = null;
+  let targetCity: string | null = null;
   let resumeTimer: number | undefined;
 
   /**
-   * "开始探索"用的镜头飞行状态。球体本身不转，是相机绕着它转，
+   * 球体本身不转，是相机绕着它转，
    * 所以飞到某座城市 = 把相机沿最短弧转到这座城市的外法线上。
    */
   const FLIGHT_MS = 1150;
   const identityQuat = new THREE.Quaternion();
   const spinScratch = new THREE.Quaternion();
-  let flight: { from: THREE.Vector3; turn: THREE.Quaternion; distance: number; startedAt: number } | null =
-    null;
+  let flight: {
+    cityId: string;
+    from: THREE.Vector3;
+    turn: THREE.Quaternion;
+    distance: number;
+    startedAt: number;
+    duration: number;
+  } | null = null;
 
   const onEnd = () => {
     window.clearTimeout(resumeTimer);
     resumeTimer = window.setTimeout(() => {
-      controls.autoRotate = !reduceMotion && focusedCity === null;
+      controls.autoRotate = !reduceMotion && targetCity === null;
     }, cfg.controls.resumeDelayMs);
   };
   const onStart = () => {
     controls.autoRotate = false;
-    flight = null; // 用户一碰就交还控制权，飞行随时可以打断
     window.clearTimeout(resumeTimer);
   };
   controls.addEventListener('start', onStart);
   controls.addEventListener('end', onEnd);
 
   const updateFlight = () => {
-    if (!flight) return;
-    const t = Math.min(1, (performance.now() - flight.startedAt) / FLIGHT_MS);
+    if (!flight) return null;
+    const t = flight.duration ? Math.min(1, (performance.now() - flight.startedAt) / flight.duration) : 1;
     const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     camera.position
       .copy(flight.from)
       .applyQuaternion(spinScratch.slerpQuaternions(identityQuat, flight.turn, eased))
       .multiplyScalar(flight.distance);
-    if (t >= 1) {
-      flight = null;
-      onEnd();
-    }
+    camera.lookAt(controls.target);
+    if (t < 1) return null;
+    const { cityId } = flight;
+    flight = null;
+    return cityId;
   };
 
   // ---------------------------------------------------------------- 标记投影
@@ -198,19 +205,24 @@ export function createGlobeScene(options: GlobeSceneOptions): GlobeSceneHandle {
   const flyToCity = (cityId: string) => {
     const marker = markers.find((item) => item.cityId === cityId);
     if (!marker) return;
+    onStart();
+    // 清除拖动惯性，让相机抵达后精确停住。
+    const positionBeforeUpdate = camera.position.clone();
+    controls.enableDamping = false;
+    controls.update();
+    controls.enableDamping = true;
+    camera.position.copy(positionBeforeUpdate);
+
     const from = camera.position.clone().normalize();
     const to = marker.local.clone().normalize();
-    onStart();
-    if (reduceMotion) {
-      camera.position.copy(to).multiplyScalar(camera.position.length());
-      onEnd();
-      return;
-    }
+    const angle = from.angleTo(to);
     flight = {
+      cityId,
       from,
       turn: new THREE.Quaternion().setFromUnitVectors(from, to),
       distance: camera.position.length(),
       startedAt: performance.now(),
+      duration: reduceMotion ? 0 : THREE.MathUtils.lerp(380, FLIGHT_MS, angle / Math.PI),
     };
   };
 
@@ -259,7 +271,7 @@ export function createGlobeScene(options: GlobeSceneOptions): GlobeSceneHandle {
       element.style.opacity = opacity.toFixed(2);
       element.style.pointerEvents = opacity > 0.5 ? 'auto' : 'none';
       // 离镜头近的图钉压在上面
-      element.style.zIndex = String(Math.round((facing + 1) * 50));
+      element.style.zIndex = marker.cityId === targetCity ? '101' : String(Math.round((facing + 1) * 50));
 
       marker.screenX = x;
       marker.screenY = y;
@@ -286,15 +298,21 @@ export function createGlobeScene(options: GlobeSceneOptions): GlobeSceneHandle {
   };
 
   // ---------------------------------------------------------------- 帧循环
-  const renderFrame = () => {
-    updateFlight();
-    controls.update();
+  let previousFrame: number | null = null;
+  const renderFrame = (time: number) => {
+    const elapsed = previousFrame === null ? 0 : Math.min(0.05, (time - previousFrame) / 1000);
+    previousFrame = time;
+    const arrivedCity = updateFlight();
+    if (!targetCity) controls.update(elapsed);
+    camera.updateMatrixWorld();
     updateMarkers();
     renderer.render(scene, camera);
+    if (arrivedCity) onCityArrival(arrivedCity);
   };
   renderer.setAnimationLoop(renderFrame);
 
   const onVisibilityChange = () => {
+    previousFrame = null;
     if (document.hidden) renderer.setAnimationLoop(null);
     else renderer.setAnimationLoop(renderFrame);
   };
@@ -304,6 +322,13 @@ export function createGlobeScene(options: GlobeSceneOptions): GlobeSceneHandle {
   const resize = () => {
     width = host.clientWidth || 1;
     height = host.clientHeight || 1;
+    const resizedDistance = distanceForCurrentSize();
+    const resizeRatio = resizedDistance / viewDistance;
+    viewDistance = resizedDistance;
+    camera.position.multiplyScalar(resizeRatio);
+    if (flight) flight.distance *= resizeRatio;
+    controls.minDistance = viewDistance * cfg.camera.zoom.min;
+    controls.maxDistance = viewDistance * cfg.camera.zoom.max;
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
     renderer.setSize(width, height, false);
@@ -312,11 +337,16 @@ export function createGlobeScene(options: GlobeSceneOptions): GlobeSceneHandle {
   observer.observe(host);
 
   return {
-    setFocusedCity(cityId) {
-      focusedCity = cityId;
-      controls.autoRotate = !reduceMotion && cityId === null;
+    setTargetCity(cityId) {
+      targetCity = cityId;
+      controls.enabled = cityId === null;
+      if (cityId) {
+        flyToCity(cityId);
+      } else {
+        flight = null;
+        controls.autoRotate = !reduceMotion;
+      }
     },
-    flyToCity,
     setPointer(clientX, clientY) {
       pointer = toHostCoords(clientX, clientY);
     },
