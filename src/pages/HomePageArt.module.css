@@ -1,0 +1,120 @@
+/* ------------------------------------------------------------------ 参考图舞台
+ * 首页把整张画按 1671:941 等比放大缩小，所有热区都用画上的百分比坐标定位，
+ * 所以画面和交互在任何尺寸下都对得齐。几何数字来自 src/config/hero.ts。
+ */
+
+.stage {
+  position: relative;
+  container-type: inline-size;
+  width: 100%;
+  /* 高度不够时按高度收，保证整张画不用滚动就看完 */
+  max-width: calc((100vh - 28px) * 1.7757);
+  max-width: calc((100dvh - 28px) * 1.7757);
+  aspect-ratio: 1671 / 941;
+  margin: auto;
+  box-shadow: 0 26px 68px -32px rgb(6 12 16 / 0.82);
+  animation: rise-in 700ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+
+/* 0 层：孔底的纸色圆盘 */
+.globeBed {
+  position: absolute;
+  z-index: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(78% 78% at 42% 34%, rgb(234 178 125 / 0.9), transparent 72%),
+    radial-gradient(circle at 50% 50%, #c8934f 0 58%, #b07c42 78%, #96683a 100%);
+}
+
+/* 1 层是 WebGL 画布，2 层是背景画，3 层是城市图钉，都在 Globe.tsx / hero.ts 里排好 */
+.art {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* 画本身不吃鼠标，拖动才能落到下面的画布上 */
+  pointer-events: none;
+  user-select: none;
+}
+
+.globeSlot {
+  position: absolute;
+}
+
+.nav,
+.cards {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  /* 容器不拦截事件，只有热区自己可点 */
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------------ 热区共同样式
+ * 画面已经提供了全部外观，热区是透明的：默认看不见，只在 hover / 聚焦时亮起一层暖光。
+ */
+.navItem,
+.card,
+.explore {
+  position: absolute;
+  pointer-events: auto;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.navItem {
+  border-radius: 999px;
+  transition: background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.navItem:hover,
+.navItem:focus-visible {
+  background: rgb(247 240 227 / 0.2);
+  box-shadow: inset 0 0 0 1px rgb(247 240 227 / 0.28);
+}
+
+.explore {
+  border-radius: 12px;
+}
+
+.explore::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 12px;
+  background: radial-gradient(120% 150% at 50% 46%, rgb(247 240 227 / 0.26), rgb(176 141 87 / 0.08) 66%, transparent);
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.explore:hover::after,
+.explore:focus-visible::after {
+  opacity: 1;
+}
+
+.explore:active {
+  transform: translateY(1px);
+}
+
+.card {
+  border-radius: 4px;
+  transition: transform 220ms ease, box-shadow 220ms ease;
+}
+
+.card:hover,
+.card:focus-visible {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 26px -14px rgb(28 16 6 / 0.7), 0 0 0 1px rgb(176 141 87 / 0.62);
+}
+
+.cardActive {
+  box-shadow: 0 0 0 2px rgb(169 108 80 / 0.72), 0 12px 22px -14px rgb(28 16 6 / 0.6);
+}

@@ -1,0 +1,33 @@
+# 依赖与构建产物（npm install / npm run build 随时可重新生成）
+node_modules
+dist
+dist-ssr
+.vite
+*.tsbuildinfo
+
+# 本地临时文件：脚本缓存、编辑器缓存、系统垃圾
+.tmp
+*.local
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea
+.vscode/*
+!.vscode/extensions.json
+
+# 日志与缓存
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.eslintcache
+
+# 环境变量与密钥：只允许提交不含真实值的示例文件
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*credentials*

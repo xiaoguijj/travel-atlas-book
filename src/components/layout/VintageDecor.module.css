@@ -1,0 +1,239 @@
+.decor {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  animation: decorIn 1100ms ease-out both;
+}
+
+.decor > * {
+  position: absolute;
+}
+
+.stamp {
+  width: 66px;
+  padding: 7px 5px 4px;
+  border: 1px dashed rgb(176 141 87 / 0.75);
+  background: var(--tab-old-paper);
+  box-shadow: 0 3px 10px rgb(8 16 22 / 0.28);
+  opacity: 0.78;
+}
+
+.stamp svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  fill: none;
+  stroke: var(--tab-midnight-blue);
+  stroke-width: 2;
+  stroke-linecap: round;
+  opacity: 0.7;
+}
+
+.stamp span {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--tab-font-ui);
+  font-size: 0.48rem;
+  letter-spacing: 0.16em;
+  color: var(--tab-ink-soft);
+  text-align: center;
+}
+
+.stampSea {
+  top: 13%;
+  right: 5%;
+  transform: rotate(-6deg);
+}
+
+.stampLand {
+  top: 52%;
+  left: 3.5%;
+  transform: rotate(5deg);
+}
+
+.postmark {
+  top: 7%;
+  right: 12%;
+  width: 96px;
+  height: 96px;
+  opacity: 0.42;
+  transform: rotate(-13deg);
+}
+
+.postmark circle,
+.postmark path {
+  fill: none;
+  stroke: var(--tab-terracotta-deep);
+  stroke-width: 2;
+}
+
+.postmark text {
+  fill: var(--tab-terracotta-deep);
+  font-family: var(--tab-font-ui);
+  font-size: 11px;
+  letter-spacing: 1.6px;
+}
+
+.film {
+  bottom: 6%;
+  right: 3.5%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  padding: 15px 13px 9px;
+  border: 1px solid rgb(232 217 184 / 0.16);
+  border-radius: 2px;
+  background: var(--tab-deep-sea);
+  box-shadow: 0 14px 26px rgb(6 13 18 / 0.4);
+  transform: rotate(1.8deg);
+  opacity: 0.9;
+}
+
+/* 胶卷上下两排齿孔 */
+.film::before,
+.film::after {
+  content: '';
+  position: absolute;
+  right: 6px;
+  left: 6px;
+  height: 5px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgb(247 240 227 / 0.42) 0 7px,
+    transparent 7px 15px
+  );
+}
+
+.film::before {
+  top: 5px;
+}
+
+.film::after {
+  bottom: 4px;
+}
+
+.frame {
+  position: relative;
+  display: block;
+  width: 48px;
+  height: 34px;
+  border: 1px solid rgb(232 217 184 / 0.3);
+  overflow: hidden;
+}
+
+.frame i {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.frameSea {
+  background: linear-gradient(180deg, #3c6f80, #14293a 78%);
+}
+
+.frameHill {
+  background: linear-gradient(180deg, #cbb287, #7e8c6c 70%, #4a5b4f);
+}
+
+.frameDusk {
+  background: linear-gradient(180deg, #a96c50, #263f4b 82%);
+}
+
+.film em {
+  width: 100%;
+  font-family: var(--tab-font-ui);
+  font-size: 0.56rem;
+  font-style: normal;
+  letter-spacing: 0.18em;
+  color: rgb(232 217 184 / 0.6);
+  text-align: right;
+}
+
+.compass {
+  bottom: 9%;
+  left: 4%;
+  width: 104px;
+  height: 104px;
+  opacity: 0.34;
+}
+
+.compass circle,
+.compass path {
+  fill: none;
+  stroke: var(--tab-brass);
+  stroke-width: 1.4;
+}
+
+.compass text {
+  fill: var(--tab-brass);
+  font-family: var(--tab-font-ui);
+  font-size: 11px;
+}
+
+.route {
+  top: 18%;
+  left: 8%;
+  width: 280px;
+  height: 130px;
+  opacity: 0.3;
+}
+
+.route path {
+  fill: none;
+  stroke: var(--tab-old-paper);
+  stroke-width: 1.6;
+  stroke-dasharray: 7 9;
+  stroke-linecap: round;
+}
+
+.route circle {
+  fill: var(--tab-terracotta);
+  stroke: none;
+}
+
+.tape {
+  top: 40%;
+  left: 6%;
+  width: 96px;
+  height: 21px;
+  background: linear-gradient(90deg, rgb(176 141 87 / 0.3), rgb(232 217 184 / 0.4));
+  transform: rotate(-7deg);
+  opacity: 0.55;
+}
+
+@keyframes decorIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (max-width: 1180px) {
+  .route,
+  .tape {
+    display: none;
+  }
+}
+
+@media (max-width: 940px) {
+  .stampLand,
+  .compass {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .film,
+  .postmark {
+    display: none;
+  }
+
+  .stampSea {
+    top: auto;
+    bottom: 4%;
+    right: 4%;
+    width: 54px;
+  }
+}

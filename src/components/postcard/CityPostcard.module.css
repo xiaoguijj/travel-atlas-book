@@ -1,0 +1,374 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  /* 矮屏上卡片可能比视口高，让它能滚动，否则「打开城市手账」会被裁掉 */
+  overflow: auto;
+  padding: 24px 16px;
+  background: radial-gradient(circle at 50% 40%, rgb(24 43 54 / 0.55), rgb(12 22 29 / 0.82));
+  animation: backdropIn 240ms ease-out;
+}
+
+.card {
+  width: min(720px, 100%);
+  margin: auto;
+  transform: rotate(-0.5deg);
+  animation: cardIn 320ms cubic-bezier(0.2, 0.9, 0.25, 1.1);
+}
+
+.face {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+  gap: 22px;
+  padding: 22px 24px 20px;
+  border: 1px solid var(--tab-seam);
+  border-radius: 3px;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.42), rgb(255 255 255 / 0) 40%),
+    var(--tab-cream);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.6) inset,
+    0 18px 40px rgb(8 16 22 / 0.5),
+    0 2px 0 var(--tab-seam);
+  color: var(--tab-ink);
+}
+
+/* 顶上的"和纸胶带"，把明信片钉在页面上 */
+.edge {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  width: 116px;
+  height: 22px;
+  transform: translateX(-50%) rotate(-1.6deg);
+  background: linear-gradient(90deg, rgb(176 141 87 / 0.4), rgb(232 217 184 / 0.62));
+  border-left: 1px dashed rgb(255 255 255 / 0.5);
+  border-right: 1px dashed rgb(255 255 255 / 0.5);
+}
+
+.left {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding-right: 22px;
+  /* 明信片中间那道对折线 */
+  border-right: 1px dashed rgb(176 141 87 / 0.55);
+}
+
+.picture {
+  padding: 10px 8px 4px;
+  border: 1px solid var(--tab-seam);
+  border-radius: 2px;
+  background: linear-gradient(170deg, var(--tab-old-paper), var(--tab-cream-soft));
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.5) inset;
+}
+
+.tagline {
+  margin: 6px 0 0;
+  font-family: var(--tab-font-display);
+  font-size: 1.02rem;
+  line-height: 1.5;
+}
+
+.pictureNote {
+  margin: 0;
+  font-family: var(--tab-font-ui);
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  color: var(--tab-ink-soft);
+}
+
+.right {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.eyebrow {
+  font-family: var(--tab-font-ui);
+  font-size: 0.6rem;
+  letter-spacing: 0.3em;
+  color: var(--tab-ink-soft);
+}
+
+.close {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgb(176 141 87 / 0.5);
+  border-radius: 50%;
+  background: none;
+  color: var(--tab-ink-soft);
+  font-size: 0.78rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+.close:hover {
+  color: var(--tab-terracotta-deep);
+  border-color: var(--tab-terracotta);
+  transform: rotate(90deg);
+}
+
+.mark {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  display: flex;
+  align-items: flex-start;
+}
+
+.stamp {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  width: 74px;
+  padding: 7px 6px 5px;
+  border: 1px dashed rgb(176 141 87 / 0.7);
+  background: var(--tab-cream-soft);
+  transform: rotate(3deg);
+}
+
+/* 用页面颜色挖出齿孔，比蒙版更省事也更稳 */
+.stamp::before,
+.stamp::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background-image: radial-gradient(circle at 3px 4px, var(--tab-cream) 2.6px, transparent 2.8px);
+  background-size: 6px 4px;
+  background-repeat: repeat-x;
+}
+
+.stamp::before {
+  top: -2px;
+}
+
+.stamp::after {
+  bottom: -2px;
+  transform: scaleY(-1);
+}
+
+.stamp svg {
+  width: 100%;
+  height: auto;
+  color: var(--tab-terracotta-deep);
+}
+
+.stamp small {
+  font-family: var(--tab-font-ui);
+  font-size: 0.52rem;
+  letter-spacing: 0.14em;
+  color: var(--tab-ink-soft);
+}
+
+.postmark {
+  width: 62px;
+  height: 62px;
+  margin-left: -22px;
+  margin-top: 6px;
+  transform: rotate(-9deg);
+  opacity: 0.72;
+}
+
+.postmark circle,
+.postmark path {
+  fill: none;
+  stroke: var(--tab-terracotta-deep);
+  stroke-width: 1.6;
+}
+
+.postmark text {
+  fill: var(--tab-terracotta-deep);
+  font-family: var(--tab-font-ui);
+  font-size: 8.4px;
+  letter-spacing: 0.9px;
+}
+
+.name {
+  margin: 14px 0 0;
+  font-family: var(--tab-font-display);
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+}
+
+.name span {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--tab-font-ui);
+  font-size: 0.66rem;
+  font-weight: 400;
+  letter-spacing: 0.26em;
+  color: var(--tab-ink-soft);
+}
+
+.region {
+  margin: 4px 0 10px;
+  font-family: var(--tab-font-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  color: var(--tab-ink-soft);
+}
+
+.intro {
+  margin: 0 0 12px;
+  max-width: 34ch;
+  font-size: 0.94rem;
+  line-height: 1.85;
+  color: var(--tab-ink);
+}
+
+.rules {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.rules span {
+  height: 1px;
+  background: rgb(176 141 87 / 0.4);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.primary {
+  padding: 10px 20px;
+  border: 1px solid var(--tab-terracotta-deep);
+  border-radius: 2px;
+  background: var(--tab-terracotta);
+  color: var(--tab-cream);
+  font-family: var(--tab-font-ui);
+  font-size: 0.88rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  box-shadow: 0 2px 0 var(--tab-terracotta-deep);
+  transition: transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.primary:hover {
+  background: var(--tab-terracotta-deep);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 0 rgb(90 50 32 / 0.8);
+}
+
+.primary:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 var(--tab-terracotta-deep);
+}
+
+.ghost {
+  padding: 9px 14px;
+  border: 1px dashed rgb(176 141 87 / 0.7);
+  border-radius: 2px;
+  background: none;
+  color: var(--tab-ink-soft);
+  font-family: var(--tab-font-ui);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: color 160ms ease, border-color 160ms ease;
+}
+
+.ghost:hover {
+  color: var(--tab-ink);
+  border-color: var(--tab-brass);
+}
+
+.airmail {
+  position: absolute;
+  right: 24px;
+  bottom: -1px;
+  left: 24px;
+  height: 7px;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--tab-terracotta) 0 9px,
+    var(--tab-cream) 9px 18px,
+    var(--tab-sage) 18px 27px,
+    var(--tab-cream) 27px 36px
+  );
+  opacity: 0.75;
+}
+
+.primary:focus-visible,
+.ghost:focus-visible,
+.close:focus-visible {
+  outline: 2px solid var(--tab-brass);
+  outline-offset: 3px;
+}
+
+@keyframes backdropIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) rotate(-3deg) scale(0.96);
+  }
+}
+
+@media (max-width: 640px) {
+  .face {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding: 20px 18px 18px;
+  }
+
+  .left {
+    padding-right: 0;
+    padding-bottom: 14px;
+    border-right: 0;
+    border-bottom: 1px dashed rgb(176 141 87 / 0.55);
+  }
+
+  .mark {
+    position: static;
+    order: -1;
+    justify-content: flex-end;
+    margin-bottom: 6px;
+  }
+
+  .intro {
+    max-width: none;
+  }
+
+  .airmail {
+    right: 18px;
+    left: 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop,
+  .card {
+    animation: none;
+  }
+
+  .close,
+  .primary,
+  .ghost {
+    transition: none;
+  }
+}

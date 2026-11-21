@@ -1,0 +1,151 @@
+/*
+ * 按钮本身是一个 26x26 的点击热区，图钉居中在里面。
+ * 地球场景把按钮的中心投影到城市的真实经纬度上，
+ * 所以城市名标签必须用绝对定位，不能参与按钮的尺寸计算，否则图钉会被挤偏。
+ */
+.marker {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--tab-cream);
+  font: inherit;
+  cursor: pointer;
+  /* 每帧只改这两个属性，浏览器可以走合成层 */
+  will-change: transform, opacity;
+}
+
+.pin {
+  position: relative;
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid var(--tab-old-paper);
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, var(--tab-brass), var(--tab-terracotta) 62%, var(--tab-terracotta-deep));
+  box-shadow: 0 0 0 3px rgb(38 63 75 / 0.45), 0 2px 6px rgb(15 25 32 / 0.45);
+  transition: transform 220ms ease, box-shadow 220ms ease;
+}
+
+/* 针心的小白点，像地图上的定位十字 */
+.pin::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--tab-cream);
+  opacity: 0.85;
+}
+
+/* 一圈慢慢散开的涟漪，提示这里可以点 */
+.pin::before {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border: 1px solid rgb(232 217 184 / 0.5);
+  border-radius: 50%;
+  animation: pinPulse 3.2s ease-out infinite;
+}
+
+/* data-pick 由地球场景按"离指针最近的图钉"写入，比 :hover 可靠：
+   两个图钉重叠时 :hover 会命中压在上面的那一个，容易点错城市。 */
+.marker[data-pick='true'] .pin,
+.marker:focus-visible .pin {
+  transform: scale(1.3);
+}
+
+.markerActive .pin {
+  transform: scale(1.3);
+  box-shadow: 0 0 0 4px rgb(176 141 87 / 0.5), 0 2px 10px rgb(15 25 32 / 0.55);
+}
+
+.name {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  margin-left: 4px;
+  padding: 2px 8px 3px;
+  border: 1px solid rgb(232 217 184 / 0.3);
+  border-radius: 2px;
+  background: rgb(31 46 54 / 0.78);
+  font-family: var(--tab-font-display);
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgb(12 20 26 / 0.7);
+  /* 南京、上海在地图上只隔十几像素，默认只留图钉，悬停或选中时才报出名字 */
+  opacity: 0;
+  transform: translateY(-50%) translateX(-5px);
+  transition: opacity 200ms ease, transform 200ms ease, border-color 200ms ease, background-color 200ms ease;
+}
+
+.marker[data-pick='true'] .name,
+.marker:focus-visible .name,
+.markerActive .name {
+  opacity: 1;
+  transform: translateY(-50%);
+}
+
+/* 标签换到图钉左侧，避让旁边的城市 */
+.nameLeft {
+  left: auto;
+  right: 100%;
+  margin-left: 0;
+  margin-right: 4px;
+  transform: translateY(-50%) translateX(5px);
+}
+
+.name small {
+  font-family: var(--tab-font-ui);
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  opacity: 0.72;
+}
+
+.markerActive .name {
+  border-color: var(--tab-brass);
+  background: rgb(31 46 54 / 0.88);
+}
+
+.marker:focus-visible {
+  outline: 2px dashed var(--tab-brass);
+  outline-offset: 2px;
+}
+
+@keyframes pinPulse {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.55);
+  }
+
+  60% {
+    opacity: 0;
+    transform: scale(1.55);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.55);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pin {
+    transition: none;
+  }
+
+  .pin::before {
+    animation: none;
+    opacity: 0.3;
+  }
+}

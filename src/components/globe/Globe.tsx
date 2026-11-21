@@ -1,0 +1,175 @@
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
+import type { City } from '../../data/types';
+import { createGlobeScene, type GlobeSceneHandle } from '../../three/createGlobeScene';
+import { CityMarker } from './CityMarker';
+import styles from './Globe.module.css';
+
+export interface GlobeProps {
+  /** 来自 src/data/cities.ts 的稳定引用，只在挂载时建一次场景 */
+  cities: City[];
+  focusedCityId: string | null;
+  onFocusChange: (city: City | null) => void;
+  /** 球体直径占容器短边的比例；参考图舞台要按挖孔尺寸反算，竖版布局用默认值 */
+  fill?: number;
+  /** 底部操作提示，传 null 就不画（参考图里画自己已经说明了玩法） */
+  hint?: string | null;
+  /**
+   * 分层模式：画布沉到背景画之下、城市标记浮到背景画之上。
+   * 靠的是这两层都不产生自己的层叠上下文，z-index 直接参与首页舞台的排序。
+   */
+  layered?: boolean;
+}
+
+export interface GlobeHandle {
+  /** 把镜头转到某座城市，再打开它的明信片 */
+  focusCity: (city: City) => void;
+}
+
+/**
+ * 把命令式的 Three.js 场景包进 React。
+ *
+ * 分工：
+ * - 球体、相机、灯光、拖拽缩放 → createGlobeScene.ts
+ * - 城市标记的 DOM 结构与点击 → CityMarker.tsx
+ * - 每帧把标记"钉"在球面上的哪个像素位置 → createGlobeScene 直接写 DOM 的 transform
+ *   （不用 React 状态逐帧更新，避免 60fps 重渲染）
+ */
+export const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe(
+  { cities, focusedCityId, onFocusChange, fill, hint = '拖动旋转 · 滚轮缩放 · 点击城市标记', layered = false },
+  ref,
+) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const markerElements = useRef(new Map<string, HTMLElement>());
+  const sceneRef = useRef<GlobeSceneHandle | null>(null);
+  const focusHandler = useRef(onFocusChange);
+  const [webglFailed, setWebglFailed] = useState(false);
+
+  useEffect(() => {
+    focusHandler.current = onFocusChange;
+  }, [onFocusChange]);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+
+    let handle: GlobeSceneHandle | null = null;
+    try {
+      handle = createGlobeScene({
+        host,
+        cities,
+        getMarkerElement: (cityId) => markerElements.current.get(cityId) ?? null,
+        respectReducedMotion: true,
+        fill,
+      });
+      sceneRef.current = handle;
+    } catch (error) {
+      // 老浏览器或禁用硬件加速时，退化成可用的城市列表而不是一个空白方块
+      console.error('[Travel Atlas] 地球初始化失败，改用静态城市列表：', error);
+      setWebglFailed(true);
+    }
+
+    return () => {
+      handle?.dispose();
+      sceneRef.current = null;
+    };
+  }, [cities, fill]);
+
+  useEffect(() => {
+    sceneRef.current?.setFocusedCity(focusedCityId);
+  }, [focusedCityId]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      focusCity(city) {
+        sceneRef.current?.flyToCity(city.id);
+        focusHandler.current(city);
+      },
+    }),
+    [],
+  );
+
+  const registerMarker = useCallback((cityId: string, element: HTMLElement | null) => {
+    if (element) markerElements.current.set(cityId, element);
+    else markerElements.current.delete(cityId);
+  }, []);
+
+  const trackPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
+    sceneRef.current?.setPointer(event.clientX, event.clientY);
+  };
+
+  /**
+   * 南京和上海在地球上只差 2.7°，投影到屏幕上图钉会叠在一起，
+   * 谁压在上方是随自转变化的。所以点击不认 DOM 目标，只认坐标离哪个城市最近。
+   * detail 为 0 说明是键盘回车触发的，那种情况交给按钮自己的 onClick。
+   */
+  const pickMarkerByPosition = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (event.detail === 0) return;
+    event.stopPropagation();
+    const cityId = sceneRef.current?.pickCity(event.clientX, event.clientY);
+    const city = cities.find((item) => item.id === cityId);
+    if (city) focusHandler.current(city);
+  };
+
+  if (webglFailed) {
+    return (
+      <div className={styles.fallback}>
+        <p className={styles.fallbackNote}>
+          这个浏览器没能启用 WebGL，地球暂时转不起来。先用手边的城市列表吧。
+        </p>
+        <ul className={styles.fallbackList}>
+          {cities.map((city) => (
+            <li key={city.id}>
+              <button type="button" onClick={() => onFocusChange(city)}>
+                {city.name}
+                <span>{city.region}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  const stageClass = layered ? `${styles.stage} ${styles.stageLayered}` : styles.stage;
+
+  return (
+    <div
+      className={stageClass}
+      onPointerMove={trackPointer}
+      onPointerDown={trackPointer}
+      onPointerLeave={() => sceneRef.current?.clearPointer()}
+    >
+      <div
+        ref={hostRef}
+        className={layered ? `${styles.canvasHost} ${styles.canvasHostBelow}` : styles.canvasHost}
+      />
+
+      <div
+        className={layered ? `${styles.markerLayer} ${styles.markerLayerAbove}` : styles.markerLayer}
+        onClickCapture={pickMarkerByPosition}
+      >
+        {cities.map((city) => (
+          <CityMarker
+            key={city.id}
+            city={city}
+            active={city.id === focusedCityId}
+            register={(element) => registerMarker(city.id, element)}
+            onSelect={() => focusHandler.current(city)}
+          />
+        ))}
+      </div>
+
+      {hint ? <p className={styles.hint} aria-hidden="true">{hint}</p> : null}
+    </div>
+  );
+});

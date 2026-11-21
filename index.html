@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#263F4B" />
+    <meta
+      name="description"
+      content="Travel Atlas Book — 把世界装进一本旅行手账。可交互的复古地球，记录你去过和想去的城市。"
+    />
+    <title>Travel Atlas Book · 把世界装进一本旅行手账</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23263F4B'/%3E%3Cpath d='M6 16h20M16 2c5 5 5 23 0 28M16 2c-5 5-5 23 0 28' stroke='%23E8D9B8' stroke-width='1.6' fill='none'/%3E%3Ccircle cx='21' cy='11' r='2.4' fill='%23A96C50'/%3E%3C/svg%3E"
+    />
+    <style>
+      /* 首屏底色提前内联，避免 JS 加载前的白屏闪烁 */
+      html,
+      body {
+        margin: 0;
+        background-color: #263f4b;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

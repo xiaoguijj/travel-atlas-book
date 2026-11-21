@@ -1,0 +1,113 @@
+.stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+}
+
+.canvasHost {
+  position: absolute;
+  inset: 0;
+  cursor: grab;
+}
+
+.canvasHost:active {
+  cursor: grabbing;
+}
+
+.canvasHost canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  touch-action: none;
+}
+
+.markerLayer {
+  position: absolute;
+  inset: 0;
+  /* 层本身不拦截鼠标，只有标记按钮可点，拖动地球的手感才不会被破坏 */
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------------ 分层模式
+ * 首页参考图舞台里，画布要沉到背景画下面、图钉要浮到背景画上面。
+ * 这两层都只加 z-index、不加 transform/filter，才不会生成自己的层叠上下文，
+ * 从而直接参与首页舞台的排序：纸 0 → 画布 1 → 背景画 2 → 图钉 3 → 热区 4。
+ */
+.stageLayered {
+  min-height: 0;
+}
+
+.canvasHostBelow {
+  z-index: 1;
+}
+
+.markerLayerAbove {
+  z-index: 3;
+  /* 地球放大时，转到边缘的图钉跟着圆孔一起被裁掉，不会飘在纸上 */
+  -webkit-mask-image: var(--hero-pin-mask, none);
+  mask-image: var(--hero-pin-mask, none);
+}
+
+.hint {
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  margin: 0;
+  transform: translateX(-50%);
+  font-family: var(--tab-font-ui);
+  font-size: 0.74rem;
+  letter-spacing: 0.18em;
+  color: rgb(232 217 184 / 0.62);
+  white-space: nowrap;
+}
+
+/* WebGL 不可用时的退路 */
+.fallback {
+  display: grid;
+  gap: 16px;
+  place-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 24px;
+}
+
+.fallbackNote {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--tab-old-paper);
+}
+
+.fallbackList {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fallbackList button {
+  display: grid;
+  gap: 2px;
+  padding: 10px 16px;
+  border: 1px solid var(--tab-seam);
+  border-radius: 2px;
+  background: var(--tab-cream);
+  color: var(--tab-ink);
+  font-family: var(--tab-font-display);
+  font-size: 1.05rem;
+  cursor: pointer;
+}
+
+.fallbackList span {
+  font-family: var(--tab-font-ui);
+  font-size: 0.7rem;
+  color: var(--tab-ink-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hint {
+    animation: none;
+  }
+}
