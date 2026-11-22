@@ -1,0 +1,62 @@
+name: Publish V1 dashboard
+
+on:
+  push:
+    branches: [main]
+  workflow_run:
+    workflows: [V1 progress events]
+    types: [completed]
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  # An ignored preview or failed signal must not replace a queued publication.
+  group: >-
+    ${{ github.event_name == 'workflow_run' &&
+        (github.event.workflow_run.conclusion != 'success' ||
+         github.event.workflow_run.event == 'pull_request') &&
+        format('v1-dashboard-ignored-{0}', github.run_id) || 'v1-dashboard-pages' }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name != 'workflow_run' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event != 'pull_request'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: refs/heads/main
+          persist-credentials: false
+      - name: Check and build with live GitHub data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -B -m unittest discover -s docs/v1 -v
+          node --check docs/v1/dashboard/board.js
+          python3 -B docs/v1/progress.py --output _site >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

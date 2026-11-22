@@ -8,6 +8,10 @@
 
 ## V1 开发文档
 
+[![V1 开发进度（GitHub Pages）](https://xiaoguijj.github.io/travel-atlas-book/v1/progress.svg)](https://xiaoguijj.github.io/travel-atlas-book/v1/)
+
+- [V1 开发看板](https://xiaoguijj.github.io/travel-atlas-book/v1/)查看 11 项任务的实时快照、依赖、认领状态和 PR。
+- [双人协作说明](docs/v1/collaboration.md)介绍任务认领、开发、互审和合并。
 - [V1 正式开发规划](docs/Travel-Atlas-Book-V1-Development-Plan.md)涵盖分支任务、路由契约与验收标准。
 - [V1 技术方案](docs/Travel-Atlas-Book-V1.md)记录技术选型、数据模型与调研来源。
 
