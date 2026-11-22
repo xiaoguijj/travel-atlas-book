@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "test:e2e": "npm run build && playwright test",
     "data:world": "node scripts/build-world-data.mjs",
-    "data:hero": "node scripts/build-hero-assets.mjs"
+    "data:hero": "node scripts/build-hero-assets.mjs",
+    "data:inner": "node scripts/build-inner-assets.mjs"
   },
   "engines": {
     "node": ">=22.0.0"

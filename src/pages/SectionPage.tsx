@@ -1,5 +1,7 @@
-import { Link, NavLink, useParams } from 'react-router-dom';
+import { Link, NavLink, useLocation, useParams } from 'react-router-dom';
 import { CityMotif } from '../components/city/CityMotif';
+import { InnerPageLayout } from '../components/layout/InnerPageLayout';
+import { backTargets, usesInnerLayout } from '../config/innerLayout';
 import { cities } from '../data/cities';
 import { getSection, sections } from '../data/sections';
 import styles from './SectionPage.module.css';
@@ -8,19 +10,26 @@ import styles from './SectionPage.module.css';
  * 首页缎带上的四个栏目。
  * 「旅行手账」列出真实存在的城市页，其余三个只说明进度 —— 有入口、有内容，
  * 但不放任何点了没反应的按钮。
+ *
+ * V1-03：四个栏目都已接入公共内页布局（白名单在 config/innerLayout.ts）。
+ * 接入后有两处连带调整：页眉那行小字不再重复 "Travel Atlas Book"（顶栏已经有品牌名），
+ * 底部也不再放「← 回到地球」（顶栏左上角的返回按钮就是它，留两条会变成重复导航）。
+ * 从白名单里去掉某一页，这两处会自己退回原来的样子。
  */
 export function SectionPage() {
   const { sectionId } = useParams<{ sectionId: string }>();
+  const { pathname } = useLocation();
   const section = getSection(sectionId);
 
   if (!section) return <UnknownSection sectionId={sectionId} />;
 
+  const adopted = usesInnerLayout(pathname);
   const others = sections.filter((item) => item.id !== section.id);
 
-  return (
-    <div className={styles.page}>
+  const body = (
+    <div className={adopted ? styles.pageInner : styles.page}>
       <header className={styles.head}>
-        <p className={styles.kicker}>Travel Atlas Book · 手账本目录</p>
+        <p className={styles.kicker}>{adopted ? '手账本目录' : 'Travel Atlas Book · 手账本目录'}</p>
         <h1 className={styles.title}>{section.label}</h1>
         <p className={styles.lede}>{section.lede}</p>
         <span className={section.ready ? `${styles.status} ${styles.statusReady}` : styles.status}>
@@ -64,9 +73,11 @@ export function SectionPage() {
       </p>
 
       <nav className={styles.foot} aria-label="栏目导航">
-        <Link className={styles.home} to="/">
-          ← 回到地球
-        </Link>
+        {adopted ? null : (
+          <Link className={styles.home} to="/">
+            ← 回到地球
+          </Link>
+        )}
         <ul className={styles.otherList}>
           {others.map((item) => (
             <li key={item.id}>
@@ -80,6 +91,8 @@ export function SectionPage() {
       </nav>
     </div>
   );
+
+  return adopted ? <InnerPageLayout back={backTargets.globe}>{body}</InnerPageLayout> : body;
 }
 
 function UnknownSection({ sectionId }: { sectionId?: string }) {
