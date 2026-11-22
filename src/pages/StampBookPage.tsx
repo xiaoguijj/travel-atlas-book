@@ -6,7 +6,7 @@ import { InnerPageLayout } from '../components/layout/InnerPageLayout';
 import { bookPath } from '../config/routes';
 import { albumArt, albumStampBoxes, artBoxStyle } from '../config/journal';
 import { backTargets } from '../config/innerLayout';
-import { stampDefinitions } from '../data/catalog';
+import { getStampByCity, stampDefinitions } from '../data/catalog';
 import { getCityById } from '../data/cities';
 import { createBook, listBooksByCity } from '../data/books';
 import { isDataError, type StampCollection, type TravelBook } from '../data/contracts';
@@ -47,6 +47,8 @@ export function StampBookPage() {
   }, []);
 
   const collectedBy = new Map(collections.map((row) => [row.stampId, row.collectedAt]));
+  // 地址里写了册子上没有邮票的城市（例如伦敦）时取不到邮票，书架里的盖章按钮就不出现。
+  const selectedStamp = selectedCityId ? getStampByCity(selectedCityId) : undefined;
 
   const stamps = stampDefinitions.flatMap((stamp) => {
     const city = getCityById(stamp.cityId);
@@ -62,18 +64,13 @@ export function StampBookPage() {
   };
 
   /**
-   * 点开一枚邮票就是「盖下这枚收藏章」：仓储里同一枚只留第一次的时间，重复盖章不会改。
-   * 盖坏了（数据库被别的标签页占住之类）只贴一条说明，书架照样翻开——
-   * 收藏是这本册子的副产品，不该挡住人进自己那一城。
+   * 「盖下这枚收藏章」是用户在书架里显式点的动作，不是点开邮票的副作用（任务卡：盖章由用户显式执行）。
+   * 仓储按同一枚邮票只保留第一次的时间，所以连着点也只新增一条、也不会改首次时间。
+   * 失败不吞掉：抛回书架，让它就地给出可重试的说明。
    */
-  const collect = useCallback((stampId: string) => {
-    collectStamp(stampId)
-      .then((record) => {
-        setCollections((rows) => (rows.some((row) => row.stampId === record.stampId) ? rows : [...rows, record]));
-      })
-      .catch((error: unknown) => {
-        setStorageNotice(readable(error, '这枚邮票没能盖上收藏章，书架照常翻开。'));
-      });
+  const collect = useCallback(async (stampId: string) => {
+    const record = await collectStamp(stampId);
+    setCollections((rows) => (rows.some((row) => row.stampId === record.stampId) ? rows : [...rows, record]));
   }, []);
 
   return (
@@ -101,12 +98,7 @@ export function StampBookPage() {
                   type="button"
                   className={styles.stamp}
                   style={artBoxStyle(albumArt, box)}
-                  onClick={() => {
-                    // 再点一次是把书架合上，那一下不算「到访」，也就不再盖章。
-                    const opening = selectedCityId !== city.id;
-                    toggleShelf(city.id);
-                    if (opening) collect(stamp.id);
-                  }}
+                  onClick={() => toggleShelf(city.id)}
                   aria-expanded={selectedCityId === city.id}
                   aria-label={`${city.name} ${city.nameEn} 邮票，${
                     collectedAt ? `已收藏于 ${collectedAt.slice(0, 10)}` : '尚未收藏'
@@ -137,11 +129,13 @@ export function StampBookPage() {
           <CityShelf
             key={selectedCityId}
             cityId={selectedCityId}
+            collectedAt={selectedStamp ? collectedBy.get(selectedStamp.id) : undefined}
             onClose={() => {
               const next = new URLSearchParams(searchParams);
               next.delete('city');
               setSearchParams(next);
             }}
+            onCollect={selectedStamp ? () => collect(selectedStamp.id) : undefined}
             onOpenBook={(book) => navigate(bookPath(book.id))}
           />
         ) : null}
@@ -164,22 +158,30 @@ export function StampBookPage() {
 }
 
 /**
- * 一座城市的手账书架：列出已有的本子、新建一本、点开任意一本进模式选择页。
+ * 一座城市的手账书架：列出已有的本子、新建一本、点开任意一本进模式选择页，
+ * 外加这一城的「盖下收藏章」——盖章是显式动作，点开邮票只翻书架，不替用户决定收藏了什么。
  * 书本记录全部走 V1-02 冻结的手账仓储，页面不直接碰数据库。
  */
 function CityShelf({
   cityId,
+  collectedAt,
   onClose,
+  onCollect,
   onOpenBook,
 }: {
   cityId: string;
+  collectedAt?: string;
   onClose: () => void;
+  /** 不传表示这一城在册子上没有邮票，盖章按钮不出现。 */
+  onCollect?: () => Promise<void>;
   onOpenBook: (book: TravelBook) => void;
 }) {
   const city = getCityById(cityId);
   const [books, setBooks] = useState<TravelBook[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [stamping, setStamping] = useState(false);
+  const [stampError, setStampError] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async () => {
@@ -227,6 +229,19 @@ function CityShelf({
     }
   };
 
+  const stampIt = async () => {
+    if (!onCollect) return;
+    setStamping(true);
+    setStampError(null);
+    try {
+      await onCollect();
+    } catch (caught: unknown) {
+      setStampError(readable(caught, '这枚邮票没能盖上章，可以再点一次。'));
+    } finally {
+      setStamping(false);
+    }
+  };
+
   return (
     <div className={styles.shelf} ref={panelRef}>
       <header className={styles.shelfHead}>
@@ -234,10 +249,26 @@ function CityShelf({
           {city.name}
           <span>{city.nameEn}</span>
         </h2>
+
+        {onCollect ? (
+          <span className={styles.stampActionWrap}>
+            <span className={styles.stampState}>{collectedAt ? `已藏于 ${collectedAt.slice(0, 10)}` : '尚未收藏'}</span>
+            <button type="button" className={styles.stampAction} onClick={() => void stampIt()} disabled={stamping}>
+              {stamping ? '正在盖章…' : collectedAt ? '再盖一次章' : '盖下这枚收藏章'}
+            </button>
+          </span>
+        ) : null}
+
         <button type="button" className={styles.shelfClose} onClick={onClose}>
           收起
         </button>
       </header>
+
+      {stampError ? (
+        <p className={styles.notice} role="alert">
+          {stampError}
+        </p>
+      ) : null}
 
       {books === null && !error ? <p className={styles.shelfHint}>正在翻开这一页…</p> : null}
 

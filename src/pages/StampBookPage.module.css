@@ -238,6 +238,50 @@
   letter-spacing: 0.14em;
 }
 
+/* 盖章是这一栏里唯一的收藏动作：靠右摆，命中区同样不低于 40px */
+.stampActionWrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.stampState {
+  color: rgb(255 218 163 / 0.82);
+  font-family: var(--tab-font-ui);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.stampAction {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid rgb(176 141 87 / 0.72);
+  border-radius: 999px;
+  background: rgb(233 165 92 / 0.12);
+  color: var(--tab-cream);
+  font-family: var(--tab-font-ui);
+  font-size: 13.5px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: border-color 200ms ease, background-color 200ms ease, transform 200ms ease;
+}
+
+.stampAction:hover,
+.stampAction:focus-visible {
+  border-color: #e9a55c;
+  background: rgb(233 165 92 / 0.24);
+}
+
+.stampAction:active {
+  transform: translateY(1px);
+}
+
+.stampAction:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
 .shelfClose,
 .shelfRetry {
   padding: 4px 12px;
