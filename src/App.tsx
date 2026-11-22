@@ -1,6 +1,7 @@
 import { Outlet, RouterProvider, createHashRouter, useLocation, type RouteObject } from 'react-router-dom';
 import { SiteHeader } from './components/layout/SiteHeader';
 import { heroLayoutQuery, heroLayoutSupported } from './config/hero';
+import { usesInnerLayout } from './config/innerLayout';
 import { CityPage } from './pages/CityPage';
 import { HomePage } from './pages/HomePage';
 import { SectionPage } from './pages/SectionPage';
@@ -10,14 +11,19 @@ import styles from './App.module.css';
 /**
  * 首页用参考图舞台时不挂顶部导航 —— 画上的缎带就是导航，再来一条就是重复导航；
  * 舞台放不下而退回竖版布局时，导航得回来，所以判断条件和 HomePage 用同一个查询。
+ *
+ * 接入了 InnerPageLayout 的页面（config/innerLayout.ts 的白名单）自己就带公共顶栏，
+ * 再挂 SiteHeader 会出现两套标题和两个返回入口，所以同样跳过。
+ * 判断查的是 innerLayout.ts 里那份白名单，页面自己查的是同一份，两边不会走偏。
  */
 function Shell() {
   const { pathname } = useLocation();
   const artViewport = useMediaQuery(heroLayoutQuery);
   const paintedRibbon = pathname === '/' && artViewport && heroLayoutSupported;
+  const ownHeader = usesInnerLayout(pathname);
   return (
     <div className={styles.shell}>
-      {paintedRibbon ? null : <SiteHeader />}
+      {paintedRibbon || ownHeader ? null : <SiteHeader />}
       <main>
         <Outlet />
       </main>

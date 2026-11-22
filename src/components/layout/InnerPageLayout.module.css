@@ -1,0 +1,241 @@
+/* ------------------------------------------------------------------ V1-03 内页公共布局
+ * 尺度都对照源图 assets-source/inner-bg-map.png（1672×941）上量到的数字：
+ *   返回胶囊 203×44 @ (34,38)、地球图标 59×56、标题 283×46、两侧金线 280 / 304 长 @ y55。
+ * 颜色同样取自画面：标题 #FFDAA3、图标 #E9A55C、全图主色 #103936、边缘均值 #0B2C2C。
+ * 背景是生成时裁掉顶部装饰带的纯地图纹理，画里没有任何文字与按钮，所以顶栏只有一套。
+ */
+
+.page {
+  position: relative;
+  /* 暖光和背景只在布局内部混合，不渗到页面深处的午夜蓝上 */
+  isolation: isolate;
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  /* 图还没解码完时先垫边缘均值，不闪白也不闪蓝 */
+  background-color: #0b2c2c;
+  background-image: url('../../assets/inner-bg-map.jpg');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------------ 顶栏 */
+
+/*
+ * 顶栏用「品牌组绝对居中 + 返回按钮浮在左上」，而不是左右等宽的三列网格：
+ * 三列网格要在两侧都留出返回按钮的宽度，实测 721–1000px 这一段会撞字；
+ * 绝对居中只需要一侧让位，品牌组永远在画面正中，和参考画的构图一致。
+ */
+.header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 96px;
+  padding: 0 clamp(16px, 2.4vw, 34px);
+}
+
+.back {
+  position: relative;
+  flex: none;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px 0 12px;
+  border: 1px solid rgb(176 141 87 / 0.72);
+  border-radius: 999px;
+  background: rgb(6 40 40 / 0.42);
+  color: var(--tab-cream);
+  font-family: var(--tab-font-ui);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 200ms ease, background-color 200ms ease, transform 200ms ease;
+}
+
+/*
+ * 虚线框只在 hover / 聚焦时出现，尺寸和颜色照抄创作模式页那颗返回热区
+ * （CreateModePage.module.css 的 .zonePill::after）：那颗压在画上的胶囊是实线描边，
+ * 只有点上去才多一圈虚线。左上角的返回入口全站就这两种画法，得看着是同一颗按钮。
+ */
+.back::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border: 1.5px dashed rgb(247 240 227 / 0.9);
+  border-radius: 999px;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.back:hover,
+.back:focus-visible {
+  border-color: #e9a55c;
+  background: rgb(6 40 40 / 0.72);
+}
+
+.back:hover::after,
+.back:focus-visible::after {
+  opacity: 1;
+}
+
+.back:active {
+  transform: translateY(1px);
+}
+
+.backArrow {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.brand {
+  position: absolute;
+  left: 50%;
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 1.6vw, 20px);
+}
+
+/* 金线是纯装饰：宽度不够就先舍它，保住 Logo 和标题。
+   阈值按实测推的——1100px 时「品牌组 + 左右各一个返回胶囊」刚好要 1063px，再窄就会贴上 */
+@media (max-width: 1100px) {
+  .rule {
+    display: none;
+  }
+}
+
+.rule {
+  width: clamp(56px, 17vw, 250px);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(176 141 87 / 0.2) 22%, rgb(176 141 87 / 0.62));
+}
+
+.ruleRight {
+  transform: scaleX(-1);
+}
+
+.emblem {
+  width: clamp(28px, 3.4vw, 46px);
+  height: auto;
+  flex: none;
+  fill: none;
+  stroke: #e9a55c;
+  stroke-width: 1.25;
+  opacity: 0.92;
+}
+
+.wordmark {
+  font-family: var(--tab-font-display);
+  font-style: italic;
+  font-size: clamp(18px, 2.4vw, 26px);
+  letter-spacing: 0.04em;
+  color: #ffdaa3;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ 内容区 */
+
+.content {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  width: 100%;
+  margin: 0 auto;
+  padding: clamp(6px, 1.6vh, 16px) clamp(16px, 4vw, 40px) clamp(28px, 6vh, 54px);
+}
+
+/*
+ * 整屏画一类的页面（邮票册）用这个：它自己已经带了一档内距，公共内容区再挤一下
+ * 就会把画心缩小——实测 853px 窗口下本子从 773 变成 738。用 flush 时接入前后是同一张大小。
+ */
+.contentFlush {
+  padding: 0;
+}
+
+/*
+ * 手机宽度下返回胶囊本身就有 130px 左右，品牌组再绝对居中就会压上去
+ * （实测 335px 视口溢出 8px）。这一段改成左右两端对齐：左边返回按钮，右边 Logo + 标题。
+ */
+@media (max-width: 720px) {
+  .header {
+    min-height: 76px;
+    padding: 0 16px;
+  }
+
+  .brand {
+    position: static;
+    translate: 0;
+    margin-left: auto;
+    gap: 8px;
+  }
+
+  .wordmark {
+    font-size: 16px;
+  }
+
+  .emblem {
+    width: 26px;
+  }
+
+  .back {
+    padding: 0 13px 0 10px;
+    font-size: 13px;
+  }
+}
+
+/*
+ * 320–430px：整排都缩一档，而不是把品牌标题藏掉——要求里顶栏必须带品牌名。
+ * 实测这一档在 335px 视口下整排占 301px，还剩 34px 余量（返回文案按最长的七字算）。
+ * 只缩字号和左右内边距，不缩胶囊高度：窄屏的瓶颈是横向，纵向 76px 顶栏装得下 40px，
+ * 而命中区低于 40px 就不算好点。
+ */
+@media (max-width: 430px) {
+  .header {
+    gap: 8px;
+    padding: 0 12px;
+  }
+
+  .back {
+    gap: 6px;
+    padding: 0 11px 0 9px;
+    font-size: 12px;
+  }
+
+  .backArrow {
+    width: 14px;
+    height: 14px;
+  }
+
+  .brand {
+    gap: 6px;
+  }
+
+  .emblem {
+    width: 22px;
+  }
+
+  .wordmark {
+    font-size: 14px;
+  }
+}

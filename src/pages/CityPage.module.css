@@ -1,9 +1,20 @@
+/* 未接入公共布局的城市页：维持原来的内边距 */
 .page {
   flex: 1;
   display: grid;
   align-content: start;
   gap: clamp(14px, 3vh, 26px);
   padding: clamp(16px, 4vh, 40px) clamp(16px, 4vw, 44px) clamp(24px, 5vh, 48px);
+  animation: rise-in 640ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+
+/* 已接入 InnerPageLayout 的城市页：背景和左右内边距归布局管，这里只管排布 */
+.pageInner {
+  flex: 1;
+  display: grid;
+  align-content: start;
+  gap: clamp(14px, 3vh, 26px);
+  width: 100%;
   animation: rise-in 640ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
 }
 
