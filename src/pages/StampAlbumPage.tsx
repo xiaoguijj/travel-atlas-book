@@ -3,13 +3,14 @@ import albumArtwork from '../assets/stamp-album.jpg';
 import { PageTurn } from '../components/layout/PageTurn';
 import { albumArt, albumStamps, artBoxStyle } from '../config/journal';
 import { getCityById } from '../data/cities';
+import { createModePath } from '../data/creationModes';
 import { editorRoadmap } from '../data/roadmap';
 import type { City } from '../data/types';
 import styles from './StampAlbumPage.module.css';
 
 /**
  * 邮票册这一页：整张画是本子的一页，六枚邮票画在画上，
- * 热区按量好的坐标盖在票面上，点下去翻到那座城市的手账页。
+ * 热区按量好的坐标盖在票面上，点下去先问这一页想用哪种写法。
  */
 export function StampAlbumPage() {
   const navigate = useNavigate();
@@ -20,7 +21,7 @@ export function StampAlbumPage() {
     return acc;
   }, []);
 
-  const openJournal = (cityId: string) => navigate(`/city/${cityId}`);
+  const openModes = (cityId: string) => navigate(createModePath(cityId));
 
   return (
     <div className={styles.page}>
@@ -44,19 +45,21 @@ export function StampAlbumPage() {
               type="button"
               className={styles.stamp}
               style={artBoxStyle(albumArt, box)}
-              onClick={() => openJournal(city.id)}
-              aria-label={`${city.name} ${city.nameEn} 邮票，翻到这本手账的${city.name}页`}
+              onClick={() => openModes(city.id)}
+              aria-label={`${city.name} ${city.nameEn} 邮票，选这一页的创作方式`}
             >
               <span className={styles.glow} aria-hidden="true" />
               <span className={styles.cta} aria-hidden="true">
-                翻开这本
+                选创作方式
               </span>
             </button>
           ))}
         </div>
       </div>
 
-      <p className={styles.hint}>点一枚邮票就翻到那座城市的手账页；这一页只写在你自己的设备上。</p>
+      <p className={styles.hint}>
+        点一枚邮票先选创作方式：横线日记本现在就能写，自由拼贴还在开发中；写的内容只留在这一台设备上。
+      </p>
 
       <ul className={styles.roadmap} aria-label="还没上线的功能">
         <li className={styles.roadmapLabel}>还没上线</li>

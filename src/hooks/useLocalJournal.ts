@@ -44,6 +44,19 @@ export function useLocalJournal(cityId: string) {
   return { entry, status, update };
 }
 
+/**
+ * 这一台设备上是否已经写过这本手账。
+ *
+ * 模式选择页用它决定 Journal 卡片上写「继续写」还是「开始写」。
+ * 只读，不改存储行为；将来 V1-02 换成 Dexie 时，这里跟着 readJournal 一起换就行。
+ */
+export function hasLocalJournal(cityId: string): boolean {
+  const entry = readJournal(cityId);
+  return (
+    entry.title.trim() !== '' || entry.date.trim() !== '' || entry.pages.some((page) => page.trim() !== '')
+  );
+}
+
 function readJournal(cityId: string): JournalEntry {
   const empty = { title: '', date: '', pages: [''] };
   try {

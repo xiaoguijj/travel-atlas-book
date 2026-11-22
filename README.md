@@ -5,7 +5,8 @@
 - 视觉主题：Voyage Vintage（午夜蓝 + 旧纸黄 + 陶土红 + 鼠尾草绿）
 - 首页就是那张画：油灯、罗盘、帆船、缎带导航、三张明信片原样保留，只有画面中间的地球换成了真的 3D 地球
 - 城市：南京、上海、西安、北京、杭州、成都（邮票册六枚邮票）+ 伦敦（地球上的第七座）
-- 「旅行手账」入口 → 翻页动画 → 邮票册 → 点任意一枚邮票 → 那座城市的手账页，写满一页自动翻页
+- 「旅行手账」入口 → 翻页动画 → 邮票册 → 点任意一枚邮票 → **选创作方式**（横线日记本 / 自由拼贴）→ 进入对应编辑器
+- 自由拼贴（V1-08，队友负责）还没接入：点它的卡片只说明进度，不会跳进一个空编辑器
 
 ## 快速开始
 
@@ -54,6 +55,7 @@ src/
     journal.ts      邮票册六枚邮票的热区、手账页横线与填空的坐标、本子的倾斜角度
   data/
     cities.ts       城市数据（经纬度、简介、封面配色、标签避让方向），顺序＝邮票册排列顺序
+    creationModes.ts 创作模式清单（journal / collage）、卡片文案、就绪状态与「模式→编辑器地址」映射
     sections.ts     缎带导航四个栏目的文案与状态
     types.ts        City 等数据类型
     roadmap.ts      邮票册页脚"还没上线"的功能清单
@@ -78,6 +80,7 @@ src/
     HomePage.tsx    两套首页：参考图舞台（宽屏）/ 竖版标题+地球（窄屏）
     HomePageArt.module.css  舞台分层与热区样式
     StampAlbumPage.tsx 中国城市手账邮票册：整张画 + 六枚邮票热区
+    CreateModePage.tsx 创作方式选择页：横线日记本（可用）与自由拼贴（开发中）两张卡片
     SectionPage.tsx 灵感发现 / 旅行计划 / 我的
     CityPage.tsx    横线手账页：Title / Date / 正文盖在画上，写满自动翻页
 scripts/
@@ -142,6 +145,32 @@ scripts/
    悬停高亮（`data-pick`）也用同一个判断，不会出现「指着南京弹出来的是上海」。
 5. WebGL 不可用时不会留一个转不动的空白方块，`Globe.tsx` 会退化成一组真实可用的城市按钮。
 
+## 邮票 → 选模式 → 编辑器
+
+一枚邮票点下去不再直接写字，而是先问「这一页想怎么写」：
+
+| 地址 | 页面 | 状态 |
+| --- | --- | --- |
+| `/section/journals` | 邮票册，六枚热区 | 已上线 |
+| `/city/:cityId/create` | 创作方式选择页 | 已上线 |
+| `/city/:cityId` | Journal 横线日记本 | 已上线 |
+| `/city/:cityId/collage` | Collage 自由拼贴 | 队友 V1-08，未接入 |
+
+三条设计约束：
+
+- **`/city/:cityId` 仍然是 Journal 自己的地址**。顶部导航、`/#/city/nanjing` 深链、
+  以及 localStorage 键 `travel-atlas-book.journal.<城市 id>` 都没跟着变，所以这次改动不会
+  让任何人手上已有的手账内容读不出来。选择页是**新加的一层**，不是替换。
+- **模式清单只有一个出处**：`src/data/creationModes.ts`。卡片文案、`ready` / `wip` 状态、
+  `editorPath(mode, cityId)` 都在那里；邮票册只调 `createModePath(cityId)`，不自己拼字符串。
+- **没实现的东西不给假入口**：Collage 卡片渲染成 `<button>` 而不是 `<Link>`，点了在
+  `role="status"` 区域说明进度，URL 不变。
+
+队友的 V1-02 / V1-05 落地时的改动点集中在一处：`editorPath(mode, cityId)` 扩成
+`editorPath(mode, cityId, journalId)`（每座城市可有多篇手账），页面组件不用重写。
+`CreationMode` 类型故意放在 `creationModes.ts` 而不是 `src/data/types.ts`，
+等 V1-02 的统一数据结构定下来再收拢，避免两边同时改一个文件。
+
 ## 数据与版权
 
 - 陆地轮廓：[Natural Earth](https://www.naturalearthdata.com/) 1:110m Cultural，公有领域（public domain）。
@@ -202,6 +231,9 @@ dist/assets/three-*.js          468.09 kB │ gzip 118.09 kB   three 单独分�
   刻意不做拖拽贴纸、图片上传、路线、Vlog、分享和主题切换。
 - 手账正文只写进这台设备的 localStorage（键 `travel-atlas-book.journal.<城市 id>`），
   没有后端：清浏览器数据会丢，换设备看不到同一本。存不下时页面会如实说明而不是假装已保存。
+- 创作方式选择页只做到「入口」：Collage 卡片是占位，编辑器由队友的 V1-08 提供；
+  「已有手账直接打开、新建时才选模式」也还没做——它需要 V1-05 的 journalId，
+  现在每座城市仍只对应一篇 Journal。顶部导航的城市链接直接进 Journal，是改造前就有的快捷入口。
 - 参考图缎带上的「灵感发现 / 旅行计划 / 我的」属于后续阶段。它们现在指向 `/section/*` 栏目页：
   页面说明这个栏目要做什么、目前还没开放，并给出「回到地球」等真实链接；没有点了没反应的入口。
   「旅行手账」已经是真的，直接进邮票册页。

@@ -2,6 +2,7 @@ import { Outlet, RouterProvider, createHashRouter, useLocation, type RouteObject
 import { SiteHeader } from './components/layout/SiteHeader';
 import { heroLayoutQuery, heroLayoutSupported } from './config/hero';
 import { CityPage } from './pages/CityPage';
+import { CreateModePage } from './pages/CreateModePage';
 import { HomePage } from './pages/HomePage';
 import { SectionPage } from './pages/SectionPage';
 import { StampAlbumPage } from './pages/StampAlbumPage';
@@ -32,6 +33,9 @@ function Shell() {
  *
  * 「旅行手账」这一栏就是邮票册那一页，所以直接由 StampAlbumPage 接管；
  * 另外三个栏目还没有内容，继续走 SectionPage 的说明版式。
+ *
+ * 邮票点下去先进 CreateModePage 选写法，选定才进编辑器：
+ * /city/:cityId 仍然是 Journal 自己的地址，深链、顶部导航和本机存档都不跟着变。
  */
 const routes: RouteObject[] = [
   {
@@ -39,6 +43,7 @@ const routes: RouteObject[] = [
     element: <Shell />,
     children: [
       { index: true, element: <HomePage /> },
+      { path: 'city/:cityId/create', element: <CreateModePage /> },
       { path: 'city/:cityId', element: <CityPage /> },
       { path: 'section/journals', element: <StampAlbumPage /> },
       { path: 'section/:sectionId', element: <SectionPage /> },
