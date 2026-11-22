@@ -106,11 +106,42 @@
   translate: -50% 0;
 }
 
-.hint {
+/* 册子翻到底：邮票只画了六座城，下面留一张"未完待续"的收尾标签 */
+.closing {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
   max-width: 62ch;
-  color: var(--tab-cream-soft);
-  font-size: 14px;
+  padding: 13px 26px 12px;
+  border: 1px solid rgb(176 141 87 / 0.45);
+  border-radius: 3px;
+  background: rgb(232 217 184 / 0.06);
   text-align: center;
+}
+
+.closingMain {
+  margin: 0;
+  color: var(--tab-cream);
+  font-family: var(--tab-font-display);
+  font-size: 1.06rem;
+  letter-spacing: 0.06em;
+  line-height: 1.6;
+}
+
+.closingSub {
+  margin: 0;
+  color: rgb(232 217 184 / 0.78);
+  font-size: 0.86rem;
+  line-height: 1.8;
+}
+
+.closingFoot {
+  margin: 3px 0 0;
+  padding-top: 8px;
+  border-top: 1px dashed rgb(176 141 87 / 0.5);
+  color: rgb(232 217 184 / 0.6);
+  font-size: 11.5px;
+  letter-spacing: 0.22em;
 }
 
 /* 还没做的功能用虚线标签摆在这里，免得这一页看起来像已经写满了 */

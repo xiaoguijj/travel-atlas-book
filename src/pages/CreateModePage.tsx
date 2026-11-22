@@ -1,18 +1,27 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import createModeArtwork from '../assets/create-mode.jpg';
 import { PageTurn } from '../components/layout/PageTurn';
+import {
+  artBoxStyle,
+  createModeArt,
+  createModePillBg,
+  createModeZones,
+} from '../config/journal';
 import { getCityById } from '../data/cities';
-import { creationModes, editorPath, type CreationModeEntry } from '../data/creationModes';
+import { editorPath, getCreationMode } from '../data/creationModes';
 import type { City } from '../data/types';
 import { hasLocalJournal } from '../hooks/useLocalJournal';
 import styles from './CreateModePage.module.css';
 
 /**
- * 创作模式选择页：一枚邮票翻开之后先问「这一页想怎么写」。
+ * 创作方式选择页（参考图 assets-source/create-mode.png）。
  *
- * 两张卡片是同一本笔记里的两种写法，所以都做成牛皮纸上的实物感：
- * Journal 是横线页加线圈，Collage 是散着贴的照片、车票和邮票。
- * 还没实现的 Collage 整张卡片做成按钮，点了只说明进度，不跳去空编辑器。
+ * 和邮票册、横线页同一个做法：整张画铺在舞台上，两张卡片和返回按钮是量好坐标的透明热区，
+ * 悬停时亮一层暖光并描出边，画面本身不重画。
+ *
+ * 唯一要盖掉的是右上角「当前城市：Peru 秘鲁」——画上是写死的，但它得跟着点的邮票变，
+ * 所以那一整只胶囊用真实 DOM 重画。
  */
 export function CreateModePage() {
   const { cityId } = useParams<{ cityId: string }>();
@@ -21,11 +30,11 @@ export function CreateModePage() {
 
   if (!city) return <UnknownCity cityId={cityId} />;
 
-  // 换城市重新挂载：翻页动画要重播，「继续写 / 开始写」也要按新城市重读一次
-  return <ChooseEditor key={city.id} city={city} notice={notice} setNotice={setNotice} />;
+  // 换城市重新挂载：翻页动画要重播，城市胶囊和「继续写」也要按新城市重算
+  return <ModeStage key={city.id} city={city} notice={notice} setNotice={setNotice} />;
 }
 
-function ChooseEditor({
+function ModeStage({
   city,
   notice,
   setNotice,
@@ -34,150 +43,80 @@ function ChooseEditor({
   notice: string | null;
   setNotice: (text: string | null) => void;
 }) {
+  const collage = getCreationMode('collage');
   const resumed = hasLocalJournal(city.id);
+
+  const openCollage = () => setNotice(collage.wipNote ?? '这一种写法还没有实现。');
 
   return (
     <div className={styles.page}>
       <PageTurn />
 
-      <div className={styles.topbar}>
-        <Link className={styles.back} to="/section/journals">
-          ← 回到邮票册
-        </Link>
-        <p className={styles.stampNote}>
-          {city.region} · {Math.abs(city.latitude).toFixed(2)}°
-          {city.latitude >= 0 ? 'N' : 'S'}
-        </p>
+      <div className={styles.stage}>
+        <img
+          className={styles.art}
+          src={createModeArtwork}
+          width={createModeArt.width}
+          height={createModeArt.height}
+          alt={`选择你的创作方式：Journal 横线日记本与 Collage 自由拼贴（${city.name}）`}
+        />
+
+        <h1 className="srOnly">{`${city.name} · ${city.nameEn} — 选择你的创作方式`}</h1>
+
+        {/* 画上写死的城市名盖不掉文字本身，只能整只胶囊重画 */}
+        <span className={styles.cityPill} style={artBoxStyle(createModeArt, createModeZones.cityPill)}>
+          <svg className={styles.pin} viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7z" />
+            <circle cx="12" cy="9" r="2.6" fill={createModePillBg} />
+          </svg>
+          <span className={styles.cityLabel}>当前城市：</span>
+          <span className={styles.cityName}>
+            {city.nameEn} {city.name}
+          </span>
+        </span>
+
+        <div className={styles.zones}>
+          <Link
+            className={`${styles.zone} ${styles.zoneReady}`}
+            style={artBoxStyle(createModeArt, createModeZones.journalCard)}
+            to={editorPath('journal', city.id)}
+            aria-label={`Journal 横线日记本，${resumed ? '继续写' : '开始写'}${city.name}这一页`}
+          >
+            <span className={styles.glow} aria-hidden="true" />
+          </Link>
+
+          <button
+            type="button"
+            className={`${styles.zone} ${styles.zoneWip}`}
+            style={artBoxStyle(createModeArt, createModeZones.collageCard)}
+            onClick={openCollage}
+            aria-label="Collage 自由拼贴，功能开发中，点击查看说明"
+          >
+            <span className={styles.glow} aria-hidden="true" />
+          </button>
+
+          <Link
+            className={`${styles.zone} ${styles.zonePill}`}
+            style={artBoxStyle(createModeArt, createModeZones.backPill)}
+            to="/section/journals"
+            aria-label="返回邮票收藏册"
+          />
+        </div>
+
+        {/* 舞台占满屏幕，画下面没有位置，提示只能浮在画的下沿 */}
+        <div className={styles.noticeZone} role="status" aria-live="polite">
+          {notice ? (
+            <div className={styles.notice}>
+              <p className={styles.noticeTitle}>功能开发中</p>
+              <p className={styles.noticeBody}>{notice}</p>
+              <button type="button" className={styles.noticeClose} onClick={() => setNotice(null)}>
+                知道了
+              </button>
+            </div>
+          ) : null}
+        </div>
       </div>
-
-      <header className={styles.head}>
-        <p className={styles.kicker}>选择创作方式 · Choose how to write</p>
-        <h1 className={styles.title}>
-          {city.name}
-          <span className={styles.titleEn}>{city.nameEn}</span>
-        </h1>
-        <p className={styles.lede}>{city.tagline}——这一页想怎么填？两种写法都从同一枚邮票开始。</p>
-      </header>
-
-      <div className={styles.cards}>
-        {creationModes.map((mode) => (
-          <ModeCard key={mode.id} mode={mode} city={city} resumed={mode.id === 'journal' && resumed} onWip={setNotice} />
-        ))}
-      </div>
-
-      <div className={styles.noticeZone} role="status" aria-live="polite">
-        {notice ? (
-          <div className={styles.notice}>
-            <p className={styles.noticeTitle}>功能开发中</p>
-            <p className={styles.noticeBody}>{notice}</p>
-            <button type="button" className={styles.noticeClose} onClick={() => setNotice(null)}>
-              知道了
-            </button>
-          </div>
-        ) : null}
-      </div>
-
-      <p className={styles.hint}>
-        横线日记本写的内容只存在这台设备上；自由拼贴接入后，两种写法会共用同一套城市、素材与保存接口。
-      </p>
     </div>
-  );
-}
-
-function ModeCard({
-  mode,
-  city,
-  resumed,
-  onWip,
-}: {
-  mode: CreationModeEntry;
-  city: City;
-  resumed: boolean;
-  onWip: (text: string) => void;
-}) {
-  const ready = mode.status === 'ready';
-  const cta = ready ? (resumed ? '继续写' : '开始写') : '功能开发中';
-
-  const inner = (
-    <>
-      <span className={styles.badge} data-status={mode.status}>
-        {ready ? (resumed ? '已写过' : '可写') : 'V1-08 开发中'}
-      </span>
-
-      <span className={styles.preview} aria-hidden="true">
-        {mode.id === 'journal' ? <JournalPreview /> : <CollagePreview city={city} />}
-      </span>
-
-      <span className={styles.body}>
-        <span className={styles.nameEn}>{mode.nameEn}</span>
-        <span className={styles.name}>{mode.name}</span>
-        <span className={styles.summary}>{mode.summary}</span>
-        <span className={styles.points}>
-          {mode.points.map((point) => (
-            <span key={point} className={styles.point}>
-              {point}
-            </span>
-          ))}
-        </span>
-      </span>
-
-      <span className={styles.action} data-status={mode.status}>
-        <span className={styles.actionText}>{cta}</span>
-        <span className={styles.arrow} aria-hidden="true">
-          {ready ? '→' : '…'}
-        </span>
-      </span>
-    </>
-  );
-
-  if (!ready) {
-    return (
-      <button
-        type="button"
-        className={`${styles.card} ${styles.cardWip}`}
-        onClick={() => onWip(mode.wipNote ?? '这一种写法还没有实现。')}
-        aria-label={`${mode.name} ${mode.nameEn}，功能开发中，点击查看说明`}
-      >
-        {inner}
-      </button>
-    );
-  }
-
-  return (
-    <Link className={styles.card} to={editorPath(mode.id, city.id)} aria-label={`${mode.name} ${mode.nameEn}，${cta}`}>
-      {inner}
-    </Link>
-  );
-}
-
-/** 横线页：线圈在左，纸面画横线，Title / Date 两条填空压在上方 */
-function JournalPreview() {
-  return (
-    <span className={styles.journal} aria-hidden="true">
-      <span className={styles.coil} />
-      <span className={styles.sheet}>
-        <span className={styles.ruleTitle} />
-        <span className={styles.ruleDate} />
-        <span className={styles.written} />
-      </span>
-    </span>
-  );
-}
-
-/** 拼贴板：牛皮纸底上散着拍立得、车票和一枚盖了邮戳的邮票 */
-function CollagePreview({ city }: { city: City }) {
-  return (
-    <span className={styles.collage} aria-hidden="true">
-      <span className={styles.photo}>
-        <span className={styles.photoImage} />
-      </span>
-      <span className={styles.ticket} />
-      <span className={styles.stamp}>
-        <span className={styles.postmark}>{city.name}</span>
-      </span>
-      <span className={styles.tapeA} />
-      <span className={styles.tapeB} />
-    </span>
   );
 }
 

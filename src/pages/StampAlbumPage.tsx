@@ -57,9 +57,11 @@ export function StampAlbumPage() {
         </div>
       </div>
 
-      <p className={styles.hint}>
-        点一枚邮票先选创作方式：横线日记本现在就能写，自由拼贴还在开发中；写的内容只留在这一台设备上。
-      </p>
+      <div className={styles.closing}>
+        <p className={styles.closingMain}>世界的故事，远不止眼前这几座城。</p>
+        <p className={styles.closingSub}>更多城市邮票正在绘制中，下一段旅程，敬请期待。</p>
+        <p className={styles.closingFoot}>TO BE CONTINUED · 持续更新中</p>
+      </div>
 
       <ul className={styles.roadmap} aria-label="还没上线的功能">
         <li className={styles.roadmapLabel}>还没上线</li>

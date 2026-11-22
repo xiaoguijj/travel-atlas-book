@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { hasAlbumStamp } from '../../config/journal';
 import type { City } from '../../data/types';
 import { CityMotif } from '../city/CityMotif';
 import styles from './CityPostcard.module.css';
@@ -110,14 +111,26 @@ export function CityPostcard({ city, onClose, origin }: CityPostcardProps) {
               <span />
             </div>
 
-            <div className={styles.actions}>
-              <button type="button" className={styles.primary} onClick={openAlbum}>
-                进入旅行手账
-              </button>
-              <button type="button" className={styles.ghost} onClick={onClose}>
-                先留在地球
-              </button>
-            </div>
+            {/* 册子里没有这枚邮票 → 没有手账可进，就不给一个点了没地方的按钮 */}
+            {hasAlbumStamp(city.id) ? (
+              <div className={styles.actions}>
+                <button type="button" className={styles.primary} onClick={openAlbum}>
+                  进入旅行手账
+                </button>
+                <button type="button" className={styles.ghost} onClick={onClose}>
+                  先留在地球
+                </button>
+              </div>
+            ) : (
+              <div className={styles.closing}>
+                <p className={styles.closingKicker}>
+                  {city.nameEn.toUpperCase()} · {city.name}
+                </p>
+                <p className={styles.closingMain}>山海未尽，旅途未完。</p>
+                <p className={styles.closingSub}>待下一页风起，我们再续此间故事。</p>
+                <p className={styles.closingFoot}>Travel Atlas Book · 持续更新中</p>
+              </div>
+            )}
           </div>
 
           <div className={styles.airmail} aria-hidden="true" />

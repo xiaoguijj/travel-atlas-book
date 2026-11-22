@@ -297,6 +297,54 @@
   border-color: var(--tab-brass);
 }
 
+/* 册子里没有这枚邮票的城市：不给入口，改贴一张"未完待续"的牛皮纸标签 */
+.closing {
+  display: grid;
+  gap: 5px;
+  padding: 13px 16px 12px;
+  border: 1px solid rgb(176 141 87 / 0.5);
+  border-radius: 2px;
+  background: rgb(214 194 154 / 0.42);
+  box-shadow: inset 0 0 0 3px rgb(247 240 227 / 0.5);
+}
+
+.closingKicker {
+  margin: 0;
+  font-family: var(--tab-font-ui);
+  font-size: 0.62rem;
+  letter-spacing: 0.26em;
+  color: var(--tab-terracotta-deep);
+}
+
+.closingMain {
+  margin: 1px 0 0;
+  font-family: var(--tab-font-display);
+  font-size: 1.24rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1.45;
+  color: var(--tab-ink);
+}
+
+.closingSub {
+  margin: 0;
+  font-family: var(--tab-font-display);
+  font-size: 0.92rem;
+  letter-spacing: 0.05em;
+  line-height: 1.7;
+  color: var(--tab-ink-soft);
+}
+
+.closingFoot {
+  margin: 5px 0 0;
+  padding-top: 8px;
+  border-top: 1px dashed rgb(176 141 87 / 0.65);
+  font-family: var(--tab-font-ui);
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  color: var(--tab-ink-soft);
+}
+
 .airmail {
   position: absolute;
   right: 24px;

@@ -19,7 +19,7 @@ npm run typecheck  # 只做 tsc --noEmit
 
 npm run data:world # 重新生成陆地轮廓 src/data/world.ts（需要联网）
 npm run data:hero  # 重新压缩首页背景画 src/assets/hero-bg.jpg
-npm run data:journal # 重新压缩邮票册与横线页两张背景画 src/assets/*.jpg
+npm run data:journal # 重新压缩邮票册、选模式页与横线页三张背景画 src/assets/*.jpg
 ```
 
 > 本机 Node 没有装到系统 PATH，实际用的是 `C:\Users\huangju\.workbuddy\binaries\node\versions\22.22.2`。
@@ -80,13 +80,13 @@ src/
     HomePage.tsx    两套首页：参考图舞台（宽屏）/ 竖版标题+地球（窄屏）
     HomePageArt.module.css  舞台分层与热区样式
     StampAlbumPage.tsx 中国城市手账邮票册：整张画 + 六枚邮票热区
-    CreateModePage.tsx 创作方式选择页：横线日记本（可用）与自由拼贴（开发中）两张卡片
+    CreateModePage.tsx 创作方式选择页：整张参考画铺满屏幕，两张卡片是量出来的热区
     SectionPage.tsx 灵感发现 / 旅行计划 / 我的
     CityPage.tsx    横线手账页：Title / Date / 正文盖在画上，写满自动翻页
 scripts/
   build-world-data.mjs  从 Natural Earth 1:110m 生成 src/data/world.ts
   build-hero-assets.mjs 把 assets-source/home-hero.png 压成 src/assets/hero-bg.jpg
-  build-journal-assets.mjs 把两张手账原图压成 src/assets/*.jpg（只压缩不裁切，热区才对得齐）
+  build-journal-assets.mjs 把三张手账原图压成 src/assets/*.jpg（只压缩不裁切，热区才对得齐）
 ```
 
 ## 首页：一张画 + 一个真地球
@@ -156,7 +156,7 @@ scripts/
 | `/city/:cityId` | Journal 横线日记本 | 已上线 |
 | `/city/:cityId/collage` | Collage 自由拼贴 | 队友 V1-08，未接入 |
 
-三条设计约束：
+四条设计约束：
 
 - **`/city/:cityId` 仍然是 Journal 自己的地址**。顶部导航、`/#/city/nanjing` 深链、
   以及 localStorage 键 `travel-atlas-book.journal.<城市 id>` 都没跟着变，所以这次改动不会
@@ -165,6 +165,14 @@ scripts/
   `editorPath(mode, cityId)` 都在那里；邮票册只调 `createModePath(cityId)`，不自己拼字符串。
 - **没实现的东西不给假入口**：Collage 卡片渲染成 `<button>` 而不是 `<Link>`，点了在
   `role="status"` 区域说明进度，URL 不变。
+- **选择页整屏都是那张画**：舞台 `width:100%` + `max-width:calc(100dvh * 1.33333)`，按源图比例放到
+  屏幕能放下的最大尺寸，屏幕比例不一致时多出来的边用画自己的底色（`#18302f → #0f292b`）垫掉；
+  这一页不挂顶部导航（`Shell` 里 `pathname.endsWith('/create')`），画上的「返回邮票收藏册」胶囊就是出口。
+  右上角「当前城市」画上是写死的，所以整只用 DOM 重画盖住，城市名跟着点的邮票走。
+
+册子里没有邮票的城市（现在只有伦敦）走的是另一条线：明信片上不出现「进入旅行手账」，
+改成一张「山海未尽，旅途未完」的收尾标签。判断依据是 `hasAlbumStamp(cityId)`，
+它直接读 `albumStamps` 热区清单，不用另外维护一份名单。
 
 队友的 V1-02 / V1-05 落地时的改动点集中在一处：`editorPath(mode, cityId)` 扩成
 `editorPath(mode, cityId, journalId)`（每座城市可有多篇手账），页面组件不用重写。
@@ -182,24 +190,25 @@ scripts/
 - **首页背景画**：`assets-source/home-hero.png` 由需求方提供，随项目一起提交；仓库里只做等比压缩与 JPEG 编码
   （`scripts/build-hero-assets.mjs`），没有裁剪、重绘或替换画面内容。这张图的著作财产权归属提供方，
   对外公开发布前需要再确认一次使用范围。
-- **手账两页背景画**：`assets-source/stamp-album.png`（邮票册）与 `assets-source/journal-lines.png`（横线页）
-  同样由需求方提供，`scripts/build-journal-assets.mjs` 只做等比压缩；热区坐标全在 `src/config/journal.ts`，
-  所以原图不能裁。版权状态与首页那张一样，公开发布前需要一并确认。
+- **手账三页背景画**：`assets-source/stamp-album.png`（邮票册）、`assets-source/create-mode.png`（选创作方式）
+  与 `assets-source/journal-lines.png`（横线页）同样由需求方提供，`scripts/build-journal-assets.mjs` 只做等比压缩；
+  热区坐标全在 `src/config/journal.ts`，所以原图不能裁。版权状态与首页那张一样，公开发布前需要一并确认。
 
 ## 构建产物
 
 ```
 dist/index.html                   1.17 kB │ gzip   0.82 kB
-dist/assets/hero-bg-*.jpg       456.57 kB          首页背景画（宽屏布局才加载）
 dist/assets/stamp-album-*.jpg   451.05 kB          邮票册页背景画
+dist/assets/create-mode-*.jpg   386.02 kB          选创作方式页背景画
 dist/assets/journal-page-*.jpg  329.97 kB          横线手账页背景画
-dist/assets/index-*.css          32.07 kB │ gzip   7.77 kB
-dist/assets/index-*.js          341.76 kB │ gzip 116.27 kB   应用代码 + 世界地图数据
+dist/assets/hero-bg-*.jpg       456.57 kB          首页背景画（宽屏布局才加载）
+dist/assets/index-*.css          37.01 kB │ gzip   8.62 kB
+dist/assets/index-*.js          346.59 kB │ gzip 118.40 kB   应用代码 + 世界地图数据
 dist/assets/three-*.js          468.09 kB │ gzip 118.09 kB   three 单独分包，便于长期缓存
 ```
 
-三张背景画加起来约 1.2MB，但各自只在对应的页面才请求：首页只要 hero-bg，邮票册只要 stamp-album，
-手账页只要 journal-page；地球贴图仍然是运行时画的。
+四张背景画加起来约 1.6MB，但各自只在对应的页面才请求：首页只要 hero-bg，邮票册只要 stamp-album，
+选模式页只要 create-mode，手账页只要 journal-page；地球贴图仍然是运行时画的。
 路由是 code-split 之前的单包，`vite build` 已经按 `three` 分包；`index.html` 里内联了背景色，避免白屏一闪。
 
 ## 后续阶段的接入点
@@ -228,6 +237,7 @@ dist/assets/three-*.js          468.09 kB │ gzip 118.09 kB   three 单独分�
 ## 已知边界
 
 - 目前收录 7 座城市：邮票册上的南京、上海、西安、北京、杭州、成都，加上地球上的伦敦。
+  伦敦只有明信片，没有邮票也就没有手账页，明信片给的是「未完待续」而不是进不去的按钮。
   刻意不做拖拽贴纸、图片上传、路线、Vlog、分享和主题切换。
 - 手账正文只写进这台设备的 localStorage（键 `travel-atlas-book.journal.<城市 id>`），
   没有后端：清浏览器数据会丢，换设备看不到同一本。存不下时页面会如实说明而不是假装已保存。
@@ -245,7 +255,8 @@ dist/assets/three-*.js          468.09 kB │ gzip 118.09 kB   three 单独分�
 - 交互验证在内置浏览器面板里做的：宽屏舞台与竖版两套布局的几何都逐项量过
   （画布 259.6×259.6、球心与孔心重合、球体屏幕半径 105.1px vs 孔半径 102.3px）、
   缎带五个入口、开始探索、三张明信片、弹层 ESC 关闭、`/#/city/nanjing` 深链都已实测通过，控制台无报错。
-- 手账两页同样是量出来的：六枚邮票热区映射回源图坐标分毫不差；正文首行基线 175.3 对第一条印好的线
+- 手账三页同样是量出来的：六枚邮票热区映射回源图坐标分毫不差；正文首行基线 175.3 对第一条印好的线
   178（差 2.7px，字坐在线上）；手账页纸面 661.4px 对邮票册里的纸面 661.0px，两页的本子同宽同斜（-1.8°）；
-  连打 225 字跨页写作期间名牌中心坐标恒为 420，一次都不跳。
-  真机手机（触屏拖动、双指缩放）和宽屏截图目测还没做——面板当前处于隐藏状态，截屏接口不可用。
+  连打 225 字跨页写作期间名牌中心坐标恒为 420，一次都不跳；选模式页整屏后在 854×641 的舞台上量得
+  Journal 热区 (25,154,392,459)，换算回源图正是 (42,261,664,778)。
+  内置面板现在能截图，选模式页与邮票册的观感已目测过；真机手机（触屏拖动、双指缩放）还没测。

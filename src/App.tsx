@@ -12,14 +12,17 @@ import styles from './App.module.css';
 /**
  * 首页用参考图舞台时不挂顶部导航 —— 画上的缎带就是导航，再来一条就是重复导航；
  * 舞台放不下而退回竖版布局时，导航得回来，所以判断条件和 HomePage 用同一个查询。
+ *
+ * 选创作方式那一页整屏都是参考图，画上自带「返回邮票收藏册」的胶囊，同理不再挂导航。
  */
 function Shell() {
   const { pathname } = useLocation();
   const artViewport = useMediaQuery(heroLayoutQuery);
   const paintedRibbon = pathname === '/' && artViewport && heroLayoutSupported;
+  const paintedModeArt = pathname.endsWith('/create');
   return (
     <div className={styles.shell}>
-      {paintedRibbon ? null : <SiteHeader />}
+      {paintedRibbon || paintedModeArt ? null : <SiteHeader />}
       <main>
         <Outlet />
       </main>

@@ -30,6 +30,14 @@ export const albumStamps: (ArtBox & { cityId: string })[] = [
 ];
 
 /**
+ * 画上的邮票只有这六座城市，所以"这座城市有没有手账页"直接由热区清单说了算，
+ * 不用另外维护一份名单。伦敦在地球上，但册子里没有它的邮票，也就进不去手账。
+ */
+export function hasAlbumStamp(cityId: string): boolean {
+  return albumStamps.some((stamp) => stamp.cityId === cityId);
+}
+
+/**
  * 画在纸上的 "Title :" 与 "Date :" 两条填空，真输入框盖在横线上。
  * 两条印刷下划线都在 y≈98（逐行亮度取极值），输入框按单行居中反推基线，
  * 让打出来的字正好落在线上方 5px 左右。
@@ -81,6 +89,32 @@ export const journalFrame = {
 
 /** 正文字号：约等于行高的 55%，写满一行不会挤到下一根线 */
 export const journalBodyFontPx = 26;
+
+/**
+ * 创作方式选择页（assets-source/create-mode.png 1448×1086）的热区。
+ *
+ * 两张卡片按"离背景色多远"量出来：卡片内部明暗变化大，用亮度阈值会把纹理也算进去，
+ * 所以改用与深蓝底色的曼哈顿距离判边界，四条边各自稳定在同一列/行上。
+ *
+ * 画上的"当前城市：Peru 秘鲁"是画死的，但它必须随点的邮票变，
+ * 所以 cityPill 那一块用真实 DOM 整只重画（描边、图钉、文字都在 DOM 里），
+ * 覆盖范围取黄铜描边的外缘，比文字本身大一圈，免得露出半个旧城市名。
+ */
+export const createModeArt = { width: 1448, height: 1086 } as const;
+
+export const createModeZones = {
+  /** 左上「← 返回邮票收藏册」描边胶囊 */
+  backPill: { x: 32, y: 24, w: 225, h: 41 },
+  /** 右上「当前城市」描边胶囊，整只盖掉重画 */
+  cityPill: { x: 1155, y: 23, w: 265, h: 42 },
+  /** 左卡：Journal 横线日记本 */
+  journalCard: { x: 42, y: 261, w: 664, h: 778 },
+  /** 右卡：Collage 自由拼贴 */
+  collageCard: { x: 728, y: 261, w: 679, h: 780 },
+} as const;
+
+/** 胶囊周围那块深蓝底色，DOM 重画时用它垫底 */
+export const createModePillBg = '#173132';
 
 /** 源图坐标 → 舞台内的百分比定位 */
 export function artBoxStyle(art: { width: number; height: number }, box: ArtBox) {
