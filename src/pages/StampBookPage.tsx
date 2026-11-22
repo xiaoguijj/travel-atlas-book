@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import albumArtwork from '../assets/stamp-album.jpg';
 import { PageTurn } from '../components/layout/PageTurn';
 import { InnerPageLayout } from '../components/layout/InnerPageLayout';
+import { isJournalBlank } from '../components/journal/journalDoc';
+import { localDay } from '../config/dates';
 import { bookPath } from '../config/routes';
 import { albumArt, albumStampBoxes, artBoxStyle } from '../config/journal';
 import { backTargets } from '../config/innerLayout';
@@ -101,7 +103,7 @@ export function StampBookPage() {
                   onClick={() => toggleShelf(city.id)}
                   aria-expanded={selectedCityId === city.id}
                   aria-label={`${city.name} ${city.nameEn} 邮票，${
-                    collectedAt ? `已收藏于 ${collectedAt.slice(0, 10)}` : '尚未收藏'
+                    collectedAt ? `已收藏于 ${localDay(collectedAt)}` : '尚未收藏'
                   }，翻开这一城的手账书架`}
                 >
                   <span className={styles.glow} aria-hidden="true" />
@@ -110,7 +112,7 @@ export function StampBookPage() {
                   </span>
                   {collectedAt ? (
                     <span className={styles.collected} aria-hidden="true">
-                      {collectedAt.slice(0, 10)}
+                      {localDay(collectedAt)}
                     </span>
                   ) : null}
                 </button>
@@ -252,7 +254,7 @@ function CityShelf({
 
         {onCollect ? (
           <span className={styles.stampActionWrap}>
-            <span className={styles.stampState}>{collectedAt ? `已藏于 ${collectedAt.slice(0, 10)}` : '尚未收藏'}</span>
+            <span className={styles.stampState}>{collectedAt ? `已藏于 ${localDay(collectedAt)}` : '尚未收藏'}</span>
             <button type="button" className={styles.stampAction} onClick={() => void stampIt()} disabled={stamping}>
               {stamping ? '正在盖章…' : collectedAt ? '再盖一次章' : '盖下这枚收藏章'}
             </button>
@@ -291,8 +293,8 @@ function CityShelf({
             <li key={book.id}>
               <button type="button" className={styles.book} onClick={() => onOpenBook(book)}>
                 <strong>{book.title}</strong>
-                <em>{book.journal ? '接着写' : '还没动笔'}</em>
-                <span>上次更新 {book.updatedAt.slice(0, 10)}</span>
+                <em>{isJournalBlank(book.journal) ? '还没动笔' : '接着写'}</em>
+                <span>上次更新 {localDay(book.updatedAt)}</span>
               </button>
             </li>
           ))}

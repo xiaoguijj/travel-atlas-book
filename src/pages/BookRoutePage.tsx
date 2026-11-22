@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { InnerPageLayout } from '../components/layout/InnerPageLayout';
-import { albumBack, createModeBack } from '../config/innerLayout';
+import { albumBack } from '../config/innerLayout';
 import { readBookMode } from '../config/routes';
 import { getBook } from '../data/books';
 import { getCityById } from '../data/cities';
 import { isDataError, type TravelBook } from '../data/contracts';
 import { CreateModePage } from './CreateModePage';
+import { JournalMountPage } from './JournalMountPage';
 import styles from './BookRoutePage.module.css';
 
 interface LoadState {
@@ -75,8 +76,8 @@ export function BookRoutePage() {
     );
   }
 
-  // V1-07 的 Journal 编辑器接到这一支；没有 mode 或 mode 不认识时停在模式选择页。
-  if (mode === 'journal') return <JournalNotWired book={book} />;
+  // V1-07 的横线本落在 JournalMountPage：它顶着 V1-05 手账壳的活，壳到位后一起退场。
+  if (mode === 'journal') return <JournalMountPage key={book.id} book={book} city={city} />;
 
   // key=book.id：从书架换一本进来时整页重挂，翻页动画跟着重放一次。
   return <CreateModePage key={book.id} book={book} city={city} />;
@@ -99,21 +100,6 @@ function BookFallback({ title, detail, hint }: { title: string; detail: string; 
         <h1>{title}</h1>
         <p>{detail}</p>
         {hint ? <p className={styles.hint}>{hint}</p> : null}
-      </section>
-    </InnerPageLayout>
-  );
-}
-
-/** V1-06 里 Journal 还没接上：给一条读得懂的说明和真的返回，不放一个点进去空转的编辑器。 */
-function JournalNotWired({ book }: { book: TravelBook }) {
-  return (
-    <InnerPageLayout back={createModeBack(book.id)}>
-      <section className={styles.fallback}>
-        <h1>横线日记本正在接入</h1>
-        <p>
-          这本《{book.title}》的地址已经存好了，写作页面由 V1-07 提供。等它合进来，回到创作模式页点左边那张
-          Journal 卡片就能开始写。
-        </p>
       </section>
     </InnerPageLayout>
   );
