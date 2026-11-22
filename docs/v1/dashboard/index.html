@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>V1 开发看板 · Travel Atlas Book</title>
+  <link rel="stylesheet" href="./board.css">
+  <script src="./board.js" defer></script>
+</head>
+<body>
+  <header class="masthead">
+    <div class="page masthead-inner">
+      <div>
+        <p class="brand">Travel Atlas Book</p>
+        <h1>V1 开发看板</h1>
+      </div>
+      <nav aria-label="项目链接">
+        <a id="plan">正式规划</a>
+        <a id="guide">协作说明</a>
+        <a id="repo">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <main class="page">
+    <p id="load-error" role="alert" hidden>无法读取进度快照。请查看 GitHub Actions 的运行记录后重试。</p>
+    <noscript><p>请启用 JavaScript 查看任务和依赖。</p></noscript>
+    <section id="dashboard" hidden aria-label="V1 开发进度">
+      <div class="overview">
+        <div class="progress-heading">
+          <h2 id="overall">整体进度</h2>
+          <p class="metadata" id="snapshot"></p>
+        </div>
+        <progress id="progress" aria-labelledby="overall"></progress>
+        <dl id="totals" class="totals"></dl>
+      </div>
+      <section class="dependency-section" aria-labelledby="dependency-heading">
+        <div class="section-heading">
+          <div>
+            <h2 id="dependency-heading">任务依赖</h2>
+            <p>同组任务可并行。每张卡列出合并前置，点开可查看验收与分支。</p>
+          </div>
+          <p class="claim-list" id="claim-list"></p>
+        </div>
+        <div id="graph" class="graph">
+          <canvas id="connections" aria-hidden="true"></canvas>
+          <div id="layers" class="layers"></div>
+        </div>
+      </section>
+      <section class="related-section" aria-labelledby="related-heading">
+        <h2 id="related-heading">已有开发记录</h2>
+        <ul id="related"></ul>
+      </section>
+    </section>
+  </main>
+  <dialog id="task-detail" aria-labelledby="task-heading">
+    <div class="dialog-heading">
+      <h2 id="task-heading"></h2>
+      <form method="dialog"><button class="close" autofocus>关闭</button></form>
+    </div>
+    <div id="detail-content"></div>
+  </dialog>
+  <script type="application/json" id="progress-data"><!-- SNAPSHOT --></script>
+</body>
+</html>
