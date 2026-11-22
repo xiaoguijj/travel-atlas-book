@@ -1,7 +1,7 @@
 import type { City } from './types';
 
 /**
- * 第一阶段只收录三座城市。
+ * 首页与城市手账共用这份数据。
  *
  * 城市数据与界面完全解耦：以后要从后端或本地存储读取手账内容时，
  * 只要把这里换成异步数据源（例如 loadCities()），Globe / 明信片 / 城市页都不用改结构。
@@ -48,6 +48,20 @@ export const cities: City[] = [
     motif: 'hall-of-prayer',
     coverTint: ['#4A3B36', '#BDA06A'],
     labelSide: 'right',
+  },
+  {
+    id: 'london',
+    name: '伦敦',
+    nameEn: 'London',
+    region: '英格兰 · 英国',
+    latitude: 51.5074,
+    longitude: -0.1278,
+    tagline: '跟着钟声走过泰晤士河',
+    intro:
+      '从威斯敏斯特桥走到南岸，钟楼在水上投下一道长影。细雨刚停，红色巴士从桥上驶过，河风把咖啡香带到了旧书摊边。',
+    motif: 'elizabeth-tower',
+    coverTint: ['#333E48', '#AE744E'],
+    labelSide: 'left',
   },
 ];
 

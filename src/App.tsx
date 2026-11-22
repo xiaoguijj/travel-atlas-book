@@ -13,7 +13,8 @@ import styles from './App.module.css';
  */
 function Shell() {
   const { pathname } = useLocation();
-  const paintedRibbon = pathname === '/' && useMediaQuery(heroLayoutQuery) && heroLayoutSupported;
+  const artViewport = useMediaQuery(heroLayoutQuery);
+  const paintedRibbon = pathname === '/' && artViewport && heroLayoutSupported;
   return (
     <div className={styles.shell}>
       {paintedRibbon ? null : <SiteHeader />}

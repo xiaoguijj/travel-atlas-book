@@ -16,8 +16,10 @@ import styles from './Globe.module.css';
 export interface GlobeProps {
   /** 来自 src/data/cities.ts 的稳定引用，只在挂载时建一次场景 */
   cities: City[];
-  focusedCityId: string | null;
-  onFocusChange: (city: City | null) => void;
+  targetCityId: string | null;
+  activeCityId: string | null;
+  onSelectCity: (city: City) => void;
+  onCityArrival: (cityId: string) => void;
   /** 球体直径占容器短边的比例；参考图舞台要按挖孔尺寸反算，竖版布局用默认值 */
   fill?: number;
   /** 底部操作提示，传 null 就不画（参考图里画自己已经说明了玩法） */
@@ -30,8 +32,7 @@ export interface GlobeProps {
 }
 
 export interface GlobeHandle {
-  /** 把镜头转到某座城市，再打开它的明信片 */
-  focusCity: (city: City) => void;
+  getMarkerCenter: (cityId: string) => { x: number; y: number } | undefined;
 }
 
 /**
@@ -44,18 +45,16 @@ export interface GlobeHandle {
  *   （不用 React 状态逐帧更新，避免 60fps 重渲染）
  */
 export const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe(
-  { cities, focusedCityId, onFocusChange, fill, hint = '拖动旋转 · 滚轮缩放 · 点击城市标记', layered = false },
+  {
+    cities, targetCityId, activeCityId, onSelectCity, onCityArrival,
+    fill, hint = '拖动旋转 · 滚轮缩放 · 点击城市标记', layered = false,
+  },
   ref,
 ) {
   const hostRef = useRef<HTMLDivElement>(null);
   const markerElements = useRef(new Map<string, HTMLElement>());
   const sceneRef = useRef<GlobeSceneHandle | null>(null);
-  const focusHandler = useRef(onFocusChange);
   const [webglFailed, setWebglFailed] = useState(false);
-
-  useEffect(() => {
-    focusHandler.current = onFocusChange;
-  }, [onFocusChange]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -67,6 +66,7 @@ export const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe(
         host,
         cities,
         getMarkerElement: (cityId) => markerElements.current.get(cityId) ?? null,
+        onCityArrival,
         respectReducedMotion: true,
         fill,
       });
@@ -81,18 +81,21 @@ export const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe(
       handle?.dispose();
       sceneRef.current = null;
     };
-  }, [cities, fill]);
+  }, [cities, fill, onCityArrival]);
 
   useEffect(() => {
-    sceneRef.current?.setFocusedCity(focusedCityId);
-  }, [focusedCityId]);
+    if (targetCityId && webglFailed) onCityArrival(targetCityId);
+    else sceneRef.current?.setTargetCity(targetCityId);
+  }, [targetCityId, webglFailed, cities, fill, onCityArrival]);
 
   useImperativeHandle(
     ref,
     () => ({
-      focusCity(city) {
-        sceneRef.current?.flyToCity(city.id);
-        focusHandler.current(city);
+      getMarkerCenter(cityId) {
+        const marker = markerElements.current.get(cityId);
+        if (!marker || Number(marker.style.opacity) < 0.5) return;
+        const rect = marker.getBoundingClientRect();
+        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
       },
     }),
     [],
@@ -117,7 +120,7 @@ export const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe(
     event.stopPropagation();
     const cityId = sceneRef.current?.pickCity(event.clientX, event.clientY);
     const city = cities.find((item) => item.id === cityId);
-    if (city) focusHandler.current(city);
+    if (city) onSelectCity(city);
   };
 
   if (webglFailed) {
@@ -129,7 +132,7 @@ export const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe(
         <ul className={styles.fallbackList}>
           {cities.map((city) => (
             <li key={city.id}>
-              <button type="button" onClick={() => onFocusChange(city)}>
+              <button type="button" onClick={() => onSelectCity(city)}>
                 {city.name}
                 <span>{city.region}</span>
               </button>
@@ -162,9 +165,9 @@ export const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe(
           <CityMarker
             key={city.id}
             city={city}
-            active={city.id === focusedCityId}
+            active={city.id === activeCityId}
             register={(element) => registerMarker(city.id, element)}
-            onSelect={() => focusHandler.current(city)}
+            onSelect={() => onSelectCity(city)}
           />
         ))}
       </div>

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { City } from '../../data/types';
 import { CityMotif } from '../city/CityMotif';
@@ -6,13 +6,23 @@ import styles from './CityPostcard.module.css';
 
 export interface CityPostcardProps {
   city: City;
+  origin?: { x: number; y: number };
   onClose: () => void;
 }
 
 /** 点击城市标记后弹出的复古明信片。只做介绍与入口，编辑功能留给后续阶段。 */
-export function CityPostcard({ city, onClose }: CityPostcardProps) {
+export function CityPostcard({ city, onClose, origin }: CityPostcardProps) {
   const navigate = useNavigate();
   const closeRef = useRef<HTMLButtonElement>(null);
+  const cardPositionRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const position = cardPositionRef.current;
+    if (!position || !origin) return;
+    const { left, top, width, height } = position.getBoundingClientRect();
+    position.style.setProperty('--postcard-from-x', `${origin.x - (left + width / 2)}px`);
+    position.style.setProperty('--postcard-from-y', `${origin.y - (top + height / 2)}px`);
+  }, [origin]);
 
   // 关闭后把焦点还给点开它的那个按钮，键盘用户不用从头 Tab 一遍
   useEffect(() => {
@@ -23,7 +33,7 @@ export function CityPostcard({ city, onClose }: CityPostcardProps) {
   }, []);
 
   useEffect(() => {
-    closeRef.current?.focus();
+    closeRef.current?.focus({ preventScroll: true });
   }, [city.id]);
 
   useEffect(() => {
@@ -45,8 +55,8 @@ export function CityPostcard({ city, onClose }: CityPostcardProps) {
 
   return (
     <div className={styles.backdrop} onClick={onClose} role="presentation">
-      <div className={styles.card} onClick={(event) => event.stopPropagation()}>
-        <article className={styles.face} role="dialog" aria-modal="true" aria-label={`${city.name} 明信片`}>
+      <div ref={cardPositionRef} className={styles.cardPosition} onClick={(event) => event.stopPropagation()}>
+        <article className={`${styles.card} ${styles.face}`} role="dialog" aria-modal="true" aria-label={`${city.name} 明信片`}>
           <div className={styles.edge} aria-hidden="true" />
 
           <div className={styles.left}>

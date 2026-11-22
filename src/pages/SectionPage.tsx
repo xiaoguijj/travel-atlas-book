@@ -60,7 +60,7 @@ export function SectionPage() {
       <p className={styles.note}>
         {section.ready
           ? '第一阶段能用的就是这些：转动地球、点开图钉、翻开一张明信片，然后走进城市页。'
-          : '这个栏目还在后面的阶段里等着。现在能做的，是回到地球把三座城市先走一遍。'}
+          : '这个栏目还在后面的阶段里等着。现在能做的，是回到地球逛逛已经收录的城市。'}
       </p>
 
       <nav className={styles.foot} aria-label="栏目导航">

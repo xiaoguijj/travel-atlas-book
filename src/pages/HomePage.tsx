@@ -1,6 +1,7 @@
-import { useCallback, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import heroBg from '../assets/hero-bg.jpg';
+import { CityMotif } from '../components/city/CityMotif';
 import { Globe, type GlobeHandle } from '../components/globe/Globe';
 import { VintageDecor } from '../components/layout/VintageDecor';
 import { CityPostcard } from '../components/postcard/CityPostcard';
@@ -24,24 +25,78 @@ import { useMediaQuery } from '../hooks/useMediaQuery';
 import artStyles from './HomePageArt.module.css';
 import classicStyles from './HomePage.module.css';
 
+type Point = { x: number; y: number };
+type CityJourney =
+  | { city: City; phase: 'flying' | 'arrived' }
+  | { city: City; phase: 'open'; origin?: Point };
+
 export function HomePage() {
-  const [focusedCity, setFocusedCity] = useState<City | null>(null);
+  const [journey, setJourney] = useState<CityJourney | null>(null);
   const globeRef = useRef<GlobeHandle>(null);
   const exploreIndex = useRef(0);
+  const classicGlobeRef = useRef<HTMLElement>(null);
+  const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
   // 画布要等比铺满 1671×941 才压得住参考图上的坐标，屏幕小到地球转不开就换竖版布局
   const artViewport = useMediaQuery(heroLayoutQuery);
   const useArtLayout = artViewport && heroLayoutSupported;
 
-  // Globe 内部用 ref 保存这个回调，因此列表与城市数据更新时不必重建 3D 场景
-  const handleFocusChange = useCallback((city: City | null) => {
-    setFocusedCity(city);
+  const focusedCity = journey?.city ?? null;
+  const activeCityId = journey && journey.phase !== 'flying' ? journey.city.id : null;
+  const closePostcard = useCallback(() => setJourney(null), []);
+
+  const selectCity = (city: City) => {
+    const globe = classicGlobeRef.current;
+    if (globe) {
+      const { top, height } = globe.getBoundingClientRect();
+      const center = top + height / 2;
+      if (center < 70 || center > window.innerHeight - 70) {
+        globe.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'instant' : 'smooth' });
+      }
+    }
+    setJourney((current) => current?.city.id === city.id ? current : { city, phase: 'flying' });
+  };
+
+  const handleCityArrival = useCallback((cityId: string) => {
+    setJourney((current) => current?.city.id === cityId && current.phase === 'flying'
+      ? { city: current.city, phase: 'arrived' }
+      : current);
   }, []);
+
+  useEffect(() => {
+    if (journey?.phase !== 'arrived') return;
+    const { city } = journey;
+    const timer = window.setTimeout(() => {
+      const origin = globeRef.current?.getMarkerCenter(city.id);
+      setJourney((current) => current === journey ? { city, phase: 'open', origin } : current);
+    }, reduceMotion ? 250 : 640);
+    return () => window.clearTimeout(timer);
+  }, [journey, reduceMotion, useArtLayout]);
+
+  useEffect(() => {
+    if (!journey || journey.phase === 'open') return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closePostcard();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [journey, closePostcard]);
+
+  const globeProps = {
+    cities,
+    targetCityId: focusedCity?.id ?? null,
+    activeCityId,
+    onSelectCity: selectCity,
+    onCityArrival: handleCityArrival,
+  };
+  const postcard = journey?.phase === 'open'
+    ? <CityPostcard city={journey.city} onClose={closePostcard} origin={journey.origin} />
+    : null;
 
   /** 「开始探索」：镜头转到一座城市并翻开它的明信片，每多点一次换下一座 */
   const startExploring = () => {
     const city = cities[exploreIndex.current % cities.length];
     exploreIndex.current += 1;
-    globeRef.current?.focusCity(city);
+    selectCity(city);
   };
 
   if (useArtLayout) {
@@ -69,9 +124,7 @@ export function HomePage() {
           <div className={artStyles.globeSlot} style={heroGlobeStageStyle}>
             <Globe
               ref={globeRef}
-              cities={cities}
-              focusedCityId={focusedCity?.id ?? null}
-              onFocusChange={handleFocusChange}
+              {...globeProps}
               fill={heroGlobeFill}
               hint={null}
               layered
@@ -104,17 +157,27 @@ export function HomePage() {
             {heroCardBoxes.map((box) => {
               const city = getCityById(box.cityId);
               if (!city) return null;
+              const needsArtwork = box.painted === false;
+              const selected = box.cityId === focusedCity?.id;
+              const cardClasses = [artStyles.card];
+              if (needsArtwork) cardClasses.push(artStyles.londonCard);
+              if (selected) cardClasses.push(artStyles.cardActive);
               return (
                 <button
                   key={box.cityId}
                   type="button"
-                  className={box.cityId === focusedCity?.id ? `${artStyles.card} ${artStyles.cardActive}` : artStyles.card}
+                  className={cardClasses.join(' ')}
                   style={heroBoxStyle(box)}
-                  onClick={() => handleFocusChange(city)}
+                  onClick={() => selectCity(city)}
+                  aria-label={`${city.name}，${city.region}，翻开这张明信片`}
+                  aria-pressed={selected}
                 >
-                  <span className="srOnly">
-                    {city.name}，{city.region}，翻开这张明信片
-                  </span>
+                  {needsArtwork && (
+                    <span className={artStyles.londonArtwork} aria-hidden="true">
+                      <span className={artStyles.londonName}>{city.name}<small>{city.nameEn}</small></span>
+                      <CityMotif motif={city.motif} minimal />
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -125,7 +188,7 @@ export function HomePage() {
           <p className="srOnly">把世界装进一本旅行手账</p>
         </section>
 
-        {focusedCity ? <CityPostcard city={focusedCity} onClose={() => setFocusedCity(null)} /> : null}
+        {postcard}
       </>
     );
   }
@@ -140,23 +203,18 @@ export function HomePage() {
         <p className={classicStyles.subtitle}>把世界装进一本旅行手账</p>
       </section>
 
-      <section className={classicStyles.globeStage} aria-label="交互式地球，拖动可以旋转">
-        <Globe
-          ref={globeRef}
-          cities={cities}
-          focusedCityId={focusedCity?.id ?? null}
-          onFocusChange={handleFocusChange}
-        />
+      <section ref={classicGlobeRef} className={classicStyles.globeStage} aria-label="交互式地球，拖动可以旋转">
+        <Globe ref={globeRef} {...globeProps} />
       </section>
 
       <section className={classicStyles.legend} aria-label="城市快捷入口">
-        <h2 className={classicStyles.legendTitle}>手账里已经有三页</h2>
+        <h2 className={classicStyles.legendTitle}>城市明信片</h2>
         <ul className={classicStyles.legendList}>
           {cities.map((city) => (
             <li key={city.id}>
               <button
                 type="button"
-                onClick={() => handleFocusChange(city)}
+                onClick={() => selectCity(city)}
                 className={
                   focusedCity?.id === city.id
                     ? `${classicStyles.cityButton} ${classicStyles.cityButtonActive}`
@@ -175,7 +233,7 @@ export function HomePage() {
         </p>
       </section>
 
-      {focusedCity ? <CityPostcard city={focusedCity} onClose={() => setFocusedCity(null)} /> : null}
+      {postcard}
     </div>
   );
 }

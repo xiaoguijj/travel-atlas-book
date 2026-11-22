@@ -32,14 +32,14 @@ export const globeConfig = {
     fov: 38,
     near: 0.1,
     far: 24,
-    fill: 0.98,
+    fill: 0.8,
     /** 0.58 倍≈放大 1.7 倍，再近就能看到贴图笔触的颗粒；1.42 倍≈缩到 0.7 倍 */
     zoom: { min: 0.58, max: 1.42 },
     /** 进场时正对亚洲，南京/上海/北京一眼可见 */
     initialView: { lat: 31, lon: 108 },
   },
   controls: {
-    autoRotateSpeed: 0.42,
+    autoRotateSpeed: 0.65,
     /** 停止操作后隔多久恢复自动旋转 */
     resumeDelayMs: 1200,
     rotateSpeed: 0.52,
@@ -63,7 +63,7 @@ export const globeConfig = {
   },
   atmosphere: { scale: 1.028, opacity: 0.15 },
   marker: {
-    /** 接近球体边缘时开始淡出（0=正对相机，1=切线） */
+    /** 接近球体边缘时开始淡出（1=正对相机，0=切线） */
     fadeFrom: 0.04,
     fadeTo: 0.3,
     /** 命中半径：南京和上海只差 2.7°，图钉会挤在一起，按"最近的一个"决定点谁 */

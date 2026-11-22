@@ -25,6 +25,7 @@
 .markerLayer {
   position: absolute;
   inset: 0;
+  overflow: clip;
   /* 层本身不拦截鼠标，只有标记按钮可点，拖动地球的手感才不会被破坏 */
   pointer-events: none;
 }
