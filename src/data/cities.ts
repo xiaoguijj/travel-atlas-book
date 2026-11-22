@@ -1,10 +1,11 @@
 import type { City } from './types';
 
 /**
- * 首页与城市手账共用这份数据。
+ * 首页地球、邮票册与城市手账共用这份数据。
  *
+ * 顺序就是邮票册上的顺序：南京、上海、西安、北京、杭州、成都，伦敦排在最后（只在地球上，册子里没有它的邮票）。
  * 城市数据与界面完全解耦：以后要从后端或本地存储读取手账内容时，
- * 只要把这里换成异步数据源（例如 loadCities()），Globe / 明信片 / 城市页都不用改结构。
+ * 只要把这里换成异步数据源（例如 loadCities()），Globe / 明信片 / 手账页都不用改结构。
  */
 export const cities: City[] = [
   {
@@ -36,6 +37,20 @@ export const cities: City[] = [
     labelSide: 'right',
   },
   {
+    id: 'xian',
+    name: '西安',
+    nameEn: "Xi'an",
+    region: '陕西 · 中国',
+    latitude: 34.3416,
+    longitude: 108.9398,
+    tagline: '钟声落在城墙里面',
+    intro:
+      '城墙把老城圈成一个方方正正的日子，钟楼的声每一小时出来走一圈。大雁塔下的风带着土腥味，回民街的辣子香得直白——这里是黄土与长安共用一个名字的地方。',
+    motif: 'wild-goose-pagoda',
+    coverTint: ['#4A3A2C', '#C08A4E'],
+    labelSide: 'left',
+  },
+  {
     id: 'beijing',
     name: '北京',
     nameEn: 'Beijing',
@@ -48,6 +63,34 @@ export const cities: City[] = [
     motif: 'hall-of-prayer',
     coverTint: ['#4A3B36', '#BDA06A'],
     labelSide: 'right',
+  },
+  {
+    id: 'hangzhou',
+    name: '杭州',
+    nameEn: 'Hangzhou',
+    region: '浙江 · 中国',
+    latitude: 30.2741,
+    longitude: 120.1551,
+    tagline: '断桥的雪还没化完',
+    intro:
+      '西湖把城围出一圈柔软的边，柳枝垂到水面上又缩回去。孤山的亭子等人来题名，龙井的茶香混在雨后的泥味里。走得慢一点，才看得出这座城不着急。',
+    motif: 'lake-bridge',
+    coverTint: ['#3E5A55', '#9FB27E'],
+    labelSide: 'right',
+  },
+  {
+    id: 'chengdu',
+    name: '成都',
+    nameEn: 'Chengdu',
+    region: '四川 · 中国',
+    latitude: 30.5728,
+    longitude: 104.0668,
+    tagline: '巷子深处挂着红灯笼',
+    intro:
+      '宽窄巷子的青石板被雨洗得很干净，茶馆的竹椅一排排摆到天黑。火锅的麻香从巷口飘出来，熊猫打了个哈欠，这座城的一天就过得更慢了。',
+    motif: 'alley-lanterns',
+    coverTint: ['#3A4A3C', '#B4653F'],
+    labelSide: 'left',
   },
   {
     id: 'london',

@@ -1,13 +1,13 @@
-import { Link, NavLink, useParams } from 'react-router-dom';
-import { CityMotif } from '../components/city/CityMotif';
-import { cities } from '../data/cities';
+import { NavLink, useParams } from 'react-router-dom';
 import { getSection, sections } from '../data/sections';
 import styles from './SectionPage.module.css';
 
 /**
- * 首页缎带上的四个栏目。
- * 「旅行手账」列出真实存在的城市页，其余三个只说明进度 —— 有入口、有内容，
- * 但不放任何点了没反应的按钮。
+ * 还没内容的三个栏目（灵感发现 / 旅行计划 / 我的）。
+ *
+ * 「旅行手账」不在这个页面里了——它有自己的邮票册（StampAlbumPage），
+ * 路由在 App.tsx 里直接接管，所以这里只会拿到 ready 为 false 的栏目。
+ * 有入口、有诚实的进度说明，但不放任何点了没反应的按钮。
  */
 export function SectionPage() {
   const { sectionId } = useParams<{ sectionId: string }>();
@@ -23,50 +23,24 @@ export function SectionPage() {
         <p className={styles.kicker}>Travel Atlas Book · 手账本目录</p>
         <h1 className={styles.title}>{section.label}</h1>
         <p className={styles.lede}>{section.lede}</p>
-        <span className={section.ready ? `${styles.status} ${styles.statusReady}` : styles.status}>
-          {section.ready ? '已开放' : '即将开放'}
-        </span>
+        <span className={styles.status}>即将开放</span>
       </header>
 
-      {section.id === 'journals' ? (
-        <ul className={styles.shelf}>
-          {cities.map((city) => (
-            <li key={city.id}>
-              <Link className={styles.journal} to={`/city/${city.id}`}>
-                <span className={styles.journalArt} aria-hidden="true">
-                  <CityMotif motif={city.motif} />
-                </span>
-                <strong className={styles.journalName}>
-                  {city.name}
-                  <em>{city.nameEn}</em>
-                </strong>
-                <span className={styles.journalRegion}>{city.region}</span>
-                <span className={styles.journalCta}>翻开这本 →</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <ul className={styles.planned}>
-          {section.items.map((item) => (
-            <li key={item.title} className={styles.plannedItem}>
-              <strong>{item.title}</strong>
-              <p>{item.note}</p>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul className={styles.planned}>
+        {section.items.map((item) => (
+          <li key={item.title} className={styles.plannedItem}>
+            <strong>{item.title}</strong>
+            <p>{item.note}</p>
+          </li>
+        ))}
+      </ul>
 
-      <p className={styles.note}>
-        {section.ready
-          ? '第一阶段能用的就是这些：转动地球、点开图钉、翻开一张明信片，然后走进城市页。'
-          : '这个栏目还在后面的阶段里等着。现在能做的，是回到地球逛逛已经收录的城市。'}
-      </p>
+      <p className={styles.note}>这个栏目还在后面的阶段里等着。现在能做的，是回到地球逛逛已经收录的城市。</p>
 
       <nav className={styles.foot} aria-label="栏目导航">
-        <Link className={styles.home} to="/">
+        <NavLink className={styles.home} to="/">
           ← 回到地球
-        </Link>
+        </NavLink>
         <ul className={styles.otherList}>
           {others.map((item) => (
             <li key={item.id}>
@@ -97,9 +71,9 @@ function UnknownSection({ sectionId }: { sectionId?: string }) {
             </li>
           ))}
         </ul>
-        <Link className={styles.home} to="/">
+        <NavLink className={styles.home} to="/">
           ← 回到地球
-        </Link>
+        </NavLink>
       </section>
     </div>
   );

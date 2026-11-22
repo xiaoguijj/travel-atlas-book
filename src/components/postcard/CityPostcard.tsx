@@ -44,9 +44,9 @@ export function CityPostcard({ city, onClose, origin }: CityPostcardProps) {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [onClose]);
 
-  const openJournal = () => {
+  const openAlbum = () => {
     onClose();
-    navigate(`/city/${city.id}`);
+    navigate('/section/journals');
   };
 
   const coordinates = `${Math.abs(city.latitude).toFixed(2)}°${city.latitude >= 0 ? 'N' : 'S'} ${Math.abs(
@@ -111,7 +111,7 @@ export function CityPostcard({ city, onClose, origin }: CityPostcardProps) {
             </div>
 
             <div className={styles.actions}>
-              <button type="button" className={styles.primary} onClick={openJournal}>
+              <button type="button" className={styles.primary} onClick={openAlbum}>
                 进入旅行手账
               </button>
               <button type="button" className={styles.ghost} onClick={onClose}>

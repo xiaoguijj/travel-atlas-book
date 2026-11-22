@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "data:world": "node scripts/build-world-data.mjs",
-    "data:hero": "node scripts/build-hero-assets.mjs"
+    "data:hero": "node scripts/build-hero-assets.mjs",
+    "data:journal": "node scripts/build-journal-assets.mjs"
   },
   "dependencies": {
     "react": "18.3.1",

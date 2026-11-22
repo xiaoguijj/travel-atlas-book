@@ -4,6 +4,7 @@ import { heroLayoutQuery, heroLayoutSupported } from './config/hero';
 import { CityPage } from './pages/CityPage';
 import { HomePage } from './pages/HomePage';
 import { SectionPage } from './pages/SectionPage';
+import { StampAlbumPage } from './pages/StampAlbumPage';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import styles from './App.module.css';
 
@@ -28,6 +29,9 @@ function Shell() {
 /**
  * 路由用 hash 形式（/#/city/nanjing），静态托管不需要任何服务端 rewrite；
  * 以后部署环境支持 SPA fallback 时，把 createHashRouter 换成 createBrowserRouter 就行。
+ *
+ * 「旅行手账」这一栏就是邮票册那一页，所以直接由 StampAlbumPage 接管；
+ * 另外三个栏目还没有内容，继续走 SectionPage 的说明版式。
  */
 const routes: RouteObject[] = [
   {
@@ -36,6 +40,7 @@ const routes: RouteObject[] = [
     children: [
       { index: true, element: <HomePage /> },
       { path: 'city/:cityId', element: <CityPage /> },
+      { path: 'section/journals', element: <StampAlbumPage /> },
       { path: 'section/:sectionId', element: <SectionPage /> },
       { path: '*', element: <HomePage /> },
     ],

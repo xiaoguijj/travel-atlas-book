@@ -1,0 +1,54 @@
+.turn {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow: hidden;
+  pointer-events: none;
+  perspective: 1800px;
+}
+
+/* 纸绕左侧线圈转：盖住屏幕的一半时间够路由换完内容，翻过去时露出新页 */
+.sheet {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  backface-visibility: hidden;
+  background:
+    linear-gradient(97deg, rgb(0 0 0 / 0.18) 0 2.4%, transparent 3.6%),
+    linear-gradient(96deg, var(--tab-seam), var(--tab-cream) 42%, var(--tab-old-paper));
+  box-shadow: 26px 0 64px rgb(0 0 0 / 0.36);
+  animation: page-turn 620ms cubic-bezier(0.36, 0.06, 0.32, 1) forwards;
+}
+
+/* 纸翻过去时在新页上拖过一道阴影 */
+.shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    96deg,
+    rgb(24 43 54 / 0.5),
+    rgb(24 43 54 / 0.16) 44%,
+    transparent 74%
+  );
+  animation: page-shade 620ms ease-out forwards;
+}
+
+@keyframes page-turn {
+  from {
+    transform: rotateY(0deg);
+  }
+
+  to {
+    transform: rotateY(-172deg);
+  }
+}
+
+@keyframes page-shade {
+  from {
+    opacity: 0.6;
+  }
+
+  to {
+    opacity: 0;
+  }
+}

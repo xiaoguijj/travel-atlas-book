@@ -8,6 +8,9 @@ dist-ssr
 # 本地临时文件：脚本缓存、编辑器缓存、系统垃圾
 .tmp
 *.local
+
+# Qoder Sites 站点绑定描述文件：与本机账号/环境私有绑定，源码仓库不需要它
+*.qoder.site
 .DS_Store
 Thumbs.db
 desktop.ini

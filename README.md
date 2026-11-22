@@ -1,10 +1,11 @@
 # Travel Atlas Book
 
-一本会转的旅行手账。第一阶段只做三件事：**转动地球**、**翻开城市明信片**、**走进城市页**。
+一本会转的旅行手账。**转动地球**、**翻开城市明信片**、**点开邮票册翻到手账页写字**：三件事都做得完。
 
 - 视觉主题：Voyage Vintage（午夜蓝 + 旧纸黄 + 陶土红 + 鼠尾草绿）
 - 首页就是那张画：油灯、罗盘、帆船、缎带导航、三张明信片原样保留，只有画面中间的地球换成了真的 3D 地球
-- 城市：南京、上海、北京（按真实经纬度落在球面上）
+- 城市：南京、上海、西安、北京、杭州、成都（邮票册六枚邮票）+ 伦敦（地球上的第七座）
+- 「旅行手账」入口 → 翻页动画 → 邮票册 → 点任意一枚邮票 → 那座城市的手账页，写满一页自动翻页
 
 ## 快速开始
 
@@ -17,6 +18,7 @@ npm run typecheck  # 只做 tsc --noEmit
 
 npm run data:world # 重新生成陆地轮廓 src/data/world.ts（需要联网）
 npm run data:hero  # 重新压缩首页背景画 src/assets/hero-bg.jpg
+npm run data:journal # 重新压缩邮票册与横线页两张背景画 src/assets/*.jpg
 ```
 
 > 本机 Node 没有装到系统 PATH，实际用的是 `C:\Users\huangju\.workbuddy\binaries\node\versions\22.22.2`。
@@ -42,16 +44,19 @@ npm run data:hero  # 重新压缩首页背景画 src/assets/hero-bg.jpg
 ```
 assets-source/
   home-hero.png     首页参考原图（1671×941，2.8MB，不参与打包）
+  stamp-album.png   邮票册页参考原图（1536×1024，需求方提供）
+  journal-lines.png 横线手账页参考原图（1448×1086，需求方提供）
 src/
   config/
     theme.ts        主题色与字体 token，同时写入 CSS 变量（--tab-*）
     globe.ts        地球参数：半径、贴图尺寸、机位、自转速度、灯光、命中半径
     hero.ts         首页版面的几何：圆孔圆心/半径、导航、铭牌、明信片的热区坐标
+    journal.ts      邮票册六枚邮票的热区、手账页横线与填空的坐标、本子的倾斜角度
   data/
-    cities.ts       城市数据（经纬度、简介、封面配色、标签避让方向）
+    cities.ts       城市数据（经纬度、简介、封面配色、标签避让方向），顺序＝邮票册排列顺序
     sections.ts     缎带导航四个栏目的文案与状态
     types.ts        City 等数据类型
-    roadmap.ts      城市页"即将开放"的功能清单
+    roadmap.ts      邮票册页脚"还没上线"的功能清单
     world.ts        世界陆地板块坐标（由脚本生成，不要手改）
   three/
     createGlobeScene.ts  场景生命周期：渲染器/相机/灯光/交互/每帧投影/销毁
@@ -59,21 +64,26 @@ src/
     coordinates.ts       经纬度 ↔ 球面坐标、朝向判断、"占画面多大→相机多远"
   hooks/
     useMediaQuery.ts     首页用它决定用参考图舞台还是竖版布局
+    useLocalJournal.ts   手账正文按城市存本机 localStorage，写满一页自动分页
   assets/
     hero-bg.jpg     参考图压缩后的首页背景（446KB，JPEG q80）
+    stamp-album.jpg 邮票册页背景（441KB）
+    journal-page.jpg 横线手账页背景（330KB）
   components/
     globe/          Globe（React 与场景的胶水）、CityMarker（图钉按钮）
     postcard/       CityPostcard 复古明信片弹层
     city/           CityMotif 城市剪影 SVG
-    layout/         SiteHeader、VintageDecor（装饰层，不参与交互）
+    layout/         SiteHeader、VintageDecor（装饰层，不参与交互）、PageTurn 翻页遮罩
   pages/
     HomePage.tsx    两套首页：参考图舞台（宽屏）/ 竖版标题+地球（窄屏）
     HomePageArt.module.css  舞台分层与热区样式
-    SectionPage.tsx 旅行手账 / 灵感发现 / 旅行计划 / 我的
-    CityPage.tsx    城市手账占位页
+    StampAlbumPage.tsx 中国城市手账邮票册：整张画 + 六枚邮票热区
+    SectionPage.tsx 灵感发现 / 旅行计划 / 我的
+    CityPage.tsx    横线手账页：Title / Date / 正文盖在画上，写满自动翻页
 scripts/
   build-world-data.mjs  从 Natural Earth 1:110m 生成 src/data/world.ts
   build-hero-assets.mjs 把 assets-source/home-hero.png 压成 src/assets/hero-bg.jpg
+  build-journal-assets.mjs 把两张手账原图压成 src/assets/*.jpg（只压缩不裁切，热区才对得齐）
 ```
 
 ## 首页：一张画 + 一个真地球
@@ -143,18 +153,24 @@ scripts/
 - **首页背景画**：`assets-source/home-hero.png` 由需求方提供，随项目一起提交；仓库里只做等比压缩与 JPEG 编码
   （`scripts/build-hero-assets.mjs`），没有裁剪、重绘或替换画面内容。这张图的著作财产权归属提供方，
   对外公开发布前需要再确认一次使用范围。
+- **手账两页背景画**：`assets-source/stamp-album.png`（邮票册）与 `assets-source/journal-lines.png`（横线页）
+  同样由需求方提供，`scripts/build-journal-assets.mjs` 只做等比压缩；热区坐标全在 `src/config/journal.ts`，
+  所以原图不能裁。版权状态与首页那张一样，公开发布前需要一并确认。
 
 ## 构建产物
 
 ```
-dist/index.html                 1.17 kB │ gzip   0.82 kB
-dist/assets/hero-bg-*.jpg     456.57 kB          首页背景画（宽屏布局才加载）
-dist/assets/index-*.css        30.73 kB │ gzip   7.17 kB
-dist/assets/index-*.js        330.83 kB │ gzip 111.05 kB   应用代码 + 世界地图数据
-dist/assets/three-*.js        466.37 kB │ gzip 117.45 kB   three 单独分包，便于长期缓存
+dist/index.html                   1.17 kB │ gzip   0.82 kB
+dist/assets/hero-bg-*.jpg       456.57 kB          首页背景画（宽屏布局才加载）
+dist/assets/stamp-album-*.jpg   451.05 kB          邮票册页背景画
+dist/assets/journal-page-*.jpg  329.97 kB          横线手账页背景画
+dist/assets/index-*.css          32.07 kB │ gzip   7.77 kB
+dist/assets/index-*.js          341.76 kB │ gzip 116.27 kB   应用代码 + 世界地图数据
+dist/assets/three-*.js          468.09 kB │ gzip 118.09 kB   three 单独分包，便于长期缓存
 ```
 
-背景画是首屏唯一的大文件（也是唯一的图片请求），地球贴图仍然是运行时画的。
+三张背景画加起来约 1.2MB，但各自只在对应的页面才请求：首页只要 hero-bg，邮票册只要 stamp-album，
+手账页只要 journal-page；地球贴图仍然是运行时画的。
 路由是 code-split 之前的单包，`vite build` 已经按 `three` 分包；`index.html` 里内联了背景色，避免白屏一闪。
 
 ## 后续阶段的接入点
@@ -163,8 +179,12 @@ dist/assets/three-*.js        466.37 kB │ gzip 117.45 kB   three 单独分包�
   `loader`）即可，页面组件不关心数据从哪来。`City` 的字段定义在 `src/data/types.ts`。
 - **加城市**：往 `cities` 数组里加一条真实经纬度即可，图钉、明信片、导航、图例自动跟上。
   `labelSide` 字段用来避让挤在一起的城市标签。
-- **手账编辑器（贴纸、照片、文字、保存）**：入口已经留在 `CityPage.tsx`，编辑器作为新路由挂载，
-  不影响第一阶段已经验证的链路。
+- **手账编辑器（贴纸、照片）**：文字与保存已经做完（`CityPage.tsx` + `useLocalJournal.ts`），
+  贴纸和照片上传继续作为新的覆盖层挂在同一张舞台里，坐标体系已经现成。
+- **换一本手账**：`assets-source/` 放两张新原图（邮票册 + 横线页）→ `npm run data:journal` 压缩 →
+  把量到的邮票热区、横线 y/间距、能写的行数、本子的倾斜角度写进 `src/config/journal.ts`。
+  行数受画上的图案限制：横线页左下邮票、右下罗盘从 y≈843 就开始，所以只写到第 14 条线为止，
+  写满自动翻页而不是压到图案上。
 - **多套艺术主题**：颜色只集中在 `src/config/theme.ts`，`applyThemeToDocument()` 写 CSS 变量，
   地球贴图颜色读同一个 token 对象；换主题就是换一个 `AtlasTheme`，必要时重画贴图。
 - **换一张首页画**：`assets-source/` 放原图 → `npm run data:hero` 重新压缩 → 把新量到的圆孔与热区坐标写进
@@ -178,15 +198,22 @@ dist/assets/three-*.js        466.37 kB │ gzip 117.45 kB   three 单独分包�
 
 ## 已知边界
 
-- 第一阶段只放了三座城市，且刻意不做拖拽贴纸、图片上传、保存、路线、Vlog、分享和主题切换。
+- 目前收录 7 座城市：邮票册上的南京、上海、西安、北京、杭州、成都，加上地球上的伦敦。
+  刻意不做拖拽贴纸、图片上传、路线、Vlog、分享和主题切换。
+- 手账正文只写进这台设备的 localStorage（键 `travel-atlas-book.journal.<城市 id>`），
+  没有后端：清浏览器数据会丢，换设备看不到同一本。存不下时页面会如实说明而不是假装已保存。
 - 参考图缎带上的「灵感发现 / 旅行计划 / 我的」属于后续阶段。它们现在指向 `/section/*` 栏目页：
   页面说明这个栏目要做什么、目前还没开放，并给出「回到地球」等真实链接；没有点了没反应的入口。
+  「旅行手账」已经是真的，直接进邮票册页。
 - 南京与上海的图钉在任何缩放级别下都会重叠几个像素（这是真实经纬度的必然结果），
-  靠最近命中 + 画上的明信片 + 缎带栏目页保证三座城市都能进去。
+  靠最近命中 + 画上的明信片 + 缎带栏目页保证每座城市都能进去。
 - 首页舞台需要至少 760×430 的视口；再小就换成竖版首页，而不是把整张画缩到看不清。
   两套布局用的是同一份地球场景配置，只有取景比例不同。
 - WebGL 不可用时地球位置会退化成一组城市按钮，链路（明信片 → 城市页）照样走得通。
 - 交互验证在内置浏览器面板里做的：宽屏舞台与竖版两套布局的几何都逐项量过
   （画布 259.6×259.6、球心与孔心重合、球体屏幕半径 105.1px vs 孔半径 102.3px）、
   缎带五个入口、开始探索、三张明信片、弹层 ESC 关闭、`/#/city/nanjing` 深链都已实测通过，控制台无报错。
+- 手账两页同样是量出来的：六枚邮票热区映射回源图坐标分毫不差；正文首行基线 175.3 对第一条印好的线
+  178（差 2.7px，字坐在线上）；手账页纸面 661.4px 对邮票册里的纸面 661.0px，两页的本子同宽同斜（-1.8°）；
+  连打 225 字跨页写作期间名牌中心坐标恒为 420，一次都不跳。
   真机手机（触屏拖动、双指缩放）和宽屏截图目测还没做——面板当前处于隐藏状态，截屏接口不可用。
