@@ -1,0 +1,44 @@
+/* /book/:bookId 临时接线页的三种说明：正在翻开、打不开、模式还没接上。 */
+
+.note {
+  margin: clamp(24px, 8vh, 72px) auto;
+  color: rgb(232 217 184 / 0.72);
+  font-family: var(--tab-font-ui);
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  text-align: center;
+}
+
+.fallback {
+  display: grid;
+  gap: 12px;
+  max-width: 620px;
+  margin: clamp(16px, 5vh, 48px) auto;
+  padding: 26px 30px 24px;
+  border: 1px solid rgb(176 141 87 / 0.5);
+  border-radius: 4px;
+  background: rgb(9 42 42 / 0.7);
+  box-shadow: 0 12px 26px rgb(3 18 20 / 0.35);
+  text-align: center;
+}
+
+.fallback h1 {
+  margin: 0;
+  color: var(--tab-cream);
+  font-family: var(--tab-font-display);
+  font-size: 1.35rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+.fallback p {
+  margin: 0;
+  color: rgb(232 217 184 / 0.8);
+  font-size: 0.92rem;
+  line-height: 1.9;
+}
+
+.hint {
+  color: rgb(232 217 184 / 0.6) !important;
+  font-size: 12.5px !important;
+}

@@ -1,0 +1,363 @@
+/* ------------------------------------------------------------------ 邮票册
+ * 整张画就是本子的一页，六枚邮票画在画里；热区按量好的票面坐标盖上去，
+ * 默认透明，只在 hover / 聚焦时亮一层暖光并描出齿孔，画面本身不受影响。
+ */
+
+.page {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 22px 16px 28px;
+}
+
+.stage {
+  position: relative;
+  /* 暖光只在画内部混合，不渗到页面深处的午夜蓝上 */
+  isolation: isolate;
+  container-type: inline-size;
+  width: 100%;
+  /* 高度不够时按高度收，整页不用滚动就能看完 */
+  max-width: calc((100vh - 150px) * 1.5);
+  max-width: calc((100dvh - 150px) * 1.5);
+  aspect-ratio: 1536 / 1024;
+  animation: rise-in 700ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+
+.art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  user-select: none;
+  /*
+   * 画心外围那圈木桌不属于本子，裁掉它，让牛皮纸的封面边直接压在深海地图上。
+   * 四个比例是在源图 1440×960 上逐行逐列量到的封面边：左 44、上 6、右 1398、下 912
+   * （左边 44 会削掉装订线圈最外一圈的弧，比留一条木头边更像本子自己的轮廓）。
+   * 裁切只改看得见的像素，画框和六枚热区都按百分比定位，位置一个都没动。
+   */
+  clip-path: polygon(3.06% 0.63%, 97.08% 0.63%, 97.08% 95%, 3.06% 95%);
+  /* 阴影跟着裁出来的形状走，不再是原来那个矩形光晕——矩形阴影正是"贴上去"的来源 */
+  filter: drop-shadow(0 10px 14px rgb(4 10 14 / 0.45)) drop-shadow(0 26px 34px rgb(4 10 14 / 0.3));
+}
+
+.stamps {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.stamp {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  border-radius: 1.2cqw;
+  background: transparent;
+  pointer-events: auto;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(158deg, rgb(255 248 228 / 0.95), rgb(255 224 182 / 0.72));
+  mix-blend-mode: soft-light;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.stamp::after {
+  content: '';
+  position: absolute;
+  inset: 1.4%;
+  border: 0.24cqw dashed rgb(247 240 227 / 0.9);
+  border-radius: 1cqw;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.stamp:hover .glow,
+.stamp:focus-visible .glow,
+.stamp:hover::after,
+.stamp:focus-visible::after {
+  opacity: 1;
+}
+
+.stamp:active {
+  transform: translateY(2px);
+}
+
+.cta {
+  position: absolute;
+  bottom: 7%;
+  left: 50%;
+  translate: -50% 10px;
+  padding: 0.55cqw 1.6cqw;
+  border-radius: 999px;
+  background: rgb(38 63 75 / 0.88);
+  color: var(--tab-cream);
+  font-family: var(--tab-font-ui);
+  font-size: 1.3cqw;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 200ms ease, translate 200ms ease;
+}
+
+.stamp:hover .cta,
+.stamp:focus-visible .cta {
+  opacity: 1;
+  translate: -50% 0;
+}
+
+/* 册子翻到底：邮票只画了六座城，下面留一张"未完待续"的收尾标签 */
+.closing {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  max-width: 62ch;
+  padding: 13px 26px 12px;
+  border: 1px solid rgb(176 141 87 / 0.45);
+  border-radius: 3px;
+  background: rgb(232 217 184 / 0.06);
+  text-align: center;
+}
+
+.closingMain {
+  margin: 0;
+  color: var(--tab-cream);
+  font-family: var(--tab-font-display);
+  font-size: 1.06rem;
+  letter-spacing: 0.06em;
+  line-height: 1.6;
+}
+
+.closingSub {
+  margin: 0;
+  color: rgb(232 217 184 / 0.78);
+  font-size: 0.86rem;
+  line-height: 1.8;
+}
+
+.closingFoot {
+  margin: 3px 0 0;
+  padding-top: 8px;
+  border-top: 1px dashed rgb(176 141 87 / 0.5);
+  color: rgb(232 217 184 / 0.6);
+  font-size: 11.5px;
+  letter-spacing: 0.22em;
+}
+
+/* 还没做的功能用虚线标签摆在这里，免得这一页看起来像已经写满了 */
+.roadmap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.roadmapLabel {
+  color: rgb(232 217 184 / 0.5);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+}
+
+.roadmap li:not(.roadmapLabel) {
+  padding: 3px 12px;
+  border: 1px dashed rgb(176 141 87 / 0.45);
+  border-radius: 999px;
+  color: rgb(232 217 184 / 0.7);
+  font-size: 12.5px;
+}
+
+/* ------------------------------------------------------------------ 收藏状态 */
+
+/*
+ * 已藏的小日期贴在票面右下角：邮票本身是画出来的，这里只多一行淡墨，
+ * 不去遮挡齿孔和票面上的地名。
+ */
+.collected {
+  position: absolute;
+  right: 8%;
+  bottom: 8%;
+  padding: 0.25cqw 0.7cqw;
+  border-radius: 2px;
+  background: rgb(28 46 44 / 0.62);
+  color: rgb(255 218 163 / 0.92);
+  font-family: var(--tab-font-ui);
+  font-size: 1.05cqw;
+  letter-spacing: 0.06em;
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------------ 城市书架 */
+
+.shelf {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 760px);
+  padding: 18px 22px 16px;
+  border: 1px solid rgb(176 141 87 / 0.5);
+  border-radius: 4px;
+  background: rgb(9 42 42 / 0.72);
+  box-shadow: 0 12px 26px rgb(3 18 20 / 0.35);
+  animation: rise-in 420ms ease both;
+}
+
+.shelfHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed rgb(176 141 87 / 0.45);
+}
+
+.shelfTitle {
+  margin: 0;
+  color: var(--tab-cream);
+  font-family: var(--tab-font-display);
+  font-size: 1.15rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+.shelfTitle span {
+  margin-left: 8px;
+  color: rgb(232 217 184 / 0.6);
+  font-family: var(--tab-font-ui);
+  font-size: 0.76rem;
+  letter-spacing: 0.14em;
+}
+
+.shelfClose,
+.shelfRetry {
+  padding: 4px 12px;
+  border: 1px solid rgb(176 141 87 / 0.55);
+  border-radius: 999px;
+  background: transparent;
+  color: rgb(247 240 227 / 0.86);
+  font-family: var(--tab-font-ui);
+  font-size: 12.5px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: border-color 200ms ease, background-color 200ms ease;
+}
+
+.shelfClose:hover,
+.shelfRetry:hover,
+.shelfClose:focus-visible,
+.shelfRetry:focus-visible {
+  border-color: #e9a55c;
+  background: rgb(6 40 40 / 0.6);
+}
+
+.bookList {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.book {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 2px 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 14px;
+  border: 1px solid rgb(232 217 184 / 0.2);
+  border-radius: 3px;
+  background: rgb(232 217 184 / 0.05);
+  color: var(--tab-cream);
+  font-family: var(--tab-font-ui);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 200ms ease, background-color 200ms ease;
+}
+
+.book:hover,
+.book:focus-visible {
+  border-color: rgb(233 165 92 / 0.75);
+  background: rgb(232 217 184 / 0.1);
+}
+
+.book strong {
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.book em {
+  color: rgb(255 218 163 / 0.85);
+  font-size: 12px;
+  font-style: normal;
+  letter-spacing: 0.1em;
+}
+
+.book span {
+  grid-column: 1 / -1;
+  color: rgb(232 217 184 / 0.55);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+/* 主操作按钮：命中区同样不低于 40px，和顶栏那颗返回胶囊一个规矩 */
+.newBook {
+  justify-self: start;
+  min-height: 40px;
+  padding: 0 20px;
+  border: 1px solid rgb(176 141 87 / 0.72);
+  border-radius: 999px;
+  background: rgb(6 40 40 / 0.42);
+  color: var(--tab-cream);
+  font-family: var(--tab-font-ui);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: border-color 200ms ease, background-color 200ms ease, transform 200ms ease;
+}
+
+.newBook:hover,
+.newBook:focus-visible {
+  border-color: #e9a55c;
+  background: rgb(6 40 40 / 0.72);
+}
+
+.newBook:active {
+  transform: translateY(1px);
+}
+
+.newBook:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.shelfHint,
+.shelfFoot {
+  margin: 0;
+  color: rgb(232 217 184 / 0.62);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.notice {
+  margin: 0;
+  padding: 8px 14px;
+  border: 1px dashed rgb(233 165 92 / 0.55);
+  border-radius: 3px;
+  background: rgb(9 42 42 / 0.6);
+  color: rgb(255 218 163 / 0.92);
+  font-size: 13px;
+  line-height: 1.7;
+}

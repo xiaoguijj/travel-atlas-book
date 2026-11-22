@@ -1,19 +1,20 @@
 # V1-04 素材与来源登记
 
-2026-11-22 · `v1/04-city-art`
+2026-11-22 · `v1/04-city-art`（创作方式选择页一张随 V1-06 `v1/06-city-stamps` 补入本表）
 
 这一页只登记「素材从哪来、放在哪、谁在用、坐标按哪张图量」。运行方式见根目录 README，
 数据形状与 ID 规则以 [公共契约](../contracts.md) 为准。
 
 ## 纸张整画
 
-两张都是「整张画 + 叠在画上的真控件」：邮票、印好的 Title/Date 填空和横线全部画在图里，
+三张都是「整张画 + 叠在画上的真控件」：邮票、两张卡片、印好的 Title/Date 填空和横线全部画在图里，
 页面上只放真的可点、可输入的元素，按源图像素坐标量出的热区对位。
-热区坐标的出处与量法见 `src/config/journal.ts`（V1-06 / V1-07 接入时补）。
+热区坐标的出处与量法见 `src/config/journal.ts`（收藏册与创作模式选择页随 V1-06 入表，横线页归 V1-07）。
 
 | 源图 | 尺寸 | 运行时产物 | 生成命令 | 用在 |
 | --- | --- | --- | --- | --- |
 | `assets-source/stamp-album.png` | 1536×1024 | `src/assets/stamp-album.jpg`（1440 宽，JPEG 78） | `npm run data:paper` | 城市邮票收藏册 |
+| `assets-source/create-mode.png` | 1448×1086 | `src/assets/create-mode.jpg`（1440 宽，JPEG 78） | `npm run data:paper` | 创作方式选择页 |
 | `assets-source/journal-lines.png` | 1448×1086 | `src/assets/journal-page.jpg`（1440 宽，JPEG 78） | `npm run data:paper` | Journal 横线日记本 |
 
 源图与压缩件一起入库：热区是按源图像素量的，只留压缩件的话换图后重量坐标会失去依据。

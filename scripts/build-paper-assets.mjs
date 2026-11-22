@@ -3,7 +3,7 @@
  *
  *   npm run data:paper
  *
- * 邮票册与横线日记本都是「整张画 + 叠在画上的真控件」：六枚邮票、印好的 Title/Date 填空和
+ * 邮票册、创作模式选择页、横线日记本都是「整张画 + 叠在画上的真控件」：六枚邮票、两张卡片、印好的 Title/Date 填空和
  * 横线全在画里，页面靠源图像素坐标量出的热区去对位（坐标见 src/config/journal.ts）。
  * 所以这里只做等比缩放和 JPEG 压缩，**一律不裁切**——裁一刀，画上的邮票和热区就错位了。
  *
@@ -18,6 +18,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const targets = [
   { from: 'assets-source/stamp-album.png', to: 'src/assets/stamp-album.jpg', width: 1440, quality: 78 },
+  { from: 'assets-source/create-mode.png', to: 'src/assets/create-mode.jpg', width: 1440, quality: 78 },
   { from: 'assets-source/journal-lines.png', to: 'src/assets/journal-page.jpg', width: 1440, quality: 78 },
 ];
 
