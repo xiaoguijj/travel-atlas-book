@@ -68,6 +68,8 @@ export const globeConfig = {
     fadeTo: 0.3,
     /** 命中半径：南京和上海只差 2.7°，图钉会挤在一起，按"最近的一个"决定点谁 */
     pickRadiusPx: 18,
+    /** 触屏手指比鼠标粗，命中半径放大到 28px，仍按最近的城市判定，不会改变优先级 */
+    pickRadiusCoarsePx: 28,
   },
   material: { roughness: 0.94, metalness: 0.02 },
 } as const;

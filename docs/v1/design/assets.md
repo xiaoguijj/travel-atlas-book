@@ -54,9 +54,9 @@ ID 为 `<cityId>-postmark`，`motif` 直接取自城市目录，保证邮票地�
   解析不到就按编号占位，不在正文里留 URL。
 - 窄屏（≤820px）不缩坐标也不缩字号：台面保持 760px 下限，整本横向滚动，
   这样正文仍有 13.6px、工具条那颗 42px 高的带子装得下 40px 的按钮。
-- 页面暂由 `src/pages/JournalMountPage.tsx` 挂（V1-05 的手账壳还没到），壳合入 main 后换掉那一处挂载即可，
-  编辑器和 `src/config/journal.ts` 的几何都不动。照片/贴纸插入按钮已经画好，点了给「还没接入」提示，
-  接入走 V1-05 的素材面板。
+- 页面由手账壳（V1-05 的 `BookShell`）懒加载 `src/components/journal/JournalView.tsx` 挂载，
+  编辑器和 `src/config/journal.ts` 的几何都不动；纸上的 Title / Date 两行由 JournalView 按书记录填写。
+  照片/贴纸插入按钮走 V1-05 的素材面板：`onOpenAssetPanel` 开抽屉，`insertionRequest` / `onInsertionHandled` 完成插入回执。
 
 ## 下一阶段（未提交）
 

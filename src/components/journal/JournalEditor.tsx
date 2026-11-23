@@ -24,7 +24,7 @@ import styles from './JournalEditor.module.css';
  * 外壳（那张牛皮纸、Title / Date 两行、城市铭牌）由手账壳画，这一层只往上贴两块：
  * 横线区里的正文、和画在下沿空带上的工具条。两块都按 `src/config/journal.ts` 里
  * 量自源图的坐标绝对定位，所以挂载它的父级必须是 `position: relative` 的画框，
- * 并把 `--rule-step` / `--body-size` 两个源图换算出来的变量传下来（见 JournalMountPage）。
+ * 并把 `--rule-step` / `--body-size` 两个源图换算出来的变量传下来（见 JournalView）。
  *
  * 行高恒等于印好的线距（47.6px 换算成 cqw），字体用画上手写体的那一款，字才坐在线上而不是飘着。
  * 格式只放不改变行高的那几样：加粗、斜体、下划线 —— 标题会把行撑高，一撑高整页横线就错位。

@@ -1,31 +1,31 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import createModeArtwork from '../assets/create-mode.jpg';
-import { isJournalBlank } from '../components/journal/journalDoc';
-import { PageTurn } from '../components/layout/PageTurn';
-import { albumBack } from '../config/innerLayout';
-import { journalBookPath } from '../config/routes';
-import { artBoxStyle, createModeArt, createModePillBg, createModeZones } from '../config/journal';
-import type { TravelBook } from '../data/contracts';
-import type { City } from '../data/types';
-import styles from './CreateModePage.module.css';
+import createModeArtwork from '../../assets/create-mode.jpg';
+import { isJournalBlank } from '../journal/journalDoc';
+import { PageTurn } from '../layout/PageTurn';
+import { albumBack } from '../../config/innerLayout';
+import { journalBookPath } from '../../config/routes';
+import { artBoxStyle, createModeArt, createModePillBg, createModeZones } from '../../config/journal';
+import type { TravelBook } from '../../data/contracts';
+import type { City } from '../../data/types';
+import styles from './ModeSelect.module.css';
 
 const collageWipNote =
   '自由拼贴编辑器是 V1-08，还在独立开发，之后通过 PR 接入。' + '现在点它只会看到这条说明——不会跳进一个空的假编辑器。';
 
 /**
- * 创作方式选择页（参考图 assets-source/create-mode.png）。
+ * `/book/:bookId` 的创作模式选择页（参考图 assets-source/create-mode.png）。
  *
  * 和邮票册、横线页同一个做法：整张画铺在舞台上，两张卡片是量好坐标的透明热区，
  * 悬停时亮一层暖光并描出边，画面本身不重画。
  *
  * 画上有两处是写死的内容，得用真实 DOM 整只盖掉重画：右上角「当前城市：Peru 秘鲁」
- * 要跟着点的邮票变，左上角返回胶囊要和其它页面一样大（画上的那颗会跟着画面一起缩）。
+ * 要跟着打开的书变，左上角返回胶囊要和其它页面一样大（画上的那颗会跟着画面一起缩）。
  *
- * 书的记录由 `/book/:bookId` 那条路由读好后传进来（见 BookRoutePage），本页不碰数据库：
+ * 书本记录由 BookPage 读好后传进来（V1-05 壳），本页不碰数据库：
  * 「继续写 / 开始写」看的是这本书记录里有没有真的写过（只剩一个空段落算没动笔），不是本机另存的一份草稿。
  */
-export function CreateModePage({ book, city }: { book: TravelBook; city: City }) {
+export function ModeSelect({ book, city }: { book: TravelBook; city: City }) {
   const [notice, setNotice] = useState<string | null>(null);
   const back = albumBack(city.id);
   const resumed = !isJournalBlank(book.journal);

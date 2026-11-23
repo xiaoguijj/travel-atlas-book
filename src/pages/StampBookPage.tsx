@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import albumArtwork from '../assets/stamp-album.jpg';
 import { PageTurn } from '../components/layout/PageTurn';
 import { InnerPageLayout } from '../components/layout/InnerPageLayout';
@@ -29,7 +29,7 @@ import styles from './StampBookPage.module.css';
 export function StampBookPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const selectedCityId = searchParams.get('city');
+  const selectedCityId = searchParams.get('cityId');
   const [collections, setCollections] = useState<StampCollection[]>([]);
   const [storageNotice, setStorageNotice] = useState<string | null>(null);
 
@@ -60,8 +60,8 @@ export function StampBookPage() {
 
   const toggleShelf = (cityId: string) => {
     const next = new URLSearchParams(searchParams);
-    if (next.get('city') === cityId) next.delete('city');
-    else next.set('city', cityId);
+    if (next.get('cityId') === cityId) next.delete('cityId');
+    else next.set('cityId', cityId);
     setSearchParams(next);
   };
 
@@ -134,7 +134,7 @@ export function StampBookPage() {
             collectedAt={selectedStamp ? collectedBy.get(selectedStamp.id) : undefined}
             onClose={() => {
               const next = new URLSearchParams(searchParams);
-              next.delete('city');
+              next.delete('cityId');
               setSearchParams(next);
             }}
             onCollect={selectedStamp ? () => collect(selectedStamp.id) : undefined}
@@ -314,4 +314,14 @@ function CityShelf({
 
 function readable(error: unknown, fallback: string): string {
   return isDataError(error) ? error.message : fallback;
+}
+
+/** `/stamps` 是 `/section/journals` 的别名；保留有效查询参数，丢掉无效 cityId。 */
+export function StampsAliasPage() {
+  const [searchParams] = useSearchParams();
+  const next = new URLSearchParams(searchParams);
+  const cityId = next.get('cityId');
+  if (cityId && !getCityById(cityId)) next.delete('cityId');
+  const query = next.toString();
+  return <Navigate replace to={query ? `/section/journals?${query}` : '/section/journals'} />;
 }
