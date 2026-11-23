@@ -9,7 +9,7 @@ import type {
   PlanDraft,
   PlanSaveConfirmation,
 } from './types';
-import { normalizePlanDraft, requirePlanCity } from './validation';
+import { normalizePlanDraft, requirePlanCity, type NormalizedPlanDraft } from './validation';
 
 export interface PlanRepositoryOptions {
   /** 测试可注入固定时钟；生产缺省使用当前 UTC 时间。 */
@@ -47,6 +47,23 @@ function confirmationChanged(preview: PlanChangePreview): DataError {
     reason: 'CONFIRMATION_CHANGED',
     preview,
   });
+}
+
+/**
+ * 草稿带 baseUpdatedAt 时，要求事务里读到的计划仍是同一次加载的版本。
+ * 其他窗口只要保存过计划（哪怕只是加了当天一个条目），这里都会拒绝覆盖。
+ */
+function assertPlanUnchanged(
+  existing: TravelPlan | undefined,
+  normalized: NormalizedPlanDraft,
+): void {
+  if (existing && normalized.baseUpdatedAt && existing.updatedAt !== normalized.baseUpdatedAt) {
+    throw new DataError('INVALID_PLAN', '计划已在其他窗口修改，请刷新页面后重新打开再保存', {
+      reason: 'PLAN_CHANGED',
+      baseUpdatedAt: normalized.baseUpdatedAt,
+      currentUpdatedAt: existing.updatedAt,
+    });
+  }
 }
 
 /**
@@ -94,6 +111,7 @@ export function createPlanRepository(
         if (normalized.id && !existing) {
           throw new DataError('INVALID_PLAN', '旅行计划不存在或已被删除', { planId: normalized.id });
         }
+        assertPlanUnchanged(existing, normalized);
         const linkedBooks = existing ? await loadLinkedBooks(existing.id) : [];
         return analyzePlanChange(existing, normalized, linkedBooks);
       } catch (error) {
@@ -123,6 +141,7 @@ export function createPlanRepository(
           if (normalized.id && !existing) {
             throw new DataError('INVALID_PLAN', '旅行计划不存在或已被删除', { planId: normalized.id });
           }
+          assertPlanUnchanged(existing, normalized);
           const timestamp = now();
           const linkedBooks = existing ? await loadLinkedBooks(existing.id) : [];
           const preview = analyzePlanChange(existing, normalized, linkedBooks);

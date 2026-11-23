@@ -230,6 +230,54 @@ describe('plan repository', () => {
     await expect(repository.deletePlan('')).rejects.toMatchObject({ code: 'INVALID_PLAN' });
   });
 
+  it('rejects stale drafts after another window saves the plan', async () => {
+    const created = await repository.savePlan(draft());
+    const stale = withId(created, { baseUpdatedAt: created.updatedAt, endDate: '2026-12-01' });
+
+    clock.advance(1000);
+    const concurrent = await repository.savePlan(
+      withId(created, {
+        days: [
+          { date: '2026-12-01', cityId: 'nanjing', items: [item('item-1', '中山陵', { time: '09:30' })] },
+          {
+            date: '2026-12-02',
+            items: [item('item-2', '玄武湖'), item('item-3', '并发新增条目')],
+          },
+        ],
+      }),
+    );
+    expect(concurrent.updatedAt).not.toBe(created.updatedAt);
+
+    await expect(repository.previewPlanChange(stale)).rejects.toMatchObject({
+      code: 'INVALID_PLAN',
+      details: { reason: 'PLAN_CHANGED' },
+    });
+    await expect(
+      repository.savePlan(stale, {
+        removedDates: ['2026-12-02'],
+        clearedDates: [],
+        unlinkedBookIds: [],
+      }),
+    ).rejects.toMatchObject({ code: 'INVALID_PLAN', details: { reason: 'PLAN_CHANGED' } });
+
+    const kept = await repository.getPlan(created.id);
+    expect(kept?.endDate).toBe('2026-12-02');
+    expect(kept?.days[1].items.map((entry) => entry.title)).toEqual(['玄武湖', '并发新增条目']);
+
+    // 重新加载后的草稿带上最新版本即可正常保存。
+    const fresh = withId(concurrent, { baseUpdatedAt: concurrent.updatedAt, endDate: '2026-12-01' });
+    await expect(repository.previewPlanChange(fresh)).resolves.toMatchObject({
+      requiresConfirmation: true,
+    });
+    const saved = await repository.savePlan(fresh, {
+      removedDates: ['2026-12-02'],
+      clearedDates: [],
+      unlinkedBookIds: [],
+    });
+    expect(saved.endDate).toBe('2026-12-01');
+    expect(saved.days.map((day) => day.date)).toEqual(['2026-12-01']);
+  });
+
   it('validates cities, dates, items and day structure', async () => {
     await expect(repository.savePlan(draft({ title: '   ' }))).rejects.toMatchObject({
       code: 'INVALID_TITLE',

@@ -14,6 +14,11 @@ export const CHINA_MAP_BOUNDS = {
 
 export type MapLabelSide = 'left' | 'right' | 'bottom';
 
+export interface MobileMarkerShift {
+  x: number;
+  y: number;
+}
+
 export interface CityMapPoint {
   cityId: string;
   name: string;
@@ -22,6 +27,8 @@ export interface CityMapPoint {
   xPercent: number;
   yPercent: number;
   labelSide: MapLabelSide;
+  /** 窄屏下点位互让的像素偏移；桌面为 0，避免密集点位互相盖住点击区。 */
+  mobileShift: MobileMarkerShift;
 }
 
 /** 宁沪杭三城点位密集，标签朝向错开，窄屏也不叠字。 */
@@ -32,6 +39,17 @@ const LABEL_SIDES: Record<string, MapLabelSide> = {
   beijing: 'right',
   xian: 'left',
   chengdu: 'left',
+};
+
+/**
+ * 窄屏（≤640px）下，宁沪杭三个点位的中心只相差约 10px，
+ * 26px 的点击区会互相覆盖并导致错城。这里让三点在保持大致方位的
+ * 前提下微微外移，确保每个点的中心都能命中自己。
+ */
+const MOBILE_SHIFTS: Record<string, MobileMarkerShift> = {
+  nanjing: { x: -6, y: -18 },
+  shanghai: { x: 0, y: -4 },
+  hangzhou: { x: 4, y: 20 },
 };
 
 export function projectLonLat(longitude: number, latitude: number): { xPercent: number; yPercent: number } {
@@ -56,6 +74,7 @@ export function listCityMapPoints(): CityMapPoint[] {
       xPercent,
       yPercent,
       labelSide: LABEL_SIDES[cityId] ?? 'right',
+      mobileShift: MOBILE_SHIFTS[cityId] ?? { x: 0, y: 0 },
     });
   }
   return points;

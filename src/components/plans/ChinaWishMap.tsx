@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import chinaMapUrl from '../../assets/maps/china-outline.svg';
 import { planCityPath } from '../../config/planRoutes';
@@ -31,7 +32,12 @@ export function ChinaWishMap({ wishedCityIds }: ChinaWishMapProps) {
             <Link
               key={point.cityId}
               className={`${styles.marker} ${wished ? styles.wished : ''} ${sideClass[point.labelSide] ?? ''}`}
-              style={{ left: `${point.xPercent}%`, top: `${point.yPercent}%` }}
+              style={{
+                left: `${point.xPercent}%`,
+                top: `${point.yPercent}%`,
+                '--marker-shift-x': `${point.mobileShift.x}px`,
+                '--marker-shift-y': `${point.mobileShift.y}px`,
+              } as CSSProperties}
               to={planCityPath(point.cityId)}
               aria-label={`${point.name}，${wished ? '已标记愿望' : '未标记愿望'}，进入城市计划页`}
               data-wished={wished ? 'true' : 'false'}

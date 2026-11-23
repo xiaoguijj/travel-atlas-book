@@ -63,6 +63,7 @@ function initialDayStates(draft: PlanDraft): Record<string, DayState> {
 export function toPlanDraft(plan: TravelPlan): PlanDraft {
   return {
     id: plan.id,
+    baseUpdatedAt: plan.updatedAt,
     title: plan.title,
     cityIds: plan.cityIds,
     startDate: plan.startDate,
@@ -77,6 +78,7 @@ export function toPlanDraft(plan: TravelPlan): PlanDraft {
  */
 export function PlanForm({ mode, initialDraft, cancelTo, cancelLabel, onSaved, onDeleted }: PlanFormProps) {
   const [title, setTitle] = useState(initialDraft.title);
+  const [baseUpdatedAt, setBaseUpdatedAt] = useState(initialDraft.baseUpdatedAt);
   const [cityIds, setCityIds] = useState(initialDraft.cityIds);
   const [startDate, setStartDate] = useState<LocalDate>(initialDraft.startDate);
   const [endDate, setEndDate] = useState<LocalDate>(initialDraft.endDate);
@@ -204,12 +206,13 @@ export function PlanForm({ mode, initialDraft, cancelTo, cancelLabel, onSaved, o
           })),
         };
       });
-    return { id: initialDraft.id, title, cityIds, startDate, endDate, days: draftDays };
+    return { id: initialDraft.id, baseUpdatedAt, title, cityIds, startDate, endDate, days: draftDays };
   }
 
   function finishSave(plan: TravelPlan, isNew: boolean) {
     // 保存后以仓储返回的计划为准，丢掉被缩短掉的旧日程，避免再次拉长时“复活”它们。
     setTitle(plan.title);
+    setBaseUpdatedAt(plan.updatedAt);
     setCityIds(plan.cityIds);
     setStartDate(plan.startDate);
     setEndDate(plan.endDate);

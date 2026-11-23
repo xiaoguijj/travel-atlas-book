@@ -442,6 +442,7 @@ npm run test:e2e                  # 先构建再跑生产预览
 - `days` 按日期升序，`items` 顺序即显示顺序；跨表清理与计划保存放同一事务。
 - 实装入口：`src/data/wishes`（`listWishes` / `getWish` / `saveWish` / `removeWish`）与 `src/data/plans`（`listPlans` / `getPlan` / `savePlan` / `deletePlan`，另含 `previewPlanChange`、`previewPlanDelete`）。
 - 保存需要确认而调用方未提供确认集合时抛 `INVALID_PLAN`，`details.reason` 为 `CONFIRMATION_REQUIRED`；确认期间影响变化时同样抛 `INVALID_PLAN`，`details.reason` 为 `CONFIRMATION_CHANGED` 并附最新 `preview`。
+- 草稿带 `baseUpdatedAt`（加载计划时的 `updatedAt`）时，预览与保存都会校验计划版本；其他窗口已保存过计划则抛 `INVALID_PLAN`，`details.reason` 为 `PLAN_CHANGED`，不覆盖新内容。前端表单在保存成功后更新该基准值。
 
 ### V1-10 · 关联联动
 

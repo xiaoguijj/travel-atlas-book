@@ -57,7 +57,12 @@ export function PlanNewPage() {
           initialDraft={initialDraft}
           cancelTo={back.to}
           cancelLabel={back.label}
-          onSaved={(plan) => navigate(planPath(plan.id), { replace: true })}
+          onSaved={(plan) =>
+            navigate(planPath(plan.id), {
+              replace: true,
+              state: validCity ? { fromCityId: validCity.id } : undefined,
+            })
+          }
         />
       </div>
     </InnerPageLayout>

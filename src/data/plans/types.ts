@@ -1,4 +1,4 @@
-import type { LocalDate, PlanDay, TravelPlan } from '../contracts';
+import type { IsoDateTime, LocalDate, PlanDay, TravelPlan } from '../contracts';
 
 /**
  * 表单提交的计划草稿。带 `id` 表示更新已有计划，否则新建。
@@ -6,6 +6,8 @@ import type { LocalDate, PlanDay, TravelPlan } from '../contracts';
  */
 export interface PlanDraft {
   id?: string;
+  /** 加载计划时的 updatedAt；保存/预览会据此拦截其他窗口的并发修改。 */
+  baseUpdatedAt?: IsoDateTime;
   title: string;
   cityIds: string[];
   startDate: LocalDate;

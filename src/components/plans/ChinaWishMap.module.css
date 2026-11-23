@@ -169,6 +169,7 @@
     width: 26px;
     height: 26px;
     margin: -13px 0 0 -13px;
+    transform: translate(var(--marker-shift-x, 0px), var(--marker-shift-y, 0px));
   }
 
   .label {

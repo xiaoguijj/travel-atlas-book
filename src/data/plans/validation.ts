@@ -3,6 +3,7 @@ import {
   DataError,
   MAX_BOOK_TITLE_LENGTH,
   type BusinessCityId,
+  type IsoDateTime,
   type LocalDate,
   type LocalTime,
   type PlanDay,
@@ -44,6 +45,7 @@ export function normalizePlanTitle(title: string): string {
 
 export interface NormalizedPlanDraft {
   id?: string;
+  baseUpdatedAt?: IsoDateTime;
   title: string;
   cityIds: string[];
   startDate: LocalDate;
@@ -173,6 +175,10 @@ export function normalizePlanDraft(draft: PlanDraft): NormalizedPlanDraft {
     throw invalidPlan('旅行计划内容无效');
   }
   const id = normalizeDraftId(draft.id);
+  const baseUpdatedAt =
+    id && typeof draft.baseUpdatedAt === 'string' && draft.baseUpdatedAt.trim()
+      ? draft.baseUpdatedAt.trim()
+      : undefined;
   const title = normalizePlanTitle(draft.title);
   const cityIds = normalizeCityIds(draft.cityIds);
   const { startDate, endDate } = normalizeRange(draft.startDate, draft.endDate);
@@ -203,5 +209,5 @@ export function normalizePlanDraft(draft: PlanDraft): NormalizedPlanDraft {
     (date): PlanDay => draftDays.get(date) ?? { date, items: [] },
   );
 
-  return { id, title, cityIds, startDate, endDate, days };
+  return { id, baseUpdatedAt, title, cityIds, startDate, endDate, days };
 }

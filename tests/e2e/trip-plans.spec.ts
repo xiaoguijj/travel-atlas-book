@@ -65,7 +65,9 @@ test('wish map: six city markers, save note, refresh and remove', async ({ page 
 
 test('plan: create a multi-city two-day trip, reorder, reopen, unlink and delete', async ({ page }) => {
   const errors = watchRuntimeErrors(page);
-  await page.goto('/#/plan/new?cityId=nanjing');
+  await page.goto('/#/plan/city/nanjing');
+  await page.getByRole('link', { name: '新建一趟行程' }).click();
+  await page.waitForURL(/plan\/new\?cityId=nanjing/);
   await expect(page.getByRole('heading', { level: 1, name: '从南京出发' })).toBeVisible();
   await expect(page.getByRole('checkbox', { name: /南京/ })).toBeChecked();
 
@@ -96,6 +98,10 @@ test('plan: create a multi-city two-day trip, reorder, reopen, unlink and delete
   await page.waitForURL(/#\/plan\/[0-9a-f-]{36}$/);
   const planId = planIdFromUrl(page);
   expect(planId).toMatch(/[0-9a-f-]{36}/);
+  await expect(page.getByRole('link', { name: '返回南京计划' }).first()).toHaveAttribute(
+    'href',
+    /#\/plan\/city\/nanjing/,
+  );
 
   await page.reload();
   await expect(page.getByRole('heading', { level: 1, name: '南京与西安两日' })).toBeVisible();
@@ -167,6 +173,48 @@ test('plan: date validation and shortened-range confirmation', async ({ page }) 
   expect(errors).toEqual([]);
 });
 
+test('concurrent plan edits are rejected instead of deleting newer items', async ({ page, context }) => {
+  const errors = watchRuntimeErrors(page);
+  await page.goto('/#/plan/new?cityId=nanjing');
+  await page.getByLabel('行程标题').fill('并发保护');
+  await page.getByLabel('开始日期').fill('2026-12-01');
+  await page.getByLabel('结束日期').fill('2026-12-02');
+  const dayTwo = page.locator('article[data-date="2026-12-02"]');
+  await dayTwo.getByRole('button', { name: '＋ 添加景点' }).click();
+  await dayTwo.getByLabel(/第1项景点/).fill('原始条目');
+  await page.getByRole('button', { name: '保存行程' }).click();
+  await page.waitForURL(/#\/plan\/[0-9a-f-]{36}$/);
+  const planUrl = page.url();
+
+  const other = await context.newPage();
+  await other.goto(planUrl);
+  await expect(other.getByRole('heading', { level: 1, name: '并发保护' })).toBeVisible();
+
+  await page.getByLabel('结束日期').fill('2026-12-01');
+  await page.getByRole('button', { name: '保存修改' }).click();
+  await expect(page.getByRole('dialog', { name: '保存前确认影响' })).toContainText('2026-12-02');
+
+  await other.reload();
+  const otherDayTwo = other.locator('article[data-date="2026-12-02"]');
+  await otherDayTwo.getByRole('button', { name: '＋ 添加景点' }).click();
+  await otherDayTwo.getByLabel(/第2项景点/).fill('并发新增条目');
+  await other.getByRole('button', { name: '保存修改' }).click();
+  await expect(other.getByRole('status')).toContainText('已保存');
+
+  await page.getByRole('button', { name: '确认并保存' }).click();
+  await expect(page.getByRole('alert')).toContainText('其他窗口');
+  await expect(page.getByRole('dialog')).toBeHidden();
+
+  await page.reload();
+  await expect(page.getByLabel('结束日期')).toHaveValue('2026-12-02');
+  await expect(
+    page.locator('article[data-date="2026-12-02"]').getByLabel(/第2项景点/),
+  ).toHaveValue('并发新增条目');
+
+  await other.close();
+  expect(errors).toEqual([]);
+});
+
 test('invalid plan routes and narrow viewport keep a way back to the map', async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -186,6 +234,32 @@ test('invalid plan routes and narrow viewport keep a way back to the map', async
       external.push(url);
     }
   });
+  await page.goto('/#/section/plans');
+  await expect(page.getByRole('link', { name: /成都，未标记愿望/ })).toBeVisible();
+
+  const mismatchedMarkers = await page.evaluate(() => {
+    const links = [...document.querySelectorAll('a[href*="/plan/city/"]')].filter((anchor) =>
+      anchor.getAttribute('aria-label')?.includes('愿望'),
+    );
+    return links
+      .map((anchor) => {
+        const rect = anchor.getBoundingClientRect();
+        const hit = document
+          .elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+          ?.closest('a');
+        return {
+          expected: anchor.getAttribute('aria-label'),
+          actual: hit?.getAttribute('aria-label') ?? null,
+        };
+      })
+      .filter((entry) => entry.expected !== entry.actual);
+  });
+  expect(mismatchedMarkers).toEqual([]);
+
+  await page.getByRole('link', { name: /上海，未标记愿望/ }).click();
+  await page.waitForURL(/plan\/city\/shanghai/);
+  await expect(page.getByRole('heading', { level: 1, name: '上海的计划页' })).toBeVisible();
+
   await page.goto('/#/section/plans');
   await expect(page.getByRole('link', { name: /成都，未标记愿望/ })).toBeVisible();
   await page.getByRole('link', { name: /成都，未标记愿望/ }).click();
