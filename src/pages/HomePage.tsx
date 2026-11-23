@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import heroBg from '../assets/hero-bg.jpg';
 import { CityMotif } from '../components/city/CityMotif';
@@ -26,13 +26,16 @@ import artStyles from './HomePageArt.module.css';
 import classicStyles from './HomePage.module.css';
 
 type Point = { x: number; y: number };
-type CityJourney =
-  | { city: City; phase: 'flying' | 'arrived' }
-  | { city: City; phase: 'open'; origin?: Point };
+type CityJourney = { city: City; opener: HTMLButtonElement } & (
+  | { phase: 'flying' | 'arrived' }
+  | { phase: 'open'; origin?: Point }
+);
 
 export function HomePage() {
   const [journey, setJourney] = useState<CityJourney | null>(null);
   const globeRef = useRef<GlobeHandle>(null);
+  const cityEntryRef = useRef<HTMLButtonElement>(null);
+  const pendingFocus = useRef<{ cityId: string; opener: HTMLButtonElement | null } | null>(null);
   const exploreIndex = useRef(0);
   const classicGlobeRef = useRef<HTMLElement>(null);
   const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
@@ -42,9 +45,25 @@ export function HomePage() {
 
   const focusedCity = journey?.city ?? null;
   const activeCityId = journey && journey.phase !== 'flying' ? journey.city.id : null;
-  const closePostcard = useCallback(() => setJourney(null), []);
+  const closePostcard = useCallback(() => {
+    if (!journey) return;
+    pendingFocus.current = {
+      cityId: journey.city.id,
+      opener: journey.opener.isConnected ? journey.opener : cityEntryRef.current,
+    };
+    setJourney(null);
+  }, [journey]);
 
-  const selectCity = (city: City) => {
+  useLayoutEffect(() => {
+    const restore = pendingFocus.current;
+    if (journey || !restore) return;
+    pendingFocus.current = null;
+    // 等明信片卸载后再聚焦，避免关闭时与明信片的自动聚焦竞争。
+    if (restore.opener?.isConnected) restore.opener.focus();
+    else globeRef.current?.focusCity(restore.cityId);
+  }, [journey]);
+
+  const selectCity = (city: City, opener: HTMLButtonElement) => {
     const globe = classicGlobeRef.current;
     if (globe) {
       const { top, height } = globe.getBoundingClientRect();
@@ -53,12 +72,12 @@ export function HomePage() {
         globe.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'instant' : 'smooth' });
       }
     }
-    setJourney((current) => current?.city.id === city.id ? current : { city, phase: 'flying' });
+    setJourney((current) => current?.city.id === city.id ? current : { city, opener, phase: 'flying' });
   };
 
   const handleCityArrival = useCallback((cityId: string) => {
     setJourney((current) => current?.city.id === cityId && current.phase === 'flying'
-      ? { city: current.city, phase: 'arrived' }
+      ? { ...current, phase: 'arrived' }
       : current);
   }, []);
 
@@ -67,7 +86,7 @@ export function HomePage() {
     const { city } = journey;
     const timer = window.setTimeout(() => {
       const origin = globeRef.current?.getMarkerCenter(city.id);
-      setJourney((current) => current === journey ? { city, phase: 'open', origin } : current);
+      setJourney((current) => current === journey ? { ...current, phase: 'open', origin } : current);
     }, reduceMotion ? 250 : 640);
     return () => window.clearTimeout(timer);
   }, [journey, reduceMotion, useArtLayout]);
@@ -93,10 +112,10 @@ export function HomePage() {
     : null;
 
   /** 「开始探索」：镜头转到一座城市并翻开它的明信片，每多点一次换下一座 */
-  const startExploring = () => {
+  const startExploring = (opener: HTMLButtonElement) => {
     const city = cities[exploreIndex.current % cities.length];
     exploreIndex.current += 1;
-    selectCity(city);
+    selectCity(city, opener);
   };
 
   if (useArtLayout) {
@@ -148,7 +167,7 @@ export function HomePage() {
             type="button"
             className={artStyles.explore}
             style={heroBoxStyle(heroExploreBox)}
-            onClick={startExploring}
+            onClick={(event) => startExploring(event.currentTarget)}
           >
             <span className="srOnly">开始探索，转动地球并翻开一座城市的明信片</span>
           </button>
@@ -165,10 +184,11 @@ export function HomePage() {
               return (
                 <button
                   key={box.cityId}
+                  ref={selected ? cityEntryRef : undefined}
                   type="button"
                   className={cardClasses.join(' ')}
                   style={heroBoxStyle(box)}
-                  onClick={() => selectCity(city)}
+                  onClick={(event) => selectCity(city, event.currentTarget)}
                   aria-label={`${city.name}，${city.region}，翻开这张明信片`}
                   aria-pressed={selected}
                 >
@@ -213,8 +233,9 @@ export function HomePage() {
           {cities.map((city) => (
             <li key={city.id}>
               <button
+                ref={focusedCity?.id === city.id ? cityEntryRef : undefined}
                 type="button"
-                onClick={() => selectCity(city)}
+                onClick={(event) => selectCity(city, event.currentTarget)}
                 className={
                   focusedCity?.id === city.id
                     ? `${classicStyles.cityButton} ${classicStyles.cityButtonActive}`
