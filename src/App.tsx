@@ -2,9 +2,16 @@ import { Outlet, RouterProvider, createHashRouter, useLocation, type RouteObject
 import { SiteHeader } from './components/layout/SiteHeader';
 import { heroLayoutQuery, heroLayoutSupported } from './config/hero';
 import { usesInnerLayout } from './config/innerLayout';
+import { BOOK_ROUTE_SEGMENT } from './config/routes';
+import { BookPage } from './pages/BookPage';
 import { CityPage } from './pages/CityPage';
 import { HomePage } from './pages/HomePage';
 import { SectionPage } from './pages/SectionPage';
+import { StampBookPage, StampsAliasPage } from './pages/StampBookPage';
+import { CityPlanPage } from './pages/plans/CityPlanPage';
+import { PlanDetailPage } from './pages/plans/PlanDetailPage';
+import { PlanNewPage } from './pages/plans/PlanNewPage';
+import { WishMapPage } from './pages/plans/WishMapPage';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import styles from './App.module.css';
 
@@ -41,8 +48,16 @@ const routes: RouteObject[] = [
     element: <Shell />,
     children: [
       { index: true, element: <HomePage /> },
-      { path: 'city/:cityId', element: <CityPage /> },
+      // 邮票册与愿望地图先由占位页接住；栏目页排在动态栏目之前，避免被 section/:sectionId 吃掉。
+      { path: 'section/journals', element: <StampBookPage /> },
+      { path: 'section/plans', element: <WishMapPage /> },
       { path: 'section/:sectionId', element: <SectionPage /> },
+      { path: 'city/:cityId', element: <CityPage /> },
+      { path: BOOK_ROUTE_SEGMENT, element: <BookPage /> },
+      { path: 'stamps', element: <StampsAliasPage /> },
+      { path: 'plan/new', element: <PlanNewPage /> },
+      { path: 'plan/city/:cityId', element: <CityPlanPage /> },
+      { path: 'plan/:planId', element: <PlanDetailPage /> },
       { path: '*', element: <HomePage /> },
     ],
   },
