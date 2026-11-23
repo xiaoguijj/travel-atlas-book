@@ -192,11 +192,11 @@ test('a pending draft is flushed before switching modes', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test('plan placeholder routes keep real exits', async ({ page }) => {
+test('plan routes keep real exits', async ({ page }) => {
   const errors = watchRuntimeErrors(page);
 
   await page.goto('/#/section/plans');
-  await expect(page.getByRole('heading', { name: '愿望地图正在绘制' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '中国愿望地图' })).toBeVisible();
   await page.locator('a[href*="plan/city/nanjing"]').first().click();
   await page.waitForURL(/plan\/city\/nanjing/);
   await expect(page.getByRole('heading', { name: '南京的计划页' })).toBeVisible();
@@ -204,7 +204,7 @@ test('plan placeholder routes keep real exits', async ({ page }) => {
   await page.locator('a[href*="plan/new?cityId=nanjing"]').first().click();
   await page.waitForURL(/plan\/new\?cityId=nanjing/);
   await expect(page.getByRole('heading', { name: '从南京出发' })).toBeVisible();
-  await expect(page.getByText('预填城市：南京')).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: /南京/ })).toBeChecked();
 
   await page.goto('/#/plan/city/atlantis');
   await expect(page.getByRole('heading', { name: '地图里没有这座城' })).toBeVisible();
@@ -214,7 +214,7 @@ test('plan placeholder routes keep real exits', async ({ page }) => {
   await expect(page.getByRole('heading', { name: '新建一趟行程' })).toBeVisible();
 
   await page.goto('/#/plan/unknown-plan');
-  await expect(page.getByRole('heading', { name: '行程详情正在装订' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '没有这趟行程' })).toBeVisible();
   await expect(page.getByText('unknown-plan')).toBeVisible();
 
   expect(errors).toEqual([]);

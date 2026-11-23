@@ -31,37 +31,6 @@
   color: rgb(247 240 227 / 0.76);
 }
 
-.cityGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(10px, 2vw, 16px);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.cityCard {
-  display: grid;
-  gap: 2px;
-  height: 100%;
-  padding: 16px;
-  border: 1px solid rgb(232 217 184 / 0.24);
-  border-radius: 3px;
-  background:
-    linear-gradient(180deg, rgb(247 240 227 / 0.06), rgb(247 240 227 / 0) 55%),
-    rgb(6 40 40 / 0.48);
-  color: var(--tab-cream);
-  text-decoration: none;
-  transition: border-color 180ms ease, background-color 180ms ease, transform 180ms ease;
-}
-
-.cityCard:hover,
-.cityCard:focus-visible {
-  border-color: rgb(227 175 119 / 0.72);
-  background: rgb(6 40 40 / 0.7);
-  transform: translateY(-2px);
-}
-
 .cityName {
   font-family: var(--tab-font-display);
   font-size: 1.12rem;
@@ -83,9 +52,11 @@
 }
 
 .cityHint {
+  justify-self: end;
   margin-top: 8px;
   font-size: 0.72rem;
   color: #e9a55c;
+  white-space: nowrap;
 }
 
 .actions {
@@ -125,33 +96,6 @@
 .secondary:hover {
   border-color: var(--tab-brass);
   background: rgb(176 141 87 / 0.14);
-}
-
-.placeholderCard {
-  display: grid;
-  gap: 7px;
-  padding: clamp(16px, 3vw, 24px);
-  border: 1px dashed rgb(176 141 87 / 0.55);
-  border-radius: 3px;
-  background: rgb(6 40 40 / 0.36);
-}
-
-.placeholderCard h2 {
-  font-size: 1.1rem;
-  color: #ffdaa3;
-}
-
-.placeholderCard p {
-  font-size: 0.82rem;
-  line-height: 1.8;
-  color: rgb(232 217 184 / 0.72);
-}
-
-.code {
-  overflow-wrap: anywhere;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.74rem !important;
-  color: rgb(247 240 227 / 0.85) !important;
 }
 
 .warning {
@@ -207,14 +151,280 @@
   background: rgb(176 141 87 / 0.14);
 }
 
-@media (max-width: 820px) {
-  .cityGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+/* -------------------------------------------------------------------------- */
+/* V1-09 愿望地图与城市计划                                                    */
+/* -------------------------------------------------------------------------- */
+
+.loading,
+.mapSummary,
+.metaLine {
+  font-size: 0.8rem;
+  line-height: 1.7;
+  color: rgb(232 217 184 / 0.72);
+}
+
+.mapSummary {
+  margin-top: -4px;
+  color: #ffdaa3;
+}
+
+.errorCard {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  padding: 14px 16px;
+  border: 1px dashed rgb(169 108 80 / 0.7);
+  border-radius: 3px;
+  color: #f0cdb9;
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
+
+.retry {
+  min-height: 36px;
+  padding: 5px 13px;
+  border: 1px solid rgb(232 217 184 / 0.34);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--tab-cream);
+  font-family: var(--tab-font-ui);
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+.retry:hover {
+  border-color: var(--tab-brass);
+  background: rgb(176 141 87 / 0.14);
+}
+
+.citySection {
+  display: grid;
+  gap: 10px;
+}
+
+.sectionTitle {
+  font-family: var(--tab-font-display);
+  font-size: 1.12rem;
+  letter-spacing: 0.05em;
+  color: var(--tab-cream);
+}
+
+.cityList {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cityRow {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.3fr) auto;
+  gap: 4px 16px;
+  align-items: center;
+  padding: 12px 15px;
+  border: 1px solid rgb(232 217 184 / 0.2);
+  border-radius: 3px;
+  background: rgb(6 40 40 / 0.42);
+  color: var(--tab-cream);
+  text-decoration: none;
+  transition: border-color 180ms ease, background-color 180ms ease;
+}
+
+.cityRow:hover,
+.cityRow:focus-visible {
+  border-color: rgb(227 175 119 / 0.7);
+  background: rgb(6 40 40 / 0.62);
+}
+
+.cityRowMain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 9px;
+}
+
+.cityWished,
+.cityIdle {
+  padding: 1px 7px;
+  border-radius: 2px;
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+}
+
+.cityWished {
+  background: rgb(169 108 80 / 0.3);
+  color: #ffd8bd;
+}
+
+.cityIdle {
+  border: 1px solid rgb(232 217 184 / 0.24);
+  color: rgb(232 217 184 / 0.5);
+}
+
+.cityNote {
+  overflow: hidden;
+  font-size: 0.76rem;
+  line-height: 1.65;
+  color: rgb(232 217 184 / 0.62);
+  text-overflow: ellipsis;
+}
+
+.cityLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: clamp(12px, 2.4vw, 20px);
+  align-items: start;
+}
+
+.plansCard {
+  display: grid;
+  gap: 12px;
+  padding: clamp(16px, 3vw, 24px);
+  border: 1px solid rgb(232 217 184 / 0.24);
+  border-radius: 3px;
+  background:
+    linear-gradient(180deg, rgb(247 240 227 / 0.07), rgb(247 240 227 / 0) 60%),
+    rgb(6 40 40 / 0.5);
+}
+
+.plansHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.plansHead h2 {
+  font-family: var(--tab-font-display);
+  font-size: 1.16rem;
+  letter-spacing: 0.04em;
+  color: var(--tab-cream);
+}
+
+.plansHead span {
+  font-size: 0.68rem;
+  color: rgb(232 217 184 / 0.5);
+}
+
+.emptyState {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  padding: 14px;
+  border: 1px dashed rgb(176 141 87 / 0.45);
+  border-radius: 3px;
+}
+
+.emptyState p {
+  font-size: 0.8rem;
+  line-height: 1.7;
+  color: rgb(232 217 184 / 0.7);
+}
+
+.planList {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.planRow {
+  display: grid;
+  gap: 3px;
+  padding: 12px 14px;
+  border: 1px solid rgb(232 217 184 / 0.2);
+  border-radius: 3px;
+  background: rgb(3 28 28 / 0.34);
+  color: var(--tab-cream);
+  text-decoration: none;
+  transition: border-color 180ms ease, background-color 180ms ease;
+}
+
+.planRow:hover,
+.planRow:focus-visible {
+  border-color: rgb(227 175 119 / 0.7);
+  background: rgb(3 28 28 / 0.52);
+}
+
+.planTitle {
+  font-family: var(--tab-font-display);
+  font-size: 1rem;
+  letter-spacing: 0.03em;
+}
+
+.planDates {
+  font-size: 0.72rem;
+  color: rgb(232 217 184 / 0.62);
+}
+
+.planCities {
+  font-size: 0.72rem;
+  color: rgb(227 175 119 / 0.85);
+}
+
+.planMeta {
+  font-size: 0.68rem;
+  color: rgb(232 217 184 / 0.48);
+}
+
+.planHint {
+  margin-top: 3px;
+  font-size: 0.7rem;
+  color: #e9a55c;
+}
+
+.plansFoot {
+  font-size: 0.68rem;
+  color: rgb(232 217 184 / 0.42);
+}
+
+.metaLine {
+  max-width: 60rem;
+}
+
+.cityLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.cityChip {
+  padding: 4px 10px;
+  border: 1px solid rgb(176 141 87 / 0.42);
+  border-radius: 2px;
+  color: rgb(232 217 184 / 0.8);
+  font-size: 0.7rem;
+  text-decoration: none;
+}
+
+.cityChip:hover {
+  border-color: var(--tab-brass);
+  background: rgb(176 141 87 / 0.14);
+}
+
+@media (max-width: 900px) {
+  .cityLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cityRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .cityNote {
+    grid-column: 1 / -1;
   }
 }
 
-@media (max-width: 480px) {
-  .cityGrid {
+@media (max-width: 560px) {
+  .cityRow {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cityHint {
+    justify-self: start;
   }
 }
