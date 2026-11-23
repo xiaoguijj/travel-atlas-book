@@ -7,7 +7,8 @@ export async function seedBooks(page: Page, books: TravelBook[]): Promise<void> 
   await page.goto('/#/section/inspiration', { waitUntil: 'domcontentloaded' });
   await page.evaluate(async (records) => {
     await new Promise<void>((resolve, reject) => {
-      const request = indexedDB.open('travel-atlas-book', 1);
+      // 不指定版本：数据库未创建时以 v1 建表，Dexie 已经打开过时沿用它的版本（1 → IDB v10）。
+      const request = indexedDB.open('travel-atlas-book');
 
       request.onupgradeneeded = () => {
         const database = request.result;
