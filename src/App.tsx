@@ -1,12 +1,17 @@
 import { Outlet, RouterProvider, createHashRouter, useLocation, type RouteObject } from 'react-router-dom';
 import { SiteHeader } from './components/layout/SiteHeader';
 import { heroLayoutQuery, heroLayoutSupported } from './config/hero';
-import { hidesSiteHeader } from './config/innerLayout';
-import { BookRoutePage } from './pages/BookRoutePage';
+import { usesInnerLayout } from './config/innerLayout';
+import { BOOK_ROUTE_SEGMENT } from './config/routes';
+import { BookPage } from './pages/BookPage';
 import { CityPage } from './pages/CityPage';
 import { HomePage } from './pages/HomePage';
 import { SectionPage } from './pages/SectionPage';
-import { StampBookPage } from './pages/StampBookPage';
+import { StampBookPage, StampsAliasPage } from './pages/StampBookPage';
+import { CityPlanPage } from './pages/plans/CityPlanPage';
+import { PlanDetailPage } from './pages/plans/PlanDetailPage';
+import { PlanNewPage } from './pages/plans/PlanNewPage';
+import { WishMapPage } from './pages/plans/WishMapPage';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import styles from './App.module.css';
 
@@ -14,16 +19,15 @@ import styles from './App.module.css';
  * 首页用参考图舞台时不挂顶部导航 —— 画上的缎带就是导航，再来一条就是重复导航；
  * 舞台放不下而退回竖版布局时，导航得回来，所以判断条件和 HomePage 用同一个查询。
  *
- * 自己就带一条导航的页面同样要跳过 SiteHeader，否则会出现两套标题和两个返回入口。
- * 这类页面有两种：接了 InnerPageLayout 公共顶栏的，和整张画自己在 DOM 里重画了
- * 标题与返回胶囊的（创作模式选择页）。两种都问 config/innerLayout.ts 的 hidesSiteHeader，
- * 页面自己判断要不要套布局查的是同一份名单，两边不会走偏。
+ * 接入了 InnerPageLayout 的页面（config/innerLayout.ts 的白名单）自己就带公共顶栏，
+ * 再挂 SiteHeader 会出现两套标题和两个返回入口，所以同样跳过。
+ * 判断查的是 innerLayout.ts 里那份白名单，页面自己查的是同一份，两边不会走偏。
  */
 function Shell() {
   const { pathname } = useLocation();
   const artViewport = useMediaQuery(heroLayoutQuery);
   const paintedRibbon = pathname === '/' && artViewport && heroLayoutSupported;
-  const ownHeader = hidesSiteHeader(pathname);
+  const ownHeader = usesInnerLayout(pathname);
   return (
     <div className={styles.shell}>
       {paintedRibbon || ownHeader ? null : <SiteHeader />}
@@ -37,11 +41,6 @@ function Shell() {
 /**
  * 路由用 hash 形式（/#/city/nanjing），静态托管不需要任何服务端 rewrite；
  * 以后部署环境支持 SPA fallback 时，把 createHashRouter 换成 createBrowserRouter 就行。
- *
- * `section/journals` 排在 `section/:sectionId` 前面：react-router 按静态段优先于动态段匹配，
- * 首页「旅行手账」缎带落的是邮票收藏册（V1-06），另外三个栏目仍由 SectionPage 说明进度。
- * `book/:bookId` 用 V1-02 冻结的 BOOK_ROUTE_PATH，临时由 BookRoutePage 接线，
- * V1-05 的公共手账壳合进来后只把这一行的 element 换成 <BookPage />。
  */
 const routes: RouteObject[] = [
   {
@@ -49,10 +48,16 @@ const routes: RouteObject[] = [
     element: <Shell />,
     children: [
       { index: true, element: <HomePage /> },
+      // 邮票册与愿望地图先由占位页接住；栏目页排在动态栏目之前，避免被 section/:sectionId 吃掉。
       { path: 'section/journals', element: <StampBookPage /> },
+      { path: 'section/plans', element: <WishMapPage /> },
       { path: 'section/:sectionId', element: <SectionPage /> },
       { path: 'city/:cityId', element: <CityPage /> },
-      { path: 'book/:bookId', element: <BookRoutePage /> },
+      { path: BOOK_ROUTE_SEGMENT, element: <BookPage /> },
+      { path: 'stamps', element: <StampsAliasPage /> },
+      { path: 'plan/new', element: <PlanNewPage /> },
+      { path: 'plan/city/:cityId', element: <CityPlanPage /> },
+      { path: 'plan/:planId', element: <PlanDetailPage /> },
       { path: '*', element: <HomePage /> },
     ],
   },

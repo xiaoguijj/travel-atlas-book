@@ -18,7 +18,7 @@ export interface GlobeProps {
   cities: City[];
   targetCityId: string | null;
   activeCityId: string | null;
-  onSelectCity: (city: City) => void;
+  onSelectCity: (city: City, opener: HTMLButtonElement) => void;
   onCityArrival: (cityId: string) => void;
   /** 球体直径占容器短边的比例；参考图舞台要按挖孔尺寸反算，竖版布局用默认值 */
   fill?: number;
@@ -33,6 +33,14 @@ export interface GlobeProps {
 
 export interface GlobeHandle {
   getMarkerCenter: (cityId: string) => { x: number; y: number } | undefined;
+  focusCity: (cityId: string) => void;
+}
+
+interface PointerGesture {
+  id: number;
+  x: number;
+  y: number;
+  blocked: boolean;
 }
 
 /**
@@ -52,8 +60,9 @@ export const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe(
   ref,
 ) {
   const hostRef = useRef<HTMLDivElement>(null);
-  const markerElements = useRef(new Map<string, HTMLElement>());
+  const cityButtons = useRef(new Map<string, HTMLButtonElement>());
   const sceneRef = useRef<GlobeSceneHandle | null>(null);
+  const pointerGesture = useRef<PointerGesture | null>(null);
   const [webglFailed, setWebglFailed] = useState(false);
 
   useEffect(() => {
@@ -65,7 +74,7 @@ export const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe(
       handle = createGlobeScene({
         host,
         cities,
-        getMarkerElement: (cityId) => markerElements.current.get(cityId) ?? null,
+        getMarkerElement: (cityId) => cityButtons.current.get(cityId) ?? null,
         onCityArrival,
         respectReducedMotion: true,
         fill,
@@ -92,47 +101,96 @@ export const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe(
     ref,
     () => ({
       getMarkerCenter(cityId) {
-        const marker = markerElements.current.get(cityId);
+        const marker = cityButtons.current.get(cityId);
         if (!marker || Number(marker.style.opacity) < 0.5) return;
         const rect = marker.getBoundingClientRect();
         return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      },
+      focusCity(cityId) {
+        cityButtons.current.get(cityId)?.focus();
       },
     }),
     [],
   );
 
-  const registerMarker = useCallback((cityId: string, element: HTMLElement | null) => {
-    if (element) markerElements.current.set(cityId, element);
-    else markerElements.current.delete(cityId);
+  const registerCityButton = useCallback((cityId: string, button: HTMLButtonElement | null) => {
+    if (button) cityButtons.current.set(cityId, button);
+    else cityButtons.current.delete(cityId);
   }, []);
 
   const trackPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const gesture = pointerGesture.current;
+    if (gesture?.id === event.pointerId && Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 8) {
+      gesture.blocked = true;
+    }
     sceneRef.current?.setPointer(event.clientX, event.clientY);
+  };
+
+  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.isPrimary && event.button === 0) {
+      pointerGesture.current = { id: event.pointerId, x: event.clientX, y: event.clientY, blocked: false };
+    } else if (pointerGesture.current) {
+      pointerGesture.current.blocked = true;
+    }
+    sceneRef.current?.setPointer(event.clientX, event.clientY);
+  };
+
+  const handlePointerCancel = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (pointerGesture.current?.id === event.pointerId) pointerGesture.current.blocked = true;
+    sceneRef.current?.clearPointer();
+  };
+
+  const handlePointerLeave = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.buttons & 1) handlePointerCancel(event);
+    else sceneRef.current?.clearPointer();
   };
 
   /**
    * 南京和上海在地球上只差 2.7°，投影到屏幕上图钉会叠在一起，
    * 谁压在上方是随自转变化的。所以点击不认 DOM 目标，只认坐标离哪个城市最近。
+   * 判定挂在整个舞台上：命中半径（鼠标 18px、触屏 28px）比图钉 20px 的盒子更宽，
+   * 手指点在图钉旁边也能选中，不再是只有精确戳中 20px 方块才算。
+   * 一旦手势超过 8px，即使回到按下点，也要拦截拖动产生的 click。
+   *
    * detail 为 0 说明是键盘回车触发的，那种情况交给按钮自己的 onClick。
+   * 落点附近一个图钉都没有时（例如点在展开的城市名标签上）不拦截事件，
+   * 让标签所属的按钮自己处理。
+   * 选中后把焦点移到真正被选中的图钉，明信片关闭时才能还给正确的按钮，
+   * 而不是叠在最上面的那个邻居。
    */
   const pickMarkerByPosition = (event: ReactMouseEvent<HTMLDivElement>) => {
     if (event.detail === 0) return;
-    event.stopPropagation();
+    const gesture = pointerGesture.current;
+    pointerGesture.current = null;
+    if (gesture?.blocked) {
+      event.stopPropagation();
+      return;
+    }
     const cityId = sceneRef.current?.pickCity(event.clientX, event.clientY);
+    if (!cityId) return;
+    event.stopPropagation();
     const city = cities.find((item) => item.id === cityId);
-    if (city) onSelectCity(city);
+    const opener = cityButtons.current.get(cityId);
+    if (city && opener) {
+      opener.focus({ preventScroll: true });
+      onSelectCity(city, opener);
+    }
   };
 
   if (webglFailed) {
     return (
-      <div className={styles.fallback}>
+      <div className={layered ? `${styles.fallback} ${styles.fallbackLayered}` : styles.fallback}>
         <p className={styles.fallbackNote}>
           这个浏览器没能启用 WebGL，地球暂时转不起来。先用手边的城市列表吧。
         </p>
         <ul className={styles.fallbackList}>
           {cities.map((city) => (
             <li key={city.id}>
-              <button type="button" onClick={() => onSelectCity(city)}>
+              <button
+                ref={(button) => registerCityButton(city.id, button)}
+                type="button"
+                onClick={(event) => onSelectCity(city, event.currentTarget)}
+              >
                 {city.name}
                 <span>{city.region}</span>
               </button>
@@ -149,8 +207,11 @@ export const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe(
     <div
       className={stageClass}
       onPointerMove={trackPointer}
-      onPointerDown={trackPointer}
-      onPointerLeave={() => sceneRef.current?.clearPointer()}
+      onPointerDownCapture={handlePointerDown}
+      onPointerUp={trackPointer}
+      onPointerCancel={handlePointerCancel}
+      onPointerLeave={handlePointerLeave}
+      onClickCapture={pickMarkerByPosition}
     >
       <div
         ref={hostRef}
@@ -159,15 +220,23 @@ export const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe(
 
       <div
         className={layered ? `${styles.markerLayer} ${styles.markerLayerAbove}` : styles.markerLayer}
-        onClickCapture={pickMarkerByPosition}
+        onFocus={(event) => {
+          // 鼠标点出来的焦点不需要让地球停住；只有键盘焦点会跟着图钉漂走，才值得暂停自转
+          sceneRef.current?.setFocusHeld(event.target.matches(':focus-visible'));
+        }}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+            sceneRef.current?.setFocusHeld(false);
+          }
+        }}
       >
         {cities.map((city) => (
           <CityMarker
             key={city.id}
             city={city}
             active={city.id === activeCityId}
-            register={(element) => registerMarker(city.id, element)}
-            onSelect={() => onSelectCity(city)}
+            register={(button) => registerCityButton(city.id, button)}
+            onSelect={(button) => onSelectCity(city, button)}
           />
         ))}
       </div>

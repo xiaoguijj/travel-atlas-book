@@ -24,14 +24,6 @@ export function CityPostcard({ city, onClose, origin }: CityPostcardProps) {
     position.style.setProperty('--postcard-from-y', `${origin.y - (top + height / 2)}px`);
   }, [origin]);
 
-  // 关闭后把焦点还给点开它的那个按钮，键盘用户不用从头 Tab 一遍
-  useEffect(() => {
-    const opener = document.activeElement;
-    return () => {
-      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
-    };
-  }, []);
-
   useEffect(() => {
     closeRef.current?.focus({ preventScroll: true });
   }, [city.id]);
@@ -45,7 +37,6 @@ export function CityPostcard({ city, onClose, origin }: CityPostcardProps) {
   }, [onClose]);
 
   const openJournal = () => {
-    onClose();
     navigate(`/city/${city.id}`);
   };
 
