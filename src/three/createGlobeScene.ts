@@ -34,6 +34,8 @@ export interface GlobeSceneHandle {
   clearPointer: () => void;
   /** 热区重叠时按"离指针最近"返回真正该响应的城市，点不到就返回 null */
   pickCity: (clientX: number, clientY: number) => string | null;
+  /** 键盘焦点进出图钉时调用：聚焦期间停住自转，避免焦点跟着图钉滑走 */
+  setFocusHeld: (held: boolean) => void;
   dispose: () => void;
 }
 
@@ -145,6 +147,24 @@ export function createGlobeScene(options: GlobeSceneOptions): GlobeSceneHandle {
 
   let targetCity: string | null = null;
   let resumeTimer: number | undefined;
+  /**
+   * 自转会让图钉以每秒十几个像素横穿屏幕，鼠标要"追着点"，键盘焦点也会慢慢移走。
+   * 指针落进某个图钉的命中半径、或键盘焦点停在图钉上时先停住自转；
+   * 指针移开图钉后仍按原有延时恢复，拖拽和缩放后的自转节奏不变。
+   */
+  let pointerNearMarker = false;
+  let focusHeld = false;
+  const rotationAllowed = () => !reduceMotion && targetCity === null && !pointerNearMarker && !focusHeld;
+  const scheduleRotationResume = () => {
+    window.clearTimeout(resumeTimer);
+    resumeTimer = window.setTimeout(() => {
+      controls.autoRotate = rotationAllowed();
+    }, cfg.controls.resumeDelayMs);
+  };
+  const holdRotation = () => {
+    controls.autoRotate = false;
+    window.clearTimeout(resumeTimer);
+  };
 
   /**
    * 球体本身不转，是相机绕着它转，
@@ -162,16 +182,8 @@ export function createGlobeScene(options: GlobeSceneOptions): GlobeSceneHandle {
     duration: number;
   } | null = null;
 
-  const onEnd = () => {
-    window.clearTimeout(resumeTimer);
-    resumeTimer = window.setTimeout(() => {
-      controls.autoRotate = !reduceMotion && targetCity === null;
-    }, cfg.controls.resumeDelayMs);
-  };
-  const onStart = () => {
-    controls.autoRotate = false;
-    window.clearTimeout(resumeTimer);
-  };
+  const onEnd = () => scheduleRotationResume();
+  const onStart = () => holdRotation();
   controls.addEventListener('start', onStart);
   controls.addEventListener('end', onEnd);
 
@@ -235,9 +247,12 @@ export function createGlobeScene(options: GlobeSceneOptions): GlobeSceneHandle {
   };
 
   /** 在还看得见（没转到背面）的图钉里，找离给定点最近的那个 */
+  const pickRadius = window.matchMedia?.('(pointer: coarse)').matches
+    ? cfg.marker.pickRadiusCoarsePx
+    : cfg.marker.pickRadiusPx;
   const nearestMarker = (x: number, y: number): string | null => {
     let picked: string | null = null;
-    let bestDistance: number = cfg.marker.pickRadiusPx;
+    let bestDistance: number = pickRadius;
     for (const marker of markers) {
       if (fadeByFacing(marker.facing) <= 0.5) continue;
       const distance = Math.hypot(marker.screenX - x, marker.screenY - y);
@@ -268,10 +283,11 @@ export function createGlobeScene(options: GlobeSceneOptions): GlobeSceneHandle {
       element.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, -50%)`;
 
       const opacity = fadeByFacing(facing);
+      const interactive = opacity > 0.5;
       element.style.opacity = opacity.toFixed(2);
-      element.style.pointerEvents = opacity > 0.5 ? 'auto' : 'none';
-      // 离镜头近的图钉压在上面
-      element.style.zIndex = marker.cityId === targetCity ? '101' : String(Math.round((facing + 1) * 50));
+      element.style.pointerEvents = interactive ? 'auto' : 'none';
+      // 转到背面的图钉看不见，也不能留一个看不见的 Tab 停留点
+      element.tabIndex = interactive ? 0 : -1;
 
       marker.screenX = x;
       marker.screenY = y;
@@ -281,6 +297,16 @@ export function createGlobeScene(options: GlobeSceneOptions): GlobeSceneHandle {
     // 高亮跟着指针走，而不是跟着 DOM 叠放顺序走：两个图钉重叠时才不会出现
     // "鼠标指着南京、弹出来的是上海"这种错位
     const hovered = pointer ? nearestMarker(pointer.x, pointer.y) : null;
+
+    for (const marker of markers) {
+      const element = getMarkerElement(marker.cityId);
+      if (!element) continue;
+      // 选中或正被指着的图钉要压在同位置的邻居上面，否则放大和高亮会被盖住
+      element.style.zIndex = marker.cityId === targetCity || marker.cityId === hovered
+        ? '101'
+        : String(Math.round((marker.facing + 1) * 50));
+    }
+
     if (hovered !== highlighted) {
       highlighted = hovered;
       for (const marker of markers) {
@@ -344,18 +370,32 @@ export function createGlobeScene(options: GlobeSceneOptions): GlobeSceneHandle {
         flyToCity(cityId);
       } else {
         flight = null;
-        controls.autoRotate = !reduceMotion;
+        controls.autoRotate = rotationAllowed();
       }
     },
     setPointer(clientX, clientY) {
       pointer = toHostCoords(clientX, clientY);
+      // 只有指着图钉时才停自转：在空中拖拽、缩放后仍按原有延时恢复
+      const nearMarker = nearestMarker(pointer.x, pointer.y) !== null;
+      if (nearMarker !== pointerNearMarker) {
+        pointerNearMarker = nearMarker;
+        if (nearMarker) holdRotation();
+        else scheduleRotationResume();
+      }
     },
     clearPointer() {
       pointer = null;
+      pointerNearMarker = false;
+      scheduleRotationResume();
     },
     pickCity(clientX, clientY) {
       const point = toHostCoords(clientX, clientY);
       return nearestMarker(point.x, point.y);
+    },
+    setFocusHeld(held) {
+      focusHeld = held;
+      if (held) holdRotation();
+      else scheduleRotationResume();
     },
     dispose() {
       renderer.setAnimationLoop(null);

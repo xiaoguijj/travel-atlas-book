@@ -73,6 +73,37 @@
   padding: 24px;
 }
 
+/* 分层模式的退路必须压到背景画之上：地球画布那一层在画下面，
+   不抬高层级的话列表会被画挡住，只在圆孔里露出一小块。 */
+.fallbackLayered {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  gap: 10px;
+  padding: 11%;
+}
+
+.fallbackLayered .fallbackNote {
+  color: var(--tab-ink);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.fallbackLayered .fallbackList {
+  gap: 8px;
+  justify-content: center;
+}
+
+.fallbackLayered .fallbackList button {
+  padding: 6px 10px;
+  font-size: 0.9rem;
+}
+
+.fallbackLayered .fallbackList span {
+  font-size: 0.62rem;
+}
+
 .fallbackNote {
   margin: 0;
   font-size: 0.92rem;
