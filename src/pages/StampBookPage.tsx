@@ -1,60 +1,317 @@
-import { Link, Navigate, useSearchParams } from 'react-router-dom';
-import { CityMotif } from '../components/city/CityMotif';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import albumArtwork from '../assets/stamp-album.jpg';
+import { PageTurn } from '../components/layout/PageTurn';
 import { InnerPageLayout } from '../components/layout/InnerPageLayout';
+import { bookPath } from '../config/routes';
+import { albumArt, albumStampBoxes, artBoxStyle } from '../config/journal';
 import { backTargets } from '../config/innerLayout';
-import { cities, getCityById } from '../data/cities';
+import { getStampByCity, stampDefinitions } from '../data/catalog';
+import { getCityById } from '../data/cities';
+import { createBook, listBooksByCity } from '../data/books';
+import { isDataError, type StampCollection, type TravelBook } from '../data/contracts';
+import { listCollections, collectStamp } from '../data/stamps';
 import styles from './StampBookPage.module.css';
 
 /**
- * `/section/journals` 的邮票册占位入口。收藏、盖章与城市书架由后续任务接入；
- * 本页先把路由、城市定位参数和回城链接接好，不放点了没反应的收藏按钮。
+ * 城市邮票收藏册（V1-06）：整张画是本子的一页，六枚邮票画在画上，
+ * 热区按量好的坐标盖在票面上，点下去翻开这座城市的手账书架。
+ *
+ * 牛皮纸本子、六枚热区、收尾文案一个数字都没动（V1-03 只换了外围背景与顶栏）。
+ * maxWidth 传 null、flush 打开，是因为本子的大小由 .stage 自己按视口高度算（fit-to-screen），
+ * 公共内容区再套一道宽度上限或一档内距都会把画心挤小（实测 853px 窗口下 773 → 738）。
+ *
+ * 「哪座城有邮票」来自 V1-04 的静态目录，坐标来自 config/journal.ts，
+ * 藏没藏、什么时候藏的来自邮票收藏仓储——页面自己不带任何一份城市名单。
  */
 export function StampBookPage() {
-  const [searchParams] = useSearchParams();
-  const cityId = searchParams.get('cityId');
-  const located = getCityById(cityId ?? undefined);
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedCityId = searchParams.get('cityId');
+  const [collections, setCollections] = useState<StampCollection[]>([]);
+  const [storageNotice, setStorageNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    listCollections()
+      .then((rows) => {
+        if (alive) setCollections(rows);
+      })
+      .catch((error: unknown) => {
+        if (!alive) return;
+        setStorageNotice(readable(error, '收藏册暂时读不到本机记录，邮票仍照常翻开。'));
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const collectedBy = new Map(collections.map((row) => [row.stampId, row.collectedAt]));
+  // 地址里写了册子上没有邮票的城市（例如伦敦）时取不到邮票，书架里的盖章按钮就不出现。
+  const selectedStamp = selectedCityId ? getStampByCity(selectedCityId) : undefined;
+
+  const stamps = stampDefinitions.flatMap((stamp) => {
+    const city = getCityById(stamp.cityId);
+    const box = albumStampBoxes[stamp.cityId];
+    return city && box ? [{ stamp, city, box }] : [];
+  });
+
+  const toggleShelf = (cityId: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (next.get('cityId') === cityId) next.delete('cityId');
+    else next.set('cityId', cityId);
+    setSearchParams(next);
+  };
+
+  /**
+   * 「盖下这枚收藏章」是用户在书架里显式点的动作，不是点开邮票的副作用（任务卡：盖章由用户显式执行）。
+   * 仓储按同一枚邮票只保留第一次的时间，所以连着点也只新增一条、也不会改首次时间。
+   * 失败不吞掉：抛回书架，让它就地给出可重试的说明。
+   */
+  const collect = useCallback(async (stampId: string) => {
+    const record = await collectStamp(stampId);
+    setCollections((rows) => (rows.some((row) => row.stampId === record.stampId) ? rows : [...rows, record]));
+  }, []);
 
   return (
-    <InnerPageLayout back={backTargets.globe} maxWidth={1120}>
+    <InnerPageLayout back={backTargets.globe} maxWidth={null} flush>
       <div className={styles.page}>
-        <header className={styles.head}>
-          <p className={styles.kicker}>旅行手账 · 邮票收藏册</p>
-          <h1 className={styles.title}>六城邮票册正在装帧</h1>
-          <p className={styles.lede}>
-            这一册会收齐六座城市的纪念邮票。收藏、盖章与城市书架稍后上线；现在可以先从书架上挑一座城，走进它的手账页。
+        <PageTurn />
+
+        <div className={styles.stage}>
+          <img
+            className={styles.art}
+            src={albumArtwork}
+            width={albumArt.width}
+            height={albumArt.height}
+            alt="中国城市手账：南京、上海、西安、北京、杭州、成都六枚城市邮票"
+          />
+
+          <h1 className="srOnly">中国城市手账 · China Travel Stamps</h1>
+
+          <div className={styles.stamps}>
+            {stamps.map(({ stamp, city, box }) => {
+              const collectedAt = collectedBy.get(stamp.id);
+              return (
+                <button
+                  key={stamp.id}
+                  type="button"
+                  className={styles.stamp}
+                  style={artBoxStyle(albumArt, box)}
+                  onClick={() => toggleShelf(city.id)}
+                  aria-expanded={selectedCityId === city.id}
+                  aria-label={`${city.name} ${city.nameEn} 邮票，${
+                    collectedAt ? `已收藏于 ${collectedAt.slice(0, 10)}` : '尚未收藏'
+                  }，翻开这一城的手账书架`}
+                >
+                  <span className={styles.glow} aria-hidden="true" />
+                  <span className={styles.cta} aria-hidden="true">
+                    翻开这一页
+                  </span>
+                  {collectedAt ? (
+                    <span className={styles.collected} aria-hidden="true">
+                      {collectedAt.slice(0, 10)}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {storageNotice ? (
+          <p className={styles.notice} role="status">
+            {storageNotice}
           </p>
-          {located ? (
-            <p className={styles.located}>
-              已定位到 <strong>{located.name}</strong>
-              <Link to={`/city/${located.id}`}>直接翻开这座城 →</Link>
-            </p>
-          ) : null}
-        </header>
+        ) : null}
 
-        <ul className={styles.shelf} aria-label="六座城市的邮票占位">
-          {cities
-            .filter((city) => city.id !== 'london')
-            .map((city) => (
-              <li key={city.id}>
-                <Link className={styles.stamp} to={`/city/${city.id}`}>
-                  <span className={styles.stampArt} aria-hidden="true">
-                    <CityMotif motif={city.motif} minimal />
-                  </span>
-                  <span className={styles.stampName}>
-                    {city.name}
-                    <em>{city.nameEn}</em>
-                  </span>
-                  <span className={styles.stampRegion}>{city.region}</span>
-                  <span className={styles.stampHint}>城市书架稍后开放 · 先看城市页</span>
-                </Link>
-              </li>
-            ))}
+        {selectedCityId ? (
+          <CityShelf
+            key={selectedCityId}
+            cityId={selectedCityId}
+            collectedAt={selectedStamp ? collectedBy.get(selectedStamp.id) : undefined}
+            onClose={() => {
+              const next = new URLSearchParams(searchParams);
+              next.delete('cityId');
+              setSearchParams(next);
+            }}
+            onCollect={selectedStamp ? () => collect(selectedStamp.id) : undefined}
+            onOpenBook={(book) => navigate(bookPath(book.id))}
+          />
+        ) : null}
+
+        <div className={styles.closing}>
+          <p className={styles.closingMain}>世界的故事，远不止眼前这几座城。</p>
+          <p className={styles.closingSub}>更多城市邮票正在绘制中，下一段旅程，敬请期待。</p>
+          <p className={styles.closingFoot}>TO BE CONTINUED · 持续更新中</p>
+        </div>
+
+        <ul className={styles.roadmap} aria-label="还没上线的功能">
+          <li className={styles.roadmapLabel}>还没上线</li>
+          <li>自由拼贴</li>
+          <li>照片与贴纸</li>
+          <li>旅行计划</li>
         </ul>
-
-        <p className={styles.note}>邮票收藏状态只记录在本机，不会上传云端。</p>
       </div>
     </InnerPageLayout>
   );
+}
+
+/**
+ * 一座城市的手账书架：列出已有的本子、新建一本、点开任意一本进模式选择页，
+ * 外加这一城的「盖下收藏章」——盖章是显式动作，点开邮票只翻书架，不替用户决定收藏了什么。
+ * 书本记录全部走 V1-02 冻结的手账仓储，页面不直接碰数据库。
+ */
+function CityShelf({
+  cityId,
+  collectedAt,
+  onClose,
+  onCollect,
+  onOpenBook,
+}: {
+  cityId: string;
+  collectedAt?: string;
+  onClose: () => void;
+  /** 不传表示这一城在册子上没有邮票，盖章按钮不出现。 */
+  onCollect?: () => Promise<void>;
+  onOpenBook: (book: TravelBook) => void;
+}) {
+  const city = getCityById(cityId);
+  const [books, setBooks] = useState<TravelBook[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [stamping, setStamping] = useState(false);
+  const [stampError, setStampError] = useState<string | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
+  const load = useCallback(async () => {
+    if (!city) return;
+    setError(null);
+    setBooks(null);
+    try {
+      setBooks(await listBooksByCity(city.id));
+    } catch (caught: unknown) {
+      setError(readable(caught, '这座城市的手账列表暂时打不开。'));
+    }
+  }, [city]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    panelRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, []);
+
+  if (!city) {
+    return (
+      <div className={styles.shelf} ref={panelRef}>
+        <p className={styles.notice} role="alert">
+          地址里的城市编号「{cityId}」不在这本册子里，回到画上再点一枚邮票。
+        </p>
+        <button type="button" className={styles.shelfClose} onClick={onClose}>
+          收起
+        </button>
+      </div>
+    );
+  }
+
+  const addBook = async () => {
+    if (!books) return;
+    setBusy(true);
+    setError(null);
+    try {
+      onOpenBook(await createBook(city.id, `${city.name}手账 · 第 ${books.length + 1} 本`));
+    } catch (caught: unknown) {
+      setError(readable(caught, '新建手账失败，可以再点一次。'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const stampIt = async () => {
+    if (!onCollect) return;
+    setStamping(true);
+    setStampError(null);
+    try {
+      await onCollect();
+    } catch (caught: unknown) {
+      setStampError(readable(caught, '这枚邮票没能盖上章，可以再点一次。'));
+    } finally {
+      setStamping(false);
+    }
+  };
+
+  return (
+    <div className={styles.shelf} ref={panelRef}>
+      <header className={styles.shelfHead}>
+        <h2 className={styles.shelfTitle}>
+          {city.name}
+          <span>{city.nameEn}</span>
+        </h2>
+
+        {onCollect ? (
+          <span className={styles.stampActionWrap}>
+            <span className={styles.stampState}>{collectedAt ? `已藏于 ${collectedAt.slice(0, 10)}` : '尚未收藏'}</span>
+            <button type="button" className={styles.stampAction} onClick={() => void stampIt()} disabled={stamping}>
+              {stamping ? '正在盖章…' : collectedAt ? '再盖一次章' : '盖下这枚收藏章'}
+            </button>
+          </span>
+        ) : null}
+
+        <button type="button" className={styles.shelfClose} onClick={onClose}>
+          收起
+        </button>
+      </header>
+
+      {stampError ? (
+        <p className={styles.notice} role="alert">
+          {stampError}
+        </p>
+      ) : null}
+
+      {books === null && !error ? <p className={styles.shelfHint}>正在翻开这一页…</p> : null}
+
+      {error ? (
+        <p className={styles.notice} role="alert">
+          {error}{' '}
+          <button type="button" className={styles.shelfRetry} onClick={() => void load()}>
+            重试
+          </button>
+        </p>
+      ) : null}
+
+      {books !== null && books.length === 0 && !error ? (
+        <p className={styles.shelfHint}>这一城还没有一本手账，新建一本就能开始写。</p>
+      ) : null}
+
+      {books !== null && books.length > 0 ? (
+        <ul className={styles.bookList}>
+          {books.map((book) => (
+            <li key={book.id}>
+              <button type="button" className={styles.book} onClick={() => onOpenBook(book)}>
+                <strong>{book.title}</strong>
+                <em>{book.journal ? '接着写' : '还没动笔'}</em>
+                <span>上次更新 {book.updatedAt.slice(0, 10)}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {books !== null && !error ? (
+        <button type="button" className={styles.newBook} onClick={() => void addBook()} disabled={busy}>
+          {busy ? '正在新建…' : '新建一本'}
+        </button>
+      ) : null}
+
+      <p className={styles.shelfFoot}>邮票上的日期是第一次收藏它的那一天，重复盖章不会改时间。</p>
+    </div>
+  );
+}
+
+function readable(error: unknown, fallback: string): string {
+  return isDataError(error) ? error.message : fallback;
 }
 
 /** `/stamps` 是 `/section/journals` 的别名；保留有效查询参数，丢掉无效 cityId。 */
