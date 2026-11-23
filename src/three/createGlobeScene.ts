@@ -269,6 +269,7 @@ export function createGlobeScene(options: GlobeSceneOptions): GlobeSceneHandle {
    * 只用 transform 和 opacity，不会触发回流；标记的显示内容由 React 负责。
    */
   const updateMarkers = () => {
+    const point = pointer ? toHostCoords(pointer.x, pointer.y) : null;
     globe.updateMatrixWorld();
     for (const marker of markers) {
       const element = getMarkerElement(marker.cityId);
@@ -296,7 +297,13 @@ export function createGlobeScene(options: GlobeSceneOptions): GlobeSceneHandle {
 
     // 高亮跟着指针走，而不是跟着 DOM 叠放顺序走：两个图钉重叠时才不会出现
     // "鼠标指着南京、弹出来的是上海"这种错位
-    const hovered = pointer ? nearestMarker(pointer.x, pointer.y) : null;
+    const hovered = point ? nearestMarker(point.x, point.y) : null;
+    const nearMarker = hovered !== null;
+    if (nearMarker !== pointerNearMarker) {
+      pointerNearMarker = nearMarker;
+      if (nearMarker) holdRotation();
+      else scheduleRotationResume();
+    }
 
     for (const marker of markers) {
       const element = getMarkerElement(marker.cityId);
@@ -374,19 +381,10 @@ export function createGlobeScene(options: GlobeSceneOptions): GlobeSceneHandle {
       }
     },
     setPointer(clientX, clientY) {
-      pointer = toHostCoords(clientX, clientY);
-      // 只有指着图钉时才停自转：在空中拖拽、缩放后仍按原有延时恢复
-      const nearMarker = nearestMarker(pointer.x, pointer.y) !== null;
-      if (nearMarker !== pointerNearMarker) {
-        pointerNearMarker = nearMarker;
-        if (nearMarker) holdRotation();
-        else scheduleRotationResume();
-      }
+      pointer = { x: clientX, y: clientY };
     },
     clearPointer() {
       pointer = null;
-      pointerNearMarker = false;
-      scheduleRotationResume();
     },
     pickCity(clientX, clientY) {
       const point = toHostCoords(clientX, clientY);

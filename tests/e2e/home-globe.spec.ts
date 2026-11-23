@@ -80,13 +80,65 @@ test.describe('桌面：选城、转场与焦点', () => {
   });
 
   test('图钉旁边的画布点击也按最近城市命中', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
     await aimAtMarker(page, '南京');
 
     const nanjing = await markerPoint(page, '南京');
     // 移出 20px 的图钉盒子、仍在 18px 命中半径内；最近的城市还是南京
-    await page.mouse.click(nanjing.x - 13, nanjing.y - 6);
+    const point = { x: nanjing.x - 8, y: nanjing.y - 13 };
+    expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.tagName, point)).toBe('CANVAS');
+    await page.mouse.click(point.x, point.y);
     await expect(dialog(page, '南京')).toBeVisible();
+  });
+
+  test('拖回按下的位置松手也不会误开明信片', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/');
+    await aimAtMarker(page, '南京');
+
+    const nanjing = await markerPoint(page, '南京');
+    const point = { x: nanjing.x - 8, y: nanjing.y - 13 };
+    expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.tagName, point)).toBe('CANVAS');
+    await page.mouse.move(point.x, point.y);
+    await page.mouse.down();
+    await page.mouse.move(point.x - 70, point.y, { steps: 8 });
+    const distanceMoved = async () => Math.abs((await markerPoint(page, '南京')).x - nanjing.x);
+    await expect.poll(distanceMoved).toBeGreaterThan(25);
+
+    await page.mouse.move(point.x, point.y, { steps: 8 });
+    await expect.poll(distanceMoved).toBeLessThan(2);
+    await page.mouse.up();
+
+    await expect(marker(page, '南京')).not.toBeFocused();
+    await page.waitForTimeout(700);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await page.mouse.click(point.x, point.y);
+    await expect(dialog(page, '南京')).toBeVisible();
+  });
+
+  test('空白处的透明城市标签不会拦截画布或触发选城', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/');
+    await expect(marker(page, '西安')).toHaveAttribute('tabindex', '0');
+    const hiddenLabel = marker(page, '西安').locator('span').nth(1);
+    await expect(hiddenLabel).toHaveCSS('opacity', '0');
+    const labelPoint = () => hiddenLabel.evaluate((label) => {
+      const box = label.getBoundingClientRect();
+      const x = Math.round(box.x + box.width / 2);
+      const y = Math.round(box.y + box.height / 2);
+      return document.elementsFromPoint(x, y).some((element) => element.tagName === 'CANVAS')
+        ? { x, y }
+        : null;
+    });
+    await expect.poll(labelPoint).not.toBeNull();
+    const point = await labelPoint();
+    if (!point) throw new Error('找不到西安标签覆盖的画布位置');
+
+    await page.mouse.click(point.x, point.y);
+    await page.waitForTimeout(700);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.tagName, point)).toBe('CANVAS');
   });
 
   test('拖动地球结束在图钉附近不会误开明信片', async ({ page }) => {
@@ -153,7 +205,7 @@ test.describe('桌面：选城、转场与焦点', () => {
     await expect(page.getByRole('navigation', { name: '已收录城市' })).toHaveCount(0);
   });
 
-  test('飞行途中跨越参考图/竖版断点仍会打开所选城市', async ({ page }) => {
+  test('飞行或预览时跨越布局断点仍能打开正确城市并恢复焦点', async ({ page }) => {
     await page.goto('/');
 
     const beijing = await cardPoint(page, '北京', '直辖市 · 中国');
@@ -162,9 +214,19 @@ test.describe('桌面：选城、转场与焦点', () => {
     await page.setViewportSize({ width: 700, height: 800 });
     await expect(page.getByRole('heading', { name: '城市明信片' })).toBeVisible();
     await expect(dialog(page, '北京')).toBeVisible({ timeout: 8000 });
+    const classicEntry = page.getByRole('region', { name: '城市快捷入口' })
+      .getByRole('button', { name: /^北京\s/ });
+    await page.keyboard.press('Escape');
+    await expect(dialog(page, '北京')).toHaveCount(0);
+    await expect(classicEntry).toBeFocused();
 
-    await page.setViewportSize({ width: 1440, height: 900 });
+    await classicEntry.press('Enter');
     await expect(dialog(page, '北京')).toBeVisible();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(paintedCard(page, '北京', '直辖市 · 中国')).toBeVisible();
+    await expect(dialog(page, '北京')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(paintedCard(page, '北京', '直辖市 · 中国')).toBeFocused();
   });
 
   test('指针悬停图钉时图钉停住，移开后恢复自转', async ({ page }) => {
@@ -184,6 +246,24 @@ test.describe('桌面：选城、转场与焦点', () => {
     await expect
       .poll(async () => Math.abs((await markerPoint(page, '南京')).x - beforeLeaving.x), { timeout: 6000 })
       .toBeGreaterThan(4);
+  });
+
+  test('图钉转到静止指针下也会暂停自转', async ({ page }) => {
+    await page.goto('/');
+    const shanghai = marker(page, '上海');
+    await expect(shanghai).toHaveAttribute('tabindex', '0');
+    const start = await markerPoint(page, '上海');
+    await expect.poll(async () => (await markerPoint(page, '上海')).x - start.x).toBeGreaterThan(4);
+    const moving = await markerPoint(page, '上海');
+
+    await page.mouse.move(moving.x + 32, moving.y - 4);
+    await expect(shanghai).not.toHaveAttribute('data-pick', 'true');
+    await expect(shanghai).toHaveAttribute('data-pick', 'true', { timeout: 8000 });
+
+    const before = await markerPoint(page, '上海');
+    await page.waitForTimeout(700);
+    const after = await markerPoint(page, '上海');
+    expect(Math.hypot(after.x - before.x, after.y - before.y)).toBeLessThan(3);
   });
 
   test('转到背面的图钉不进入 Tab 顺序，键盘回车可选中并 ESC 归还焦点', async ({ page }) => {

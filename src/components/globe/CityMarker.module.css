@@ -87,6 +87,7 @@
   text-shadow: 0 1px 2px rgb(12 20 26 / 0.7);
   /* 南京、上海在地图上只隔十几像素，默认只留图钉，悬停或选中时才报出名字 */
   opacity: 0;
+  pointer-events: none;
   transform: translateY(-50%) translateX(-5px);
   transition: opacity 200ms ease, transform 200ms ease, border-color 200ms ease, background-color 200ms ease;
 }
@@ -95,6 +96,7 @@
 .marker:focus-visible .name,
 .markerActive .name {
   opacity: 1;
+  pointer-events: inherit;
   transform: translateY(-50%);
 }
 

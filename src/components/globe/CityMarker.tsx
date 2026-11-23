@@ -6,7 +6,7 @@ export interface CityMarkerProps {
   active: boolean;
   /** 把 DOM 元素交回给地球场景，由它在每帧写 transform */
   register: (element: HTMLButtonElement | null) => void;
-  onSelect: () => void;
+  onSelect: (button: HTMLButtonElement) => void;
 }
 
 /**
@@ -24,8 +24,9 @@ export function CityMarker({ city, active, register, onSelect }: CityMarkerProps
       ref={register}
       type="button"
       className={active ? `${styles.marker} ${styles.markerActive}` : styles.marker}
-      style={{ opacity: 0 }}
-      onClick={onSelect}
+      style={{ opacity: 0, pointerEvents: 'none' }}
+      tabIndex={-1}
+      onClick={(event) => onSelect(event.currentTarget)}
       aria-label={`${city.name}，${coordinates}`}
       aria-pressed={active}
     >
