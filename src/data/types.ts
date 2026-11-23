@@ -1,6 +1,13 @@
 /** 城市手账的数据结构。第一阶段只有文字与封面配置，未来接后端时字段可以平移扩展。 */
 
-export type CoverMotif = 'city-gate' | 'pearl-tower' | 'hall-of-prayer' | 'elizabeth-tower';
+export type CoverMotif =
+  | 'city-gate'
+  | 'pearl-tower'
+  | 'wild-goose-pagoda'
+  | 'hall-of-prayer'
+  | 'lake-bridge'
+  | 'alley-lanterns'
+  | 'elizabeth-tower';
 
 export interface City {
   /** 用于 URL，如 /#/city/nanjing */
