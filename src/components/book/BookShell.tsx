@@ -18,6 +18,7 @@ import { createStableId } from '../../data/ids';
 import { importPhoto } from '../../data/photos';
 import type { SaveField } from '../../data/saving';
 import type { City } from '../../data/types';
+import { StickerPicker, useStickers } from '../../stickers';
 import { AssetPanel } from '../assets/AssetPanel';
 import { InnerPageLayout } from '../layout/InnerPageLayout';
 import { LeaveGuard } from './LeaveGuard';
@@ -61,6 +62,9 @@ export function BookShell({ book, city, mode, onBookSaved }: BookShellProps) {
   const lastQueuedTitle = useRef(book.title);
   const [panel, setPanel] = useState<{ kind?: AssetKind } | null>(null);
   const [insertionRequest, setInsertionRequest] = useState<AssetInsertionRequest | null>(null);
+
+  // V4 通用贴纸：按 城市 + 模式 + 本子 分档存在 localStorage 里，跟正文的保存队列互不相干。
+  const stickers = useStickers({ cityId: city.id, mode, journalId: book.id }, 0);
 
   // 打开时只取一次内容；保存成功后父级即使刷新书对象，也不重置正在编辑的视图。
   const journalContent = useRef<JournalContent | undefined>(book.journal).current;
@@ -175,6 +179,7 @@ export function BookShell({ book, city, mode, onBookSaved }: BookShellProps) {
                 onInsertionHandled={handleInsertionHandled}
                 book={book}
                 city={city}
+                stickers={stickers}
               />
             ) : (
               <CollageView
@@ -193,16 +198,25 @@ export function BookShell({ book, city, mode, onBookSaved }: BookShellProps) {
         </div>
 
         {panel ? (
-          <AssetPanel
-            cityId={city.id}
-            cityName={city.name}
-            mode={mode}
-            assets={assetQuery}
-            initialKind={panel.kind}
-            uploadPhoto={uploadPhoto}
-            onSelect={selectAsset}
-            onClose={closeAssetPanel}
-          />
+          mode === 'journal' && panel.kind === 'sticker' ? (
+            <StickerPicker
+              open
+              cityId={city.id}
+              onPick={(assetId) => stickers.add(assetId)}
+              onClose={closeAssetPanel}
+            />
+          ) : (
+            <AssetPanel
+              cityId={city.id}
+              cityName={city.name}
+              mode={mode}
+              assets={assetQuery}
+              initialKind={panel.kind}
+              uploadPhoto={uploadPhoto}
+              onSelect={selectAsset}
+              onClose={closeAssetPanel}
+            />
+          )
         ) : null}
 
         <LeaveGuard queue={queue} dirty={dirty} errorMessage={state.error?.message ?? null} />
