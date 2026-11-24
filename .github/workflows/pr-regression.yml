@@ -1,0 +1,143 @@
+name: PR regression and base comparison
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      base_sha:
+        description: Exact base commit SHA (40 lowercase hex characters) for the comparison
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  CI: 'true'
+  PLAYWRIGHT_HTML_OPEN: never
+
+# These jobs deliberately have no dependency on each other. A baseline failure
+# must neither cancel the PR run nor turn a failing PR check into a success.
+jobs:
+  pr-head:
+    name: PR head regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TEST_COMMIT_SHA: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.pull_request.head.sha }}
+    steps:
+      - name: Require an immutable head SHA
+        shell: bash
+        run: |
+          if [[ ! "$TEST_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            printf '%s\n' '::error::Expected an exact 40-character commit SHA.'
+            exit 1
+          fi
+
+      - name: Check out the exact head commit
+        uses: actions/checkout@v7.0.1
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ env.TEST_COMMIT_SHA }}
+          persist-credentials: false
+
+      - name: Verify and record the tested commit
+        shell: bash
+        run: |
+          checked_out_sha="$(git rev-parse HEAD)"
+          printf 'Expected commit: %s\nChecked out commit: %s\n' "$TEST_COMMIT_SHA" "$checked_out_sha"
+          test "$checked_out_sha" = "$TEST_COMMIT_SHA"
+          printf '### PR head\n\nCommit: `%s`\n' "$checked_out_sha" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
+
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Type check
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Production build
+        run: npm run build
+      - name: Install Chromium and system dependencies
+        run: npx --no-install playwright install --with-deps chromium
+      - name: Full Chromium end-to-end suite
+        run: npx --no-install playwright test --project=chromium --reporter=github,html --workers=1 --global-timeout=1200000
+
+      - name: Preserve head browser reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: regression-head-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+  pr-base:
+    name: Exact PR base comparison
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Never resolve a moving base branch name. Manual runs supply a SHA because
+      # workflow_dispatch has no pull_request.base snapshot.
+      TEST_COMMIT_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.base_sha || github.event.pull_request.base.sha }}
+    steps:
+      - name: Require an immutable base SHA
+        shell: bash
+        run: |
+          if [[ ! "$TEST_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            printf '%s\n' '::error::Expected an exact 40-character base_sha, not a branch or tag.'
+            exit 1
+          fi
+
+      - name: Check out the exact base commit
+        uses: actions/checkout@v7.0.1
+        with:
+          repository: ${{ github.event.pull_request.base.repo.full_name || github.repository }}
+          ref: ${{ env.TEST_COMMIT_SHA }}
+          persist-credentials: false
+
+      - name: Verify and record the tested commit
+        shell: bash
+        run: |
+          checked_out_sha="$(git rev-parse HEAD)"
+          printf 'Expected commit: %s\nChecked out commit: %s\n' "$TEST_COMMIT_SHA" "$checked_out_sha"
+          test "$checked_out_sha" = "$TEST_COMMIT_SHA"
+          printf '### Event base comparison\n\nCommit: `%s`\n' "$checked_out_sha" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
+
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Type check
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Production build
+        run: npm run build
+      - name: Install Chromium and system dependencies
+        run: npx --no-install playwright install --with-deps chromium
+      - name: Full Chromium end-to-end suite
+        run: npx --no-install playwright test --project=chromium --reporter=github,html --workers=1 --global-timeout=1200000
+
+      - name: Preserve base browser reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: regression-base-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 14

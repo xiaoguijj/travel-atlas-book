@@ -21,11 +21,13 @@ export interface StickerPickerProps {
   onClose: () => void;
   /** 当前手账的城市，只用来在标题上给一句提示 */
   cityId?: string;
+  /** 旧档读取失败时保留素材浏览，但禁止贴入覆盖尚未读出的数据。 */
+  disabled?: boolean;
 }
 
 type Tab = 'common' | 'stamp';
 
-export function StickerPicker({ open, onPick, onClose, cityId }: StickerPickerProps) {
+export function StickerPicker({ open, onPick, onClose, cityId, disabled = false }: StickerPickerProps) {
   const [tab, setTab] = useState<Tab>('common');
   const [query, setQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
@@ -100,7 +102,7 @@ export function StickerPicker({ open, onPick, onClose, cityId }: StickerPickerPr
           <ul className={styles.grid}>
             {shown.map((asset) => (
               <li key={asset.id}>
-                <button type="button" className={styles.tile} onClick={() => onPick(asset.id)} title={`${asset.name} ${asset.nameEn}`}>
+                <button type="button" className={styles.tile} disabled={disabled} onClick={() => onPick(asset.id)} title={`${asset.name} ${asset.nameEn}`}>
                   <img src={stickerUrl(asset.id)} alt="" loading="lazy" decoding="async" draggable={false} />
                   <span className={styles.caption}>{asset.name}</span>
                 </button>
@@ -115,6 +117,7 @@ export function StickerPicker({ open, onPick, onClose, cityId }: StickerPickerPr
         )}
 
         <footer className={styles.foot}>
+          {disabled ? <p role="status">贴纸存档暂时无法读取，原数据已保留，请先重试读取。</p> : null}
           <p>
             共 {stickerAssets.length} 张：全域小集 4 张、城市邮票 6 张、城市文化 24 张。
             {query.trim() ? ` 当前结果 ${shown.length} 张。` : ''}

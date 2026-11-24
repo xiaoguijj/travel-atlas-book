@@ -12,15 +12,14 @@ import {
   journalRules,
   journalTitleBox,
 } from '../../config/journal';
-import type { JournalEditorProps, TravelBook } from '../../data/contracts';
+import type { TravelBook } from '../../data/contracts';
 import type { City } from '../../data/types';
 import { StickerLayer } from '../../stickers';
 import type { StickerApi } from '../../stickers';
-import { JournalEditor } from './JournalEditor';
-import { journalDocFor } from './journalDoc';
+import { JournalEditor, type JournalEditorComponentProps } from './JournalEditor';
 import styles from './JournalView.module.css';
 
-interface JournalViewProps extends JournalEditorProps {
+interface JournalViewProps extends JournalEditorComponentProps {
   /**
    * 纸上的 Title / Date 两行和城市铭牌要的书本与城市信息，由手账壳在冻结的
    * `JournalEditorProps` 之外补传（V1-02 契约不含这两样，缺省时这几处不渲染，
@@ -50,9 +49,6 @@ export function JournalView({ content, book, city, stickers, ...editorProps }: J
     '--journal-tilt': `${journalFrame.tiltDeg}deg`,
     '--album-ratio': String(journalFrame.albumStageRatio),
   } as CSSProperties;
-
-  // 读不出形状的内容会被 journalDocFor 换成空白页；返回的不是原对象就是走了退路。
-  const recovered = content !== undefined && journalDocFor(content) !== content.doc;
 
   return (
     <section className={styles.page} style={stageVars} aria-label="Journal 横线日记本">
@@ -94,6 +90,7 @@ export function JournalView({ content, book, city, stickers, ...editorProps }: J
               onRemove={stickers.remove}
               onDuplicate={stickers.duplicate}
               onReorder={stickers.reorder}
+              onGestureEnd={stickers.flush}
             />
           ) : null}
         </div>
@@ -106,14 +103,6 @@ export function JournalView({ content, book, city, stickers, ...editorProps }: J
             {city.nameEn} · {city.region}
           </span>
         </p>
-      ) : null}
-
-      {recovered ? (
-        <div className={styles.notice} role="status">
-          <p>
-            这本手账存着的正文读不出形状，这一页从空白开始。再写下去会把原来那份盖掉，先回书架确认一下要不要留着这本。
-          </p>
-        </div>
       ) : null}
     </section>
   );

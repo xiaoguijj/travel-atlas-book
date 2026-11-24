@@ -39,6 +39,8 @@ export interface StickerLayerProps {
   onRemove?: (instanceId: string) => void;
   onDuplicate?: (instanceId: string) => void;
   onReorder?: (instanceId: string, direction: 'forward' | 'backward') => void;
+  /** 鼠标/触摸手势或键盘调整结束后，由宿主补存最终状态。 */
+  onGestureEnd?: () => void;
 }
 
 /** 一次按下到抬起：拖位置、改大小、改角度，三件事各自独立 */
@@ -60,7 +62,7 @@ const ROTATE_SNAP_DEG = 15;
 /** 旋转把手离贴纸顶边多远 */
 const ROTATE_LIFT = 20;
 
-export function StickerLayer({ instances, selectedId, onSelect, onUpdate, onRemove, onDuplicate, onReorder }: StickerLayerProps) {
+export function StickerLayer({ instances, selectedId, onSelect, onUpdate, onRemove, onDuplicate, onReorder, onGestureEnd }: StickerLayerProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const selectedRef = useRef<HTMLDivElement>(null);
   const gesture = useRef<Gesture | null>(null);
@@ -71,9 +73,11 @@ export function StickerLayer({ instances, selectedId, onSelect, onUpdate, onRemo
 
   /** onUpdate 每轮渲染都是新引用，window 上的回调只认最新那一个 */
   const updateRef = useRef(onUpdate);
+  const gestureEndRef = useRef(onGestureEnd);
   useEffect(() => {
     updateRef.current = onUpdate;
-  }, [onUpdate]);
+    gestureEndRef.current = onGestureEnd;
+  }, [onUpdate, onGestureEnd]);
 
   /**
    * 手势回调只建一次：里面全部通过 ref 取当前值，所以不会因为重渲染而换身份，
@@ -108,11 +112,14 @@ export function StickerLayer({ instances, selectedId, onSelect, onUpdate, onRemo
       updateRef.current(active.instanceId, { rotation: wrapDeg(rotation) });
     }
 
-    function end() {
+    function end(event?: PointerEvent) {
+      const active = gesture.current;
+      if (event && active && active.pointerId !== event.pointerId) return;
       gesture.current = null;
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', end);
       window.removeEventListener('pointercancel', end);
+      if (active) gestureEndRef.current?.();
     }
 
     return { move, end };
@@ -243,6 +250,7 @@ export function StickerLayer({ instances, selectedId, onSelect, onUpdate, onRemo
           onSelect={onSelect}
           onUpdate={onUpdate}
           onReorder={onReorder}
+          onGestureEnd={onGestureEnd}
         />
       ))}
 
@@ -312,9 +320,10 @@ interface StickerProps {
   onSelect?: (instanceId: string | null) => void;
   onUpdate: (instanceId: string, patch: Partial<StickerInstance>) => void;
   onReorder?: (instanceId: string, direction: 'forward' | 'backward') => void;
+  onGestureEnd?: () => void;
 }
 
-function Sticker({ instance, index, selected, nodeRef, onPointerDown, onSelect, onUpdate, onReorder }: StickerProps) {
+function Sticker({ instance, index, selected, nodeRef, onPointerDown, onSelect, onUpdate, onReorder, onGestureEnd }: StickerProps) {
   const asset = getStickerAsset(instance.assetId);
   if (!asset) return null;
 
@@ -373,6 +382,9 @@ function Sticker({ instance, index, selected, nodeRef, onPointerDown, onSelect, 
       onPointerDown={(event) => onPointerDown(event, instance)}
       onFocus={() => onSelect?.(instance.instanceId)}
       onKeyDown={handleKey}
+      onKeyUp={(event) => {
+        if (['+', '=', '-', '_', '[', ']'].includes(event.key)) onGestureEnd?.();
+      }}
     >
       <img src={stickerUrl(asset.id)} alt={asset.name} draggable={false} loading="lazy" decoding="async" />
     </div>

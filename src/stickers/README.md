@@ -9,7 +9,8 @@ types.ts        数据类型：StickerAsset / StickerInstance / StickerScope / S
 catalog.ts      34 张贴纸的清单（中英文名、分类、所属城市）、URL、宽高比、搜索
 sizes.ts        每张成品图的像素尺寸——由 npm run data:stickers 生成，不要手改
 storage.ts      按作用域读写：travel-atlas-book.stickers.<cityId>.<mode>.<journalId>
-useStickers.ts  状态 + 350ms 防抖自动保存 + 贴/移/缩放旋转/删/复制/层级
+saveController 保存草稿、350ms 防抖、补存/重试/明确放弃，固定绑定本子作用域
+useStickers.ts  状态 + 生命周期补存 + 贴/移/缩放旋转/删/复制/层级
 StickerPicker   贴纸盒：默认 4 张「全域小集」、城市邮票 6 张、中英文城市搜索
 StickerLayer    画布层：拖动 + 四个圆把手（复制/删除/旋转/缩放）、点空白取消选中
 index.ts        唯一出口
@@ -37,26 +38,35 @@ interface StickerScope {
 }
 ```
 
-存的位置和正文完全分开：正文是 `travel-atlas-book.journal.<cityId>`，贴纸是
+存的位置和正文分开：正文由手账仓储写入 IndexedDB，贴纸的 localStorage 键仍是
 `travel-atlas-book.stickers.<cityId>.<mode>.<journalId>`。所以老日记不会因为多了贴纸功能而被改写，
-贴纸也不会把正文挤掉；`storage.ts` 读取时会丢掉素材已下架、字段非法的实例，不会整档崩掉。
+贴纸也不会把正文挤掉。读取保留全部合法页面和贴纸，不按数量截断；格式、版本、素材或字段
+不兼容时暂停贴纸编辑，保留原始存档，不能把读取失败当作空白再覆盖。
 
-## Journal 里的用法（`src/pages/CityPage.tsx`）
+## Journal 里的用法（BookShell 持有，JournalView 渲染）
 
 ```tsx
-const stickers = useStickers({ cityId: city.id, mode: 'journal', journalId: 'default' }, page);
+const stickers = useStickers({ cityId: city.id, mode: 'journal', journalId: book.id }, page);
 
-// .stage 里面，textarea 之后：
+// .stage 里面，JournalEditor 之后：
 <StickerLayer instances={stickers.instances} selectedId={stickers.selectedId}
   onSelect={stickers.select} onUpdate={stickers.update} onRemove={stickers.remove}
-  onDuplicate={stickers.duplicate} onReorder={stickers.reorder} />
+  onDuplicate={stickers.duplicate} onReorder={stickers.reorder} onGestureEnd={stickers.flush} />
 
 // 底栏一个入口 + 页面末尾一个弹层：
 <button onClick={() => setPickerOpen(true)}>贴纸</button>
-<StickerPicker open={pickerOpen} cityId={city.id} onPick={stickers.add} onClose={() => setPickerOpen(false)} />
+<StickerPicker open={pickerOpen} cityId={city.id} disabled={stickers.readBlocked}
+  onPick={stickers.add} onClose={() => setPickerOpen(false)} />
 ```
 
 `page` 直接当第二个参数传进去，翻页时层里换的就是另一页的实例——不同页的贴纸互不影响。
+
+宿主同时负责正文和贴纸的保存反馈与离开保护：`dirty` 用于渲染，`isDirty()` 用于离开瞬间
+读取最新状态；`flush()` 同步保存并返回成功与否，手动重试调用 `retry()`；`discardPending()` 只在用户
+明确放弃时调用。写入失败保留草稿和 dirty，只有真正写入成功才更新 `lastSavedAt`。
+页面不能在贴纸仍 dirty 或 unavailable 时对整本手账显示“已保存”。
+`readBlocked` 表示旧档没有完整读出，此时所有内容修改都被禁止，`retry()` 仅重新读取原档，
+读取成功后才恢复编辑。读取失败没有产生新草稿，不拦截正常离开；放弃操作也不能解除读取保护。
 
 ## Collage 接入步骤
 
@@ -82,10 +92,12 @@ export function CollageEditor({ cityId }: { cityId: string }) {
         onRemove={stickers.remove}
         onDuplicate={stickers.duplicate}
         onReorder={stickers.reorder}
+        onGestureEnd={stickers.flush}
       />
 
       <button type="button" onClick={() => setPickerOpen(true)}>贴纸</button>
-      <StickerPicker open={pickerOpen} cityId={cityId} onPick={stickers.add} onClose={() => setPickerOpen(false)} />
+      <StickerPicker open={pickerOpen} cityId={cityId} disabled={stickers.readBlocked}
+        onPick={stickers.add} onClose={() => setPickerOpen(false)} />
     </div>
   );
 }
@@ -121,7 +133,9 @@ const doc = readStickerDocument({ cityId, mode: 'collage', journalId: 'default' 
   `Shift` + `↑` / `↓` 调前后层——换层只有这条键盘路径，画面上没有按钮。
 - 点画布空白处取消选中；`Delete`/`Backspace` 删除选中，`Esc` 取消选中。
 - **光标在标题、日期、正文里时，键盘事件一律放行**，绝不在打字时把贴纸删了；按住贴纸也不会抢走正文的焦点和选区。
-- 位置、大小、角度改完 350ms 写一次本机，刷新后按存的比例恢复。
+- 连续移动、缩放和旋转以 350ms 防抖写入，手势结束立即补存；添加、删除、复制、换层立即保存。
+  切换模式先由宿主保存并检查失败，卸载、pagehide、页面隐藏另有同步补存。
+  明确放弃后定时器和补存均不会再写入；存储持续不可用时仍需提示用户，不能保证强制关闭后保留未存草稿。
 
 ## 素材
 

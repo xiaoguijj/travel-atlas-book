@@ -1,4 +1,5 @@
 import type { CreationMode } from '../data/creationModes';
+import type { StickerArtwork, StickerArtworkCategory } from '../data/catalog/stickerArtwork';
 
 /**
  * 贴纸系统的数据结构，Journal 与 Collage 共用。
@@ -8,19 +9,10 @@ import type { CreationMode } from '../data/creationModes';
  */
 
 /** common＝全域小集（不绑城市的通用贴纸），stamp＝城市邮票，culture＝城市文化贴纸 */
-export type StickerCategory = 'common' | 'stamp' | 'culture';
+export type StickerCategory = StickerArtworkCategory;
 
 /** 一张可用的贴纸素材（素材库的一行），不是页面上的实例 */
-export interface StickerAsset {
-  /** 与 src/assets/stickers 里的文件名一致，同时就是存储里引用的素材编号 */
-  id: string;
-  /** 选择器上显示的中文名 */
-  name: string;
-  nameEn: string;
-  category: StickerCategory;
-  /** 邮票与文化贴纸归属的城市 id；全域小集没有 */
-  cityId?: string;
-}
+export type StickerAsset = StickerArtwork;
 
 /**
  * 贴在画布上的一张贴纸实例。

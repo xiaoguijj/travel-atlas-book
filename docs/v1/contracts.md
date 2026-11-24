@@ -407,6 +407,9 @@ npm run test:e2e                  # 先构建再跑生产预览
 - 三种手账 URL 构造、未知 mode 回退。
 - 空数据库初始化，五张表存在且无演示数据。
 - 生产构建首页启动、无运行时错误、城市 Hash 深链可用。
+- 愿望增改删、每城单条、移除愿望不影响行程与手账（V1-09）。
+- 计划日期与城市校验、缩短日期/移除城市的影响确认、手账解绑、删除计划保留手账（V1-09）。
+- 愿望地图六城点位、刷新恢复、窄屏与静态子路径（V1-09 E2E）。
 
 真实照片解码、Canvas 压缩和 object URL 生命周期属于浏览器路径；Node 单测通过注入 `PhotoProcessor` 验证仓储，V1-05/07/08 接入界面后应在真实浏览器补测。
 
@@ -437,6 +440,9 @@ npm run test:e2e                  # 先构建再跑生产预览
 - 使用同一 Dexie 实例和本文表/索引；城市校验复用 `requireCity` 与 `planIncludesCity`。
 - 计划 ID、条目 ID 使用 `createStableId()`；日期 `YYYY-MM-DD`、时间 `HH:mm`、记录时间 UTC ISO。
 - `days` 按日期升序，`items` 顺序即显示顺序；跨表清理与计划保存放同一事务。
+- 实装入口：`src/data/wishes`（`listWishes` / `getWish` / `saveWish` / `removeWish`）与 `src/data/plans`（`listPlans` / `getPlan` / `savePlan` / `deletePlan`，另含 `previewPlanChange`、`previewPlanDelete`）。
+- 保存需要确认而调用方未提供确认集合时抛 `INVALID_PLAN`，`details.reason` 为 `CONFIRMATION_REQUIRED`；确认期间影响变化时同样抛 `INVALID_PLAN`，`details.reason` 为 `CONFIRMATION_CHANGED` 并附最新 `preview`。
+- 草稿带 `baseUpdatedAt`（加载计划时的 `updatedAt`）时，预览与保存都会校验计划版本；其他窗口已保存过计划则抛 `INVALID_PLAN`，`details.reason` 为 `PLAN_CHANGED`，不覆盖新内容。前端表单在保存成功后更新该基准值。
 
 ### V1-10 · 关联联动
 
@@ -449,4 +455,4 @@ npm run test:e2e                  # 先构建再跑生产预览
 - **三座新城尚未可选**：`xian`、`hangzhou`、`chengdu` 已冻结在 `CITY_IDS`，但在 V1-04 补入静态目录前，`createBook` 等接口会按 `INVALID_CITY` 拒绝。这是依赖顺序的正常状态。
 - **伦敦兼容**：城市校验跟随静态目录，伦敦作为基线额外城市仍可使用；V1 比赛业务范围仍为六城。
 - **浏览器图片路径未自动化**：Node 环境没有 Canvas，照片真实解码/缩放由浏览器实现；当前 E2E 只做构建与路由冒烟，接入界面后需补真实照片上传回归。
-- **计划、愿望、邮票仓储未实现**：V1-02 只冻结表、索引、类型和静态目录入口，写入由 V1-06 / V1-09 完成。
+- **计划、愿望仓储已由 V1-09 实装**：实现位于 `src/data/plans`、`src/data/wishes`，沿用 V1-02 冻结的表、索引与类型；邮票仓储仍由 V1-06 完成。

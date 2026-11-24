@@ -4,17 +4,13 @@ import type { StickerDocument, StickerInstance, StickerScope } from './types';
 /**
  * 贴纸存档的读写。
  *
- * 键和 Journal 正文的 travel-atlas-book.journal.<城市> 完全分开，
+ * 贴纸的 localStorage 键和 Journal 正文的 IndexedDB 记录完全分开，
  * 各写各的：贴纸存坏、存不下，都不会碰已经写好的日记内容。
  * 一个作用域（城市 + 创作模式 + 第几本手账）一条记录，Collage 接进来时
  * 只是换一个 mode，不用和 Journal 抢同一个键。
  */
 
 const PREFIX = 'travel-atlas-book.stickers';
-
-/** 与 Journal 的分页上限对齐，再多就是粘贴出来的异常数据 */
-const MAX_PAGES = 200;
-const MAX_PER_PAGE = 120;
 
 /** 缩放的允许区间，界面上的加减也按这个范围夹 */
 export const MIN_SCALE = 0.25;
@@ -25,19 +21,19 @@ export function stickerKey(scope: StickerScope): string {
 }
 
 export function readStickerDocument(scope: StickerScope): StickerDocument {
-  try {
-    const raw = window.localStorage.getItem(stickerKey(scope));
-    if (!raw) return emptyDocument();
-    return normalizeDocument(JSON.parse(raw));
-  } catch {
-    // 隐私模式、存储被禁用、或者键里是半截 JSON：当作没贴过，页面照样能贴
-    return emptyDocument();
-  }
+  const raw = window.localStorage.getItem(stickerKey(scope));
+  // 只有键确实不存在才是新本。拒绝读取、空字符串、坏 JSON 和不兼容文档
+  // 都向上报告，宿主必须暂停编辑，不能拿空档覆盖尚未读出的旧贴纸。
+  if (raw === null) return emptyDocument();
+  const parsed: unknown = JSON.parse(raw);
+  assertDocument(parsed);
+  return parsed;
 }
 
 /** 写不进去（配额满、隐私模式）返回 false，由界面如实说明 */
 export function writeStickerDocument(scope: StickerScope, doc: StickerDocument): boolean {
   try {
+    assertDocument(doc);
     window.localStorage.setItem(stickerKey(scope), JSON.stringify(doc));
     return true;
   } catch {
@@ -57,44 +53,39 @@ export function createInstanceId(): string {
 }
 
 /**
- * 老数据、改过字段的数据、被人手改过的 JSON 都从这里过一遍。
- * 认不出来的实例直接丢掉——素材下架了不该让整个页面白屏。
+ * 校验后原样读取，不裁页数/贴纸数、不补默认值、不静默删除未知实例。
+ * 任一字段不兼容都保留原始存档并报告错误，避免下一次自动保存固化数据损失。
  */
-function normalizeDocument(parsed: unknown): StickerDocument {
-  if (typeof parsed !== 'object' || parsed === null) return emptyDocument();
-  const raw = parsed as { pages?: unknown };
-  if (!Array.isArray(raw.pages)) return emptyDocument();
-
-  const pages = raw.pages
-    .slice(0, MAX_PAGES)
-    .map((page) =>
-      Array.isArray(page)
-        ? page.slice(0, MAX_PER_PAGE).map(normalizeInstance).filter((item): item is StickerInstance => item !== null)
-        : [],
-    );
-  while (pages.length < 1) pages.push([]);
-  return { version: 1, pages };
+function assertDocument(parsed: unknown): asserts parsed is StickerDocument {
+  if (!isRecord(parsed) || parsed.version !== 1 || !Array.isArray(parsed.pages)) {
+    throw new Error('贴纸存档格式不兼容，原数据已保留。');
+  }
+  for (const page of parsed.pages) {
+    if (!Array.isArray(page)) throw new Error('贴纸页格式不兼容，原数据已保留。');
+    const ids = new Set<string>();
+    for (const instance of page) {
+      assertInstance(instance);
+      if (ids.has(instance.instanceId)) throw new Error('贴纸编号重复，原数据已保留。');
+      ids.add(instance.instanceId);
+    }
+  }
 }
 
-function normalizeInstance(value: unknown): StickerInstance | null {
-  if (typeof value !== 'object' || value === null) return null;
-  const raw = value as Partial<StickerInstance>;
-  if (typeof raw.assetId !== 'string' || !getStickerAsset(raw.assetId)) return null;
-  return {
-    instanceId: typeof raw.instanceId === 'string' && raw.instanceId !== '' ? raw.instanceId : createInstanceId(),
-    assetId: raw.assetId,
-    x: clamp(numberOr(raw.x, 0.5), 0, 1),
-    y: clamp(numberOr(raw.y, 0.5), 0, 1),
-    scale: clamp(numberOr(raw.scale, 1), MIN_SCALE, MAX_SCALE),
-    rotation: numberOr(raw.rotation, 0),
-    z: numberOr(raw.z, 0),
-  };
+function assertInstance(value: unknown): asserts value is StickerInstance {
+  if (!isRecord(value)
+    || typeof value.instanceId !== 'string' || value.instanceId.trim() === ''
+    || typeof value.assetId !== 'string' || !getStickerAsset(value.assetId)
+    || !finiteInRange(value.x, 0, 1) || !finiteInRange(value.y, 0, 1)
+    || !finiteInRange(value.scale, MIN_SCALE, MAX_SCALE)
+    || !finiteInRange(value.rotation) || !finiteInRange(value.z)) {
+    throw new Error('贴纸内容暂时无法完整读取，原数据已保留。');
+  }
 }
 
-function numberOr(value: unknown, fallback: number): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
+function finiteInRange(value: unknown, min = -Infinity, max = Infinity): boolean {
+  return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
 }

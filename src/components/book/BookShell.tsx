@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { createModeBack } from '../../config/innerLayout';
 import { bookModePath } from '../../config/routes';
@@ -25,6 +25,7 @@ import { LeaveGuard } from './LeaveGuard';
 import { SaveStatus } from './SaveStatus';
 import styles from './BookShell.module.css';
 import { useBookSaveQueue } from './useBookSaveQueue';
+import { bookSaveFeedback, coordinateBookSaves } from './bookPersistence';
 
 const JournalView = lazy(() =>
   import('../journal/JournalView').then((module) => ({ default: module.JournalView })),
@@ -62,20 +63,30 @@ export function BookShell({ book, city, mode, onBookSaved }: BookShellProps) {
   const lastQueuedTitle = useRef(book.title);
   const [panel, setPanel] = useState<{ kind?: AssetKind } | null>(null);
   const [insertionRequest, setInsertionRequest] = useState<AssetInsertionRequest | null>(null);
+  const [journalLoadBlocked, setJournalLoadBlocked] = useState(false);
 
-  // V4 通用贴纸：按 城市 + 模式 + 本子 分档存在 localStorage 里，跟正文的保存队列互不相干。
+  // 贴纸仍按城市、模式和本子独立存储；保存反馈与离开保护由公共壳协调。
   const stickers = useStickers({ cityId: city.id, mode, journalId: book.id }, 0);
+  const persistence = useMemo(
+    () => coordinateBookSaves(queue, {
+      flush: stickers.flush,
+      isDirty: stickers.isDirty,
+      discardPending: stickers.discardPending,
+    }),
+    [queue, stickers.flush, stickers.isDirty, stickers.discardPending],
+  );
+  const feedback = bookSaveFeedback(state, stickers, journalLoadBlocked);
 
   // 打开时只取一次内容；保存成功后父级即使刷新书对象，也不重置正在编辑的视图。
   const journalContent = useRef<JournalContent | undefined>(book.journal).current;
   const collageContent = useRef<CollageCanvas | undefined>(book.collage).current;
 
   const saveState: EditorSaveState = {
-    status: state.status,
-    error: state.error,
-    lastSavedAt: state.lastSavedAt,
+    status: feedback.state.status,
+    error: feedback.state.error,
+    lastSavedAt: feedback.state.lastSavedAt,
   };
-  const dirty = queue.isDirty();
+  const dirty = persistence.isDirty();
 
   const changeTitle = (value: string) => {
     setTitle(value);
@@ -109,8 +120,13 @@ export function BookShell({ book, city, mode, onBookSaved }: BookShellProps) {
   }, []);
 
   const retrySave = useCallback(() => {
-    void queue.flush();
-  }, [queue]);
+    void queue.flush().then(() => { stickers.retry(); });
+  }, [queue, stickers.retry]);
+
+  const reloadJournal = useCallback(async () => {
+    // Preserve pending titles and sticker gestures before rereading the journal.
+    if (await persistence.flush() && !persistence.isDirty()) window.location.reload();
+  }, [persistence]);
 
   const uploadPhoto = useCallback((file: File) => importPhoto(city.id, file), [city.id]);
 
@@ -151,7 +167,7 @@ export function BookShell({ book, city, mode, onBookSaved }: BookShellProps) {
           </nav>
 
           <div className={styles.tools}>
-            <SaveStatus state={state} onRetry={retrySave} />
+            <SaveStatus state={feedback.state} message={feedback.message} onRetry={retrySave} />
             <button type="button" className={styles.assetButton} onClick={() => openAssetPanel()}>
               素材
             </button>
@@ -180,6 +196,8 @@ export function BookShell({ book, city, mode, onBookSaved }: BookShellProps) {
                 book={book}
                 city={city}
                 stickers={stickers}
+                onLoadBlocked={setJournalLoadBlocked}
+                onReloadRequested={reloadJournal}
               />
             ) : (
               <CollageView
@@ -201,6 +219,7 @@ export function BookShell({ book, city, mode, onBookSaved }: BookShellProps) {
           mode === 'journal' && panel.kind === 'sticker' ? (
             <StickerPicker
               open
+              disabled={stickers.readBlocked}
               cityId={city.id}
               onPick={(assetId) => stickers.add(assetId)}
               onClose={closeAssetPanel}
@@ -219,7 +238,7 @@ export function BookShell({ book, city, mode, onBookSaved }: BookShellProps) {
           )
         ) : null}
 
-        <LeaveGuard queue={queue} dirty={dirty} errorMessage={state.error?.message ?? null} />
+        <LeaveGuard queue={persistence} dirty={dirty} errorMessage={feedback.state.error?.message ?? null} />
       </div>
     </InnerPageLayout>
   );
