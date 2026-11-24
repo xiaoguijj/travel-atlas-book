@@ -88,30 +88,6 @@
   letter-spacing: 0.14em;
 }
 
-/* ------------------------------------------------------------------ 内容损坏提醒 */
-
-.notice {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 8px 16px;
-  max-width: 72ch;
-  margin: 0;
-  padding: 10px 16px;
-  border: 1px dashed rgb(233 165 92 / 0.55);
-  border-radius: 3px;
-  background: rgb(9 42 42 / 0.6);
-  color: rgb(255 218 163 / 0.92);
-  font-size: 13px;
-  line-height: 1.7;
-  text-align: center;
-}
-
-.notice p {
-  margin: 0;
-}
-
 /* ------------------------------------------------------------------ 窄屏
  * 正文、Title / Date、工具条都按印刷线的位置定位，整张纸缩到手机宽度时正文只剩 6px，
  * 工具条的 40px 按钮也塞不进那条 21px 的带子。所以窄屏不改坐标、只让这一横向滚动：
@@ -134,8 +110,7 @@
     min-width: 760px;
   }
 
-  .nameplate,
-  .notice {
+  .nameplate {
     padding-left: 16px;
   }
 }

@@ -108,6 +108,11 @@ export function BookShell({ book, city, mode, onBookSaved }: BookShellProps) {
     void queue.flush();
   }, [queue]);
 
+  const reloadJournal = useCallback(async () => {
+    // 重新读取正文前先把未保存的标题和正文补存好，避免读到旧内容。
+    if ((await queue.flush()) && !queue.isDirty()) window.location.reload();
+  }, [queue]);
+
   const uploadPhoto = useCallback((file: File) => importPhoto(city.id, file), [city.id]);
 
   return (
@@ -175,6 +180,7 @@ export function BookShell({ book, city, mode, onBookSaved }: BookShellProps) {
                 onInsertionHandled={handleInsertionHandled}
                 book={book}
                 city={city}
+                onReloadRequested={reloadJournal}
               />
             ) : (
               <CollageView

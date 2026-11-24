@@ -1,18 +1,22 @@
-import { useCallback, useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
-import type { JSONContent } from '@tiptap/core';
-import StarterKit from '@tiptap/starter-kit';
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import type { Extensions, JSONContent } from '@tiptap/core';
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
-import { localClock } from '../../config/dates';
 import { artBoxStyle, artCqw, journalArt, journalRules, journalToolbarBox, journalWritingBox } from '../../config/journal';
 import {
   JOURNAL_MEDIA_NODE_NAME,
-  type EditorSaveState,
+  type AssetKind,
   type JournalDocument,
   type JournalEditorProps,
 } from '../../data/contracts';
-import { AtlasMedia } from './AtlasMedia';
-import { journalDocFor } from './journalDoc';
+import { createJournalExtensions, prepareJournalDocument } from './journalSchema';
 import styles from './JournalEditor.module.css';
+
+/** View-only loading feedback; the shared data/editor contract remains unchanged. */
+export interface JournalEditorComponentProps extends JournalEditorProps {
+  onLoadBlocked?: (blocked: boolean) => void;
+  /** The host saves pending fields before reloading; the editor never reloads directly. */
+  onReloadRequested?: () => void | Promise<void>;
+}
 
 /**
  * 横线日记本的正文编辑器（V1-07）。
@@ -29,42 +33,89 @@ import styles from './JournalEditor.module.css';
  * 行高恒等于印好的线距（47.6px 换算成 cqw），字体用画上手写体的那一款，字才坐在线上而不是飘着。
  * 格式只放不改变行高的那几样：加粗、斜体、下划线 —— 标题会把行撑高，一撑高整页横线就错位。
  */
-export function JournalEditor({
+export function JournalEditor(props: JournalEditorComponentProps) {
+  // A book switch starts a new load decision; saving receipts cannot reset a draft.
+  return <JournalEditorSession key={props.bookId} {...props} />;
+}
+
+function JournalEditorSession(props: JournalEditorComponentProps) {
+  const [initial] = useState(() => {
+    const extensions = createJournalExtensions(props.assets);
+    return { extensions, result: prepareJournalDocument(props.content, extensions) };
+  });
+
+  useEffect(() => {
+    props.onLoadBlocked?.(initial.result.status === 'blocked');
+  }, [initial.result.status, props.onLoadBlocked]);
+
+  if (initial.result.status === 'blocked') {
+    return <RecoveryNotice onReloadRequested={props.onReloadRequested} />;
+  }
+
+  return (
+    <EditableJournalEditor
+      {...props}
+      extensions={initial.extensions}
+      initialDoc={initial.result.doc}
+    />
+  );
+}
+
+function EditableJournalEditor({
   bookId,
-  content,
-  assets,
-  saveState,
+  extensions,
+  initialDoc,
   onChange,
-  onRetrySave,
   onOpenAssetPanel,
   insertionRequest,
   onInsertionHandled,
-}: JournalEditorProps) {
+  onLoadBlocked,
+  onReloadRequested,
+}: JournalEditorComponentProps & { extensions: Extensions; initialDoc: JournalDocument }) {
   // 内容只在挂载时读一次（契约：加载一次，之后保存回执不能回头覆盖正在写的字）。
   // Tiptap 3 的 useEditor 在依赖非空时只在依赖变化那一次重建实例，所以依赖给书编号：
   // 换一本书整只重建，同一本书里父级因保存状态重渲染都不会碰已经打进的正文。
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const blockedRef = useRef(false);
+  const [blocked, setBlocked] = useState(false);
+  const [insertionError, setInsertionError] = useState<string | null>(null);
+  const insertionPoint = useRef<number | null>(null);
+  const handledRequest = useRef<string | null>(null);
 
   const editor = useEditor(
     {
-      extensions: [
-        StarterKit.configure({
-          heading: false,
-          bulletList: false,
-          orderedList: false,
-          blockquote: false,
-          codeBlock: false,
-          horizontalRule: false,
-          dropcursor: false,
-        }),
-        AtlasMedia.configure({ assets }),
-      ],
-      content: journalDocFor(content) as unknown as JSONContent,
+      extensions,
+      content: initialDoc as unknown as JSONContent,
+      enableContentCheck: true,
       editorProps: {
-        attributes: { class: styles.prose, spellcheck: 'false', 'aria-label': '手账正文' },
+        attributes: {
+          class: styles.prose,
+          spellcheck: 'false',
+          role: 'textbox',
+          'aria-label': '手账正文',
+          'aria-multiline': 'true',
+        },
+      },
+      onContentError: () => {
+        // This guard is immediate: a fallback transaction must never reach autosave.
+        blockedRef.current = true;
+        setBlocked(true);
+      },
+      onFocus: () => {
+        insertionPoint.current = null;
+      },
+      onBlur: ({ editor: instance }) => {
+        // Also covers the shared asset button in BookShell, outside this toolbar.
+        insertionPoint.current = instance.state.selection.to;
+      },
+      onTransaction: ({ transaction }) => {
+        if (transaction.docChanged && insertionPoint.current !== null) {
+          insertionPoint.current = transaction.mapping.map(insertionPoint.current, 1);
+        }
       },
       onUpdate: ({ editor: instance }) => {
+        if (blockedRef.current) return;
         onChangeRef.current({ doc: instance.getJSON() as JournalDocument });
       },
     },
@@ -86,23 +137,53 @@ export function JournalEditor({
 
   const insertAsset = useCallback(
     (assetId: string) => {
-      editor?.chain().focus().insertContent({ type: JOURNAL_MEDIA_NODE_NAME, attrs: { assetId } }).run();
+      if (blockedRef.current || editor.isDestroyed) return false;
+      // A numeric position inserts at the selection boundary; a range replaces text.
+      // Capture it before focus() so the asynchronous picker cannot erase the range.
+      const position = Math.max(
+        0,
+        Math.min(insertionPoint.current ?? editor.state.selection.to, editor.state.doc.content.size),
+      );
+      const inserted = editor
+        .chain()
+        .focus()
+        .insertContentAt(position, { type: JOURNAL_MEDIA_NODE_NAME, attrs: { assetId } })
+        .run();
+      if (inserted) insertionPoint.current = null;
+      return inserted;
     },
     [editor]
   );
 
-  // 素材面板选好了一张照片或一枚贴纸：插到光标处，插完立刻回执，免得同一条请求重复插入。
+  // Only acknowledge a successful insertion, and do not repeat it on an effect replay.
   useEffect(() => {
-    if (!editor || !insertionRequest) return;
-    insertAsset(insertionRequest.assetId);
+    if (!insertionRequest || handledRequest.current === insertionRequest.requestId || blockedRef.current) return;
+    if (!insertAsset(insertionRequest.assetId)) {
+      setInsertionError('这张素材暂时没能插入，请重新打开素材面板再试。');
+      return;
+    }
+    handledRequest.current = insertionRequest.requestId;
+    setInsertionError(null);
     onInsertionHandled?.(insertionRequest.requestId);
-  }, [editor, insertionRequest, insertAsset, onInsertionHandled]);
+  }, [insertionRequest, insertAsset, onInsertionHandled]);
+
+  useEffect(() => {
+    if (blocked) onLoadBlocked?.(true);
+  }, [blocked, onLoadBlocked]);
+
+  const openAssetPanel = (kind: AssetKind) => {
+    insertionPoint.current = editor.state.selection.to;
+    setInsertionError(null);
+    onOpenAssetPanel(kind);
+  };
 
   const writingStyle = { ...artBoxStyle(journalArt, journalWritingBox) } as CSSProperties;
   const toolbarStyle = {
     ...artBoxStyle(journalArt, journalToolbarBox),
     '--rule-step': artCqw(journalArt, journalRules.step),
   } as CSSProperties;
+
+  if (blocked) return <RecoveryNotice onReloadRequested={onReloadRequested} />;
 
   return (
     <>
@@ -146,15 +227,15 @@ export function JournalEditor({
           <span className={styles.divider} aria-hidden="true" />
 
           {/* 素材抽屉本身归 V1-05，这里只把「要插哪一类」递过去 */}
-          <FormatButton label="插入照片" onClick={() => onOpenAssetPanel('photo')}>
+          <FormatButton label="插入照片" onClick={() => openAssetPanel('photo')}>
             照片
           </FormatButton>
-          <FormatButton label="插入贴纸" onClick={() => onOpenAssetPanel('sticker')}>
+          <FormatButton label="插入贴纸" onClick={() => openAssetPanel('sticker')}>
             贴纸
           </FormatButton>
         </div>
 
-        <SaveBadge state={saveState} onRetry={onRetrySave} />
+        {insertionError ? <p className={styles.insertionError} role="alert">{insertionError}</p> : null}
       </div>
     </>
   );
@@ -187,25 +268,38 @@ function FormatButton({
   );
 }
 
-function SaveBadge({ state, onRetry }: { state: EditorSaveState; onRetry: () => void }) {
-  const stamp = state.lastSavedAt ? localClock(state.lastSavedAt) : null;
-  const copy: Record<EditorSaveState['status'], string> = {
-    ready: '写完就自动存进本机',
-    saving: '正在写入这本手账…',
-    saved: stamp ? `已保存 ${stamp}` : '已保存',
-    error: state.error ? state.error.message : '这一版没能存进本机',
+function RecoveryNotice({ onReloadRequested }: Pick<JournalEditorComponentProps, 'onReloadRequested'>) {
+  const [reloading, setReloading] = useState(false);
+  const [reloadFailed, setReloadFailed] = useState(false);
+
+  const requestReload = async () => {
+    if (!onReloadRequested || reloading) return;
+    setReloading(true);
+    setReloadFailed(false);
+    try {
+      await onReloadRequested();
+    } catch {
+      setReloadFailed(true);
+    } finally {
+      setReloading(false);
+    }
   };
-  const tone =
-    state.status === 'error' ? styles.saveError : state.status === 'saving' ? styles.saveBusy : styles.saveQuiet;
 
   return (
-    <p className={`${styles.save} ${tone}`} role="status" aria-live="polite">
-      {copy[state.status]}
-      {state.status === 'error' ? (
-        <button type="button" className={styles.retry} onClick={onRetry}>
-          重试
-        </button>
-      ) : null}
-    </p>
+    <div className={styles.recovery} style={artBoxStyle(journalArt, journalWritingBox)} role="alert">
+      <p className={styles.recoveryTitle}>正文暂时无法完整读取</p>
+      <p>原始正文仍保留在本机。为防止覆盖，正文编辑和自动保存已暂停。</p>
+      <p>可以重新读取；如果仍无法打开，请先保留这本手账。</p>
+      <button
+        type="button"
+        className={styles.reload}
+        disabled={reloading || !onReloadRequested}
+        onClick={() => void requestReload()}
+      >
+        {reloading ? '正在保存并重新读取…' : '重新读取正文'}
+      </button>
+      {!onReloadRequested ? <p>请先保存其他修改，再从书架重新打开这本手账。</p> : null}
+      {reloadFailed ? <p>其他修改暂时没能保存，已留在本页。请重试保存后再重新读取。</p> : null}
+    </div>
   );
 }

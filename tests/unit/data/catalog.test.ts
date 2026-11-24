@@ -5,7 +5,7 @@ import { CITY_IDS } from '../../../src/data/contracts';
 
 /**
  * V1-04 的验收口径：六城 ID 唯一、经纬度有效，每城能解析到自己的邮票，
- * 目录之外的城市不串数据。贴纸目录（`stickerDefinitions`）留到 V1-04 的下一阶段填。
+ * 目录之外的城市不串数据。真实共享贴纸目录另由 stickerArtwork.test.ts 验证。
  */
 describe('V1-04 六城城市目录', () => {
   it('每座业务城市都能解析，且经纬度落在合理区间', () => {
