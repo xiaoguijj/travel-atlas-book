@@ -61,6 +61,7 @@ export function BookShell({ book, city, mode, onBookSaved }: BookShellProps) {
   const lastQueuedTitle = useRef(book.title);
   const [panel, setPanel] = useState<{ kind?: AssetKind } | null>(null);
   const [insertionRequest, setInsertionRequest] = useState<AssetInsertionRequest | null>(null);
+  const [journalLoadBlocked, setJournalLoadBlocked] = useState(false);
 
   // 打开时只取一次内容；保存成功后父级即使刷新书对象，也不重置正在编辑的视图。
   const journalContent = useRef<JournalContent | undefined>(book.journal).current;
@@ -72,6 +73,15 @@ export function BookShell({ book, city, mode, onBookSaved }: BookShellProps) {
     lastSavedAt: state.lastSavedAt,
   };
   const dirty = queue.isDirty();
+  const feedbackMessage = journalLoadBlocked
+    ? state.status === 'ready'
+      ? '正文读取失败，原文已保留'
+      : state.status === 'error'
+        ? '标题保存失败，正文保护中'
+        : state.status === 'saving'
+          ? '正在保存其他修改，正文保护中'
+          : '其他修改已保存，正文保护中'
+    : undefined;
 
   const changeTitle = (value: string) => {
     setTitle(value);
@@ -152,7 +162,7 @@ export function BookShell({ book, city, mode, onBookSaved }: BookShellProps) {
           </nav>
 
           <div className={styles.tools}>
-            <SaveStatus state={state} onRetry={retrySave} />
+            <SaveStatus state={state} message={feedbackMessage} onRetry={retrySave} />
             <button type="button" className={styles.assetButton} onClick={() => openAssetPanel()}>
               素材
             </button>
@@ -180,6 +190,7 @@ export function BookShell({ book, city, mode, onBookSaved }: BookShellProps) {
                 onInsertionHandled={handleInsertionHandled}
                 book={book}
                 city={city}
+                onLoadBlocked={setJournalLoadBlocked}
                 onReloadRequested={reloadJournal}
               />
             ) : (
