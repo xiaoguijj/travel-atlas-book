@@ -1,65 +1,91 @@
-import { useEffect, useRef, useState } from 'react';
-import type { CollageEditorProps } from '../../data/contracts';
-import { AssetPreviewImage } from '../assets/AssetPreviewImage';
+import type { CollageEditorProps, CollageTextItem } from '../../data/contracts';
+import { CollageStage } from './CollageStage';
 import styles from './CollageView.module.css';
+import { DEFAULT_TEXT_COLOR, DEFAULT_TEXT_SIZE, useCollageEditor } from './useCollageEditor';
 
-/**
- * Collage 占位视图。画布、拖拽、缩放与图层全部留给后续编辑器，
- * 这里只认公共 props 并显示「开发中」，确保深链和素材选择协议已经接通。
- */
-export function CollageView({
-  content,
-  assets,
-  saveState,
-  onOpenAssetPanel,
-  insertionRequest,
-  onInsertionHandled,
-}: CollageEditorProps) {
-  const [picked, setPicked] = useState<string | null>(null);
-  const handled = useRef(new Set<string>());
-
-  useEffect(() => {
-    if (!insertionRequest) return;
-    if (handled.current.has(insertionRequest.requestId)) {
-      onInsertionHandled?.(insertionRequest.requestId);
-      return;
-    }
-    handled.current.add(insertionRequest.requestId);
-    setPicked(insertionRequest.assetId);
-    onInsertionHandled?.(insertionRequest.requestId);
-  }, [insertionRequest, onInsertionHandled]);
+function TextFields({ item, onChange }: { item: CollageTextItem; onChange: (item: CollageTextItem) => void }) {
+  const { style } = item;
+  const fontSize = style?.fontSize ?? DEFAULT_TEXT_SIZE;
+  const shownFontSize = Number(fontSize.toFixed(2));
 
   return (
-    <section className={styles.page} data-save-state={saveState.status} aria-label="Collage 自由拼贴开发中">
-      <header className={styles.head}>
-        <p className={styles.kicker}>Collage · 自由拼贴</p>
-        <h2 className={styles.title}>拼贴画布正在裱糊</h2>
-        <p className={styles.lede}>
-          画布、拖拽、缩放、旋转与图层顺序稍后接入。现在可以从素材面板预选照片或贴纸，选中的素材会先记在这里。
-        </p>
-        <button type="button" className={styles.assetButton} onClick={() => onOpenAssetPanel('sticker')}>
-          打开素材面板
-        </button>
-      </header>
+    <fieldset className={styles.fields}>
+      <legend>文字格式</legend>
+      <label className={styles.text}>文字内容
+        <textarea rows={2} value={item.text} onChange={(event) => onChange({ ...item, text: event.target.value })} />
+      </label>
+      <label>字号
+        <input key={shownFontSize} type="number" min={1} step="any" defaultValue={shownFontSize}
+          onBlur={(event) => {
+            const size = event.currentTarget.valueAsNumber;
+            if (size >= 1 && Number.isFinite(size)) {
+              if (size !== shownFontSize) onChange({ ...item, style: { ...style, fontSize: size } });
+            } else {
+              event.currentTarget.value = String(shownFontSize);
+            }
+          }}
+          onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} />
+      </label>
+      <label>文字颜色
+        <input type="color" value={style?.color ?? DEFAULT_TEXT_COLOR}
+          onChange={(event) => onChange({ ...item, style: { ...style, color: event.target.value } })} />
+      </label>
+      <label>对齐
+        <select value={style?.align ?? 'left'}
+          onChange={(event) => onChange({ ...item, style: { ...style, align: event.target.value as 'left' | 'center' | 'right' } })}>
+          <option value="left">左对齐</option>
+          <option value="center">居中</option>
+          <option value="right">右对齐</option>
+        </select>
+      </label>
+      <label>
+        <input type="checkbox" checked={style?.fontWeight === 'bold'}
+          onChange={(event) => onChange({ ...item, style: { ...style, fontWeight: event.target.checked ? 'bold' : 'normal' } })} />
+        粗体
+      </label>
+      <label>
+        <input type="checkbox" checked={style?.fontStyle === 'italic'}
+          onChange={(event) => onChange({ ...item, style: { ...style, fontStyle: event.target.checked ? 'italic' : 'normal' } })} />
+        斜体
+      </label>
+    </fieldset>
+  );
+}
 
-      <div className={styles.canvas} aria-hidden="true">
-        <span className={styles.frameNote}>开发中</span>
-        <span className={styles.frameMeta}>
-          {content ? `已存有 ${content.items.length} 个拼贴元素` : '空白画布 · 1200 × 1600'}
-        </span>
+export function CollageView(props: CollageEditorProps) {
+  const { assets, onOpenAssetPanel, saveState } = props;
+  const { items, selected, select, addText, updateItem, removeSelected, moveSelected } = useCollageEditor(props);
+  const index = selected ? items.indexOf(selected) : -1;
+  const canRaise = index >= 0 && index < items.length - 1;
+  const canLower = index > 0;
+
+  return (
+    <section className={styles.page} data-save-state={saveState.status} aria-labelledby="collage-heading">
+      <h2 id="collage-heading">自由拼贴画布</h2>
+      <div className={styles.row}>
+        <button type="button" onClick={() => onOpenAssetPanel('photo')}>插入照片</button>
+        <button type="button" onClick={() => onOpenAssetPanel('sticker')}>插入贴纸</button>
+        <button type="button" onClick={addText}>添加文字</button>
       </div>
-
-      <section className={styles.picked}>
-        <h3>预选素材</h3>
-        {picked ? (
-          <div className={styles.pickedBody}>
-            <AssetPreviewImage assetId={picked} assets={assets} alt="Collage 预选素材" className={styles.thumb} />
-            <code>{picked}</code>
-          </div>
-        ) : (
-          <p className={styles.empty}>还没有预选素材。打开素材面板挑一张，等画布接入后直接插入。</p>
-        )}
-      </section>
+      <div className={styles.row}>
+        <label>图层
+          <select value={selected?.id ?? ''} onChange={(event) => select(event.target.value || null)}>
+            <option value="">选择元素</option>
+            {items.map((item, position) => (
+              <option key={item.id} value={item.id}>
+                {position + 1}. {item.kind === 'text' ? `文字 ${item.text.slice(0, 18)}` : item.kind === 'photo' ? '照片' : '贴纸'}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="button" onClick={() => moveSelected('up')} disabled={!canRaise}>上移</button>
+        <button type="button" onClick={() => moveSelected('down')} disabled={!canLower}>下移</button>
+        <button type="button" onClick={() => moveSelected('top')} disabled={!canRaise}>置顶</button>
+        <button type="button" onClick={() => moveSelected('bottom')} disabled={!canLower}>置底</button>
+        <button type="button" onClick={removeSelected} disabled={!selected}>删除</button>
+      </div>
+      <CollageStage items={items} selected={selected} assets={assets} onSelect={select} onChange={updateItem} />
+      {selected?.kind === 'text' && <TextFields key={selected.id} item={selected} onChange={updateItem} />}
     </section>
   );
 }
