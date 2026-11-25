@@ -5,6 +5,7 @@ import {
   type EditorSaveStatus,
   type IsoDateTime,
   type JournalContent,
+  type JournalSavePrecondition,
   type TravelBook,
 } from '../contracts';
 
@@ -16,18 +17,22 @@ export interface SaveQueueState {
   lastSavedAt?: IsoDateTime;
   /** 当前等待写入的字段，供界面提示「还有草稿未保存」。 */
   pending: SaveField[];
+  /** Kept until a protected journal save succeeds or the user explicitly discards. */
+  journalConflict?: boolean;
 }
 
 /** 只暴露保存队列需要的三个仓储方法，测试可以注入失败或延迟实现。 */
 export interface SaveQueueRepository {
   renameBook(bookId: string, title: string): Promise<TravelBook>;
-  saveJournal(bookId: string, content: JournalContent): Promise<TravelBook>;
+  saveJournal(bookId: string, content: JournalContent, precondition?: JournalSavePrecondition): Promise<TravelBook>;
   saveCollage(bookId: string, canvas: CollageCanvas): Promise<TravelBook>;
 }
 
 export interface SaveQueueOptions {
   bookId: string;
   repository: SaveQueueRepository;
+  /** The editor's initial snapshot, not a later title/Collage save's returned book. */
+  initialJournal?: JournalContent;
   /** 停手多久后写盘；默认 700ms。 */
   debounceMs?: number;
   /** 单字段保存成功后的回调，用于让页面持有最新书对象。 */
@@ -38,6 +43,10 @@ export interface BookSaveQueue {
   updateTitle(title: string): void;
   updateJournal(content: JournalContent): void;
   updateCollage(canvas: CollageCanvas): void;
+  /** A detached copy of the latest local text, including a draft rejected by a conflict. */
+  getJournalDraft(): JournalContent | undefined;
+  /** Suspend queued writes while an explicit, coordinated discard is in progress. */
+  pauseAutoSave(): () => void;
   /** 立即写入当前草稿；失败时草稿仍留在队列里，可再次调用重试。 */
   flush(): Promise<boolean>;
   /** 放弃尚未写入的草稿，用于离开前用户明确选择不保存。 */
@@ -80,7 +89,11 @@ export function createBookSaveQueue(options: SaveQueueOptions): BookSaveQueue {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let active: Promise<boolean> | null = null;
   let disposed = false;
+  let pauses = 0;
   let lastSavedAt: IsoDateTime | undefined;
+  let journalBase = structuredClone(options.initialJournal);
+  let journalDraft = structuredClone(options.initialJournal);
+  let journalConflict = false;
 
   let state: SaveQueueState = {
     status: 'ready',
@@ -94,7 +107,7 @@ export function createBookSaveQueue(options: SaveQueueOptions): BookSaveQueue {
   }
 
   function emit(next: Partial<Omit<SaveQueueState, 'pending'>>): void {
-    state = { ...state, ...next, pending: pendingFields() };
+    state = { ...state, ...next, pending: pendingFields(), journalConflict };
     for (const listener of listeners) listener();
   }
 
@@ -106,7 +119,7 @@ export function createBookSaveQueue(options: SaveQueueOptions): BookSaveQueue {
   }
 
   function schedule(): void {
-    if (disposed) return;
+    if (disposed || pauses > 0) return;
     clearTimer();
     timer = setTimeout(() => {
       timer = undefined;
@@ -119,8 +132,12 @@ export function createBookSaveQueue(options: SaveQueueOptions): BookSaveQueue {
     switch (entry.field) {
       case 'title':
         return repository.renameBook(bookId, payload as string);
-      case 'journal':
-        return repository.saveJournal(bookId, payload as JournalContent);
+      case 'journal': {
+        const saved = await repository.saveJournal(bookId, payload as JournalContent, { expected: journalBase });
+        journalBase = structuredClone(saved.journal);
+        journalConflict = false;
+        return saved;
+      }
       case 'collage':
         return repository.saveCollage(bookId, payload as CollageCanvas);
     }
@@ -128,10 +145,12 @@ export function createBookSaveQueue(options: SaveQueueOptions): BookSaveQueue {
 
   function drain(): Promise<boolean> {
     if (active) return active;
+    if (pauses > 0) return Promise.resolve(false);
 
     active = (async () => {
       clearTimer();
       while (pending.size > 0) {
+        if (pauses > 0) return false;
         const first = pending.entries().next().value as [SaveField, PendingEntry];
         const [field, entry] = first;
         pending.delete(field);
@@ -145,7 +164,9 @@ export function createBookSaveQueue(options: SaveQueueOptions): BookSaveQueue {
           if (entry.revision <= discardedThrough) continue;
           // 只有还没有更新版草稿时才把失败这一版放回去，避免重试时写回旧内容。
           if (!pending.has(field)) pending.set(field, entry);
-          emit({ status: 'error', error: asDataError(error) });
+          const failure = asDataError(error);
+          if (failure.code === 'JOURNAL_CONFLICT') journalConflict = true;
+          emit({ status: 'error', error: failure });
           return false;
         }
 
@@ -190,23 +211,41 @@ export function createBookSaveQueue(options: SaveQueueOptions): BookSaveQueue {
       enqueue('title', title);
     },
     updateJournal(content) {
-      enqueue('journal', content);
+      journalDraft = structuredClone(content);
+      enqueue('journal', journalDraft);
     },
     updateCollage(canvas) {
       enqueue('collage', canvas);
+    },
+    getJournalDraft() {
+      return structuredClone(journalDraft);
+    },
+    pauseAutoSave() {
+      pauses += 1;
+      clearTimer();
+      let resumed = false;
+      return () => {
+        if (resumed) return;
+        resumed = true;
+        pauses -= 1;
+        // A failed discard must not silently restart the write the user wanted
+        // to abandon. An explicit retry or subsequent edit can resume saving.
+      };
     },
     flush,
     discardPending() {
       clearTimer();
       discardedThrough = revision;
       pending = new Map();
+      journalConflict = false;
+      journalDraft = structuredClone(journalBase);
       emit({ status: active ? 'saving' : 'ready', error: null });
     },
     hasPending() {
       return pending.size > 0;
     },
     isDirty() {
-      return pending.size > 0 || state.status === 'saving' || state.status === 'error';
+      return journalConflict || pending.size > 0 || state.status === 'saving' || state.status === 'error';
     },
     subscribe(listener) {
       listeners.add(listener);
