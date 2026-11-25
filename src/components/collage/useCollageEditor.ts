@@ -17,6 +17,39 @@ function newItemBounds(count: number, width: number, height: number) {
   return { id: createStableId(), x: 120 + offset, y: 140 + offset, width, height, rotation: 0 };
 }
 
+export function fitItemToCanvas(item: CollageItem): CollageItem | undefined {
+  const angle = item.rotation * Math.PI / 180;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const halfWidth = (item.width * Math.abs(cos) + item.height * Math.abs(sin)) / 2;
+  const halfHeight = (item.width * Math.abs(sin) + item.height * Math.abs(cos)) / 2;
+  const offsetX = (item.width * cos - item.height * sin) / 2;
+  const offsetY = (item.width * sin + item.height * cos) / 2;
+  const centerX = item.x + offsetX;
+  const centerY = item.y + offsetY;
+  if (centerX - halfWidth >= 0 && centerX + halfWidth <= COLLAGE_CANVAS_WIDTH
+    && centerY - halfHeight >= 0 && centerY + halfHeight <= COLLAGE_CANVAS_HEIGHT) return undefined;
+
+  // Leave room inside the artwork for the handles, including the rotation handle.
+  const margin = 120;
+  const scale = Math.min(1,
+    (COLLAGE_CANVAS_WIDTH / 2 - margin) / halfWidth,
+    (COLLAGE_CANVAS_HEIGHT / 2 - margin) / halfHeight);
+  const insetX = margin + halfWidth * scale;
+  const insetY = margin + halfHeight * scale;
+  const fitted = {
+    x: Math.max(insetX, Math.min(centerX, COLLAGE_CANVAS_WIDTH - insetX)) - offsetX * scale,
+    y: Math.max(insetY, Math.min(centerY, COLLAGE_CANVAS_HEIGHT - insetY)) - offsetY * scale,
+    width: item.width * scale,
+    height: item.height * scale,
+  };
+  if (item.kind === 'text' && scale !== 1) {
+    const fontSize = Math.max(1, (item.style?.fontSize ?? DEFAULT_TEXT_SIZE) * scale);
+    return { ...item, ...fitted, style: { ...item.style, fontSize } };
+  }
+  return { ...item, ...fitted };
+}
+
 export function useCollageEditor({ content, onChange, insertionRequest, onInsertionHandled }: CollageEditorProps) {
   const [items, setItems] = useState(() => content?.items ?? []);
   // Event handlers and the insertion effect both commit to the latest draft.

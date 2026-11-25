@@ -2,6 +2,7 @@ import {
   DataError,
   isDataError,
   type CollageCanvas,
+  type CollageSavePrecondition,
   type EditorSaveStatus,
   type IsoDateTime,
   type JournalContent,
@@ -19,13 +20,14 @@ export interface SaveQueueState {
   pending: SaveField[];
   /** Kept until a protected journal save succeeds or the user explicitly discards. */
   journalConflict?: boolean;
+  collageConflict?: boolean;
 }
 
 /** 只暴露保存队列需要的三个仓储方法，测试可以注入失败或延迟实现。 */
 export interface SaveQueueRepository {
   renameBook(bookId: string, title: string): Promise<TravelBook>;
   saveJournal(bookId: string, content: JournalContent, precondition?: JournalSavePrecondition): Promise<TravelBook>;
-  saveCollage(bookId: string, canvas: CollageCanvas): Promise<TravelBook>;
+  saveCollage(bookId: string, canvas: CollageCanvas, precondition?: CollageSavePrecondition): Promise<TravelBook>;
 }
 
 export interface SaveQueueOptions {
@@ -33,6 +35,7 @@ export interface SaveQueueOptions {
   repository: SaveQueueRepository;
   /** The editor's initial snapshot, not a later title/Collage save's returned book. */
   initialJournal?: JournalContent;
+  initialCollage?: CollageCanvas;
   /** 停手多久后写盘；默认 700ms。 */
   debounceMs?: number;
   /** 单字段保存成功后的回调，用于让页面持有最新书对象。 */
@@ -45,6 +48,7 @@ export interface BookSaveQueue {
   updateCollage(canvas: CollageCanvas): void;
   /** A detached copy of the latest local text, including a draft rejected by a conflict. */
   getJournalDraft(): JournalContent | undefined;
+  getCollageDraft(): CollageCanvas | undefined;
   /** Suspend queued writes while an explicit, coordinated discard is in progress. */
   pauseAutoSave(): () => void;
   /** 立即写入当前草稿；失败时草稿仍留在队列里，可再次调用重试。 */
@@ -94,6 +98,9 @@ export function createBookSaveQueue(options: SaveQueueOptions): BookSaveQueue {
   let journalBase = structuredClone(options.initialJournal);
   let journalDraft = structuredClone(options.initialJournal);
   let journalConflict = false;
+  let collageBase = structuredClone(options.initialCollage);
+  let collageDraft = collageBase;
+  let collageConflict = false;
 
   let state: SaveQueueState = {
     status: 'ready',
@@ -107,7 +114,7 @@ export function createBookSaveQueue(options: SaveQueueOptions): BookSaveQueue {
   }
 
   function emit(next: Partial<Omit<SaveQueueState, 'pending'>>): void {
-    state = { ...state, ...next, pending: pendingFields(), journalConflict };
+    state = { ...state, ...next, pending: pendingFields(), journalConflict, collageConflict };
     for (const listener of listeners) listener();
   }
 
@@ -138,8 +145,12 @@ export function createBookSaveQueue(options: SaveQueueOptions): BookSaveQueue {
         journalConflict = false;
         return saved;
       }
-      case 'collage':
-        return repository.saveCollage(bookId, payload as CollageCanvas);
+      case 'collage': {
+        const saved = await repository.saveCollage(bookId, payload as CollageCanvas, { expected: collageBase });
+        collageBase = structuredClone(saved.collage);
+        collageConflict = false;
+        return saved;
+      }
     }
   }
 
@@ -166,6 +177,7 @@ export function createBookSaveQueue(options: SaveQueueOptions): BookSaveQueue {
           if (!pending.has(field)) pending.set(field, entry);
           const failure = asDataError(error);
           if (failure.code === 'JOURNAL_CONFLICT') journalConflict = true;
+          if (failure.code === 'COLLAGE_CONFLICT') collageConflict = true;
           emit({ status: 'error', error: failure });
           return false;
         }
@@ -215,10 +227,14 @@ export function createBookSaveQueue(options: SaveQueueOptions): BookSaveQueue {
       enqueue('journal', journalDraft);
     },
     updateCollage(canvas) {
-      enqueue('collage', canvas);
+      collageDraft = structuredClone(canvas);
+      enqueue('collage', collageDraft);
     },
     getJournalDraft() {
       return structuredClone(journalDraft);
+    },
+    getCollageDraft() {
+      return structuredClone(collageDraft);
     },
     pauseAutoSave() {
       pauses += 1;
@@ -239,13 +255,15 @@ export function createBookSaveQueue(options: SaveQueueOptions): BookSaveQueue {
       pending = new Map();
       journalConflict = false;
       journalDraft = structuredClone(journalBase);
+      collageConflict = false;
+      collageDraft = collageBase;
       emit({ status: active ? 'saving' : 'ready', error: null });
     },
     hasPending() {
       return pending.size > 0;
     },
     isDirty() {
-      return journalConflict || pending.size > 0 || state.status === 'saving' || state.status === 'error';
+      return journalConflict || collageConflict || pending.size > 0 || state.status === 'saving' || state.status === 'error';
     },
     subscribe(listener) {
       listeners.add(listener);

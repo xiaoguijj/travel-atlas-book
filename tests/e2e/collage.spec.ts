@@ -200,6 +200,75 @@ test('a failed collage write stays pending, blocks leaving and can be retried', 
   await expect(layerMenu(page).locator('option')).toHaveCount(2);
 });
 
+test('a stale collage tab keeps its draft and can save a separate copy', async ({ page, context }) => {
+  await seedBooks(page, [seedBook(BOOK, '双标签页拼贴')]);
+  const other = await context.newPage();
+  await Promise.all([page.goto(COLLAGE_URL), other.goto(COLLAGE_URL)]);
+  await expect(layerMenu(page).locator('option')).toHaveCount(1);
+  await expect(layerMenu(other).locator('option')).toHaveCount(1);
+
+  await page.getByRole('button', { name: '添加文字', exact: true }).click();
+  await page.getByLabel('文字内容').fill('先保存的画布');
+  expect(await savedItems(page)).toMatchObject([{ text: '先保存的画布' }]);
+  await page.getByLabel('文字内容').fill('同一标签页继续保存');
+  const winner = await savedItems(page);
+  expect(winner).toMatchObject([{ text: '同一标签页继续保存' }]);
+
+  // The title receipt includes the latest book but cannot replace the open canvas baseline.
+  await other.getByLabel('手账标题').fill('标题仍可独立保存');
+  await expect.poll(async () => (await readBook(page, BOOK))?.title).toBe('标题仍可独立保存');
+  await other.getByRole('button', { name: '添加文字', exact: true }).click();
+  await other.getByLabel('文字内容').fill('本页的拼贴草稿');
+  const warning = other.getByRole('alert').filter({ hasText: '拼贴有其他版本' });
+  await expect(warning).toBeVisible();
+  await other.getByRole('button', { name: '重试', exact: true }).click();
+  await expect(other.locator('header [data-state="error"]')).toContainText('拼贴保存冲突');
+  expect((await readBook(page, BOOK))?.collage?.items).toEqual(winner);
+  await expect(other.getByLabel('文字内容')).toHaveValue('本页的拼贴草稿');
+
+  await warning.getByRole('button', { name: '另存本页拼贴', exact: true }).click();
+  const copyLink = warning.getByRole('link', { name: '打开拼贴副本（新标签页）' });
+  await expect(copyLink).toBeVisible();
+  const popup = other.waitForEvent('popup');
+  await copyLink.click();
+  const copy = await popup;
+  await expect(layerMenu(copy).locator('option').nth(1)).toHaveText('1. 文字 本页的拼贴草稿');
+  await layerMenu(copy).selectOption({ label: '1. 文字 本页的拼贴草稿' });
+  await copy.getByLabel('文字内容').fill('在副本继续编辑');
+  await expect(copy.locator('header [data-state="saved"]')).toBeVisible();
+  expect((await readBook(page, BOOK))?.collage?.items).toEqual(winner);
+});
+
+test('an oversized item can fit back onto the canvas after reload and resize again', async ({ page }) => {
+  await page.setViewportSize({ width: 1500, height: 1200 });
+  const item: CollageItem = { id: 'oversized', kind: 'sticker', assetId: 'sticker:stamp-nanjing', x: 144, y: 164, width: 240, height: 240, rotation: 0 };
+  await seedBooks(page, [seedBook(BOOK, '超大贴纸', 'nanjing', { collage: { width: 1200, height: 1600, items: [item] } })]);
+  await page.goto(COLLAGE_URL);
+  await layerMenu(page).selectOption(item.id);
+  let { x, y, w, h } = await itemScreenBox(page, item);
+  await page.keyboard.down('Alt');
+  await mouseDrag(page, x + w, y + h, 1475, 1175);
+  await page.keyboard.up('Alt');
+  const [oversized] = await savedItems(page);
+  expect(oversized.width).toBeGreaterThan(2400);
+
+  await page.reload();
+  await layerMenu(page).selectOption(item.id);
+  await page.getByRole('button', { name: '适应画布', exact: true }).click();
+  const [fitted] = await savedItems(page);
+  expect(fitted).toMatchObject({ id: item.id, kind: 'sticker', assetId: item.assetId });
+  expect(fitted.x).toBeGreaterThan(0);
+  expect(fitted.x + fitted.width).toBeLessThan(1200);
+  expect(fitted.y).toBeGreaterThan(0);
+  expect(fitted.y + fitted.height).toBeLessThan(1600);
+  await expect(page.getByRole('button', { name: '适应画布', exact: true })).toBeDisabled();
+
+  ({ x, y, w, h } = await itemScreenBox(page, fitted));
+  await mouseDrag(page, x + w, y + h, x + w * 0.8, y + h * 0.8);
+  const [resized] = await savedItems(page);
+  expect(resized.width / fitted.width).toBeCloseTo(0.8, 1);
+});
+
 test.describe('narrow touch viewport', () => {
   test.use({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 

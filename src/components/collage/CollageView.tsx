@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { CollageEditorProps, CollageTextItem } from '../../data/contracts';
 import { CollageStage } from './CollageStage';
 import styles from './CollageView.module.css';
-import { DEFAULT_TEXT_COLOR, DEFAULT_TEXT_SIZE, useCollageEditor } from './useCollageEditor';
+import { DEFAULT_TEXT_COLOR, DEFAULT_TEXT_SIZE, fitItemToCanvas, useCollageEditor } from './useCollageEditor';
 
 function TextFields({ item, onChange }: { item: CollageTextItem; onChange: (item: CollageTextItem) => void }) {
   const { style } = item;
@@ -60,6 +60,7 @@ export function CollageView(props: CollageEditorProps) {
   const index = selected ? items.indexOf(selected) : -1;
   const canRaise = index >= 0 && index < items.length - 1;
   const canLower = index > 0;
+  const fitted = selected && fitItemToCanvas(selected);
 
   return (
     <section className={styles.page} data-save-state={saveState.status} aria-labelledby="collage-heading">
@@ -84,6 +85,7 @@ export function CollageView(props: CollageEditorProps) {
         <button type="button" onClick={() => moveSelected('down')} disabled={!canLower}>下移</button>
         <button type="button" onClick={() => moveSelected('top')} disabled={!canRaise}>置顶</button>
         <button type="button" onClick={() => moveSelected('bottom')} disabled={!canLower}>置底</button>
+        <button type="button" disabled={!fitted} onClick={() => { if (fitted) updateItem(fitted); }}>适应画布</button>
         <button type="button" onClick={removeSelected} disabled={!selected}>删除</button>
       </div>
       <CollageStage items={items} selected={selected} assets={assets} onSelect={select} onChange={updateItem} />

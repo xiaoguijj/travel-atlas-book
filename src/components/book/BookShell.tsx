@@ -22,6 +22,7 @@ import { StickerPicker, useStickers, type StickerApi } from '../../stickers';
 import { AssetPanel } from '../assets/AssetPanel';
 import { InnerPageLayout } from '../layout/InnerPageLayout';
 import { LeaveGuard } from './LeaveGuard';
+import { CollageConflictNotice } from './CollageConflictNotice';
 import { JournalConflictNotice } from './JournalConflictNotice';
 import { StickerRecoveryNotice } from './StickerRecoveryNotice';
 import { SaveStatus } from './SaveStatus';
@@ -68,7 +69,7 @@ function BookEditorShell({ book, city, mode, onBookSaved, stickers }: BookShellP
     },
     [onBookSaved],
   );
-  const { queue, state } = useBookSaveQueue(book.id, handleSaved, book.journal);
+  const { queue, state } = useBookSaveQueue(book.id, handleSaved, book.journal, book.collage);
 
   const [title, setTitle] = useState(book.title);
   const lastQueuedTitle = useRef(book.title);
@@ -176,7 +177,9 @@ function BookEditorShell({ book, city, mode, onBookSaved, stickers }: BookShellP
           </nav>
 
           <div className={styles.tools}>
-            <SaveStatus state={feedback.state} message={feedback.message} onRetry={retrySave} />
+            <SaveStatus state={feedback.state}
+              message={state.error?.code === 'COLLAGE_CONFLICT' ? '拼贴保存冲突，草稿已保留' : feedback.message}
+              onRetry={retrySave} />
             <button type="button" className={styles.assetButton} onClick={() => openAssetPanel()}>
               素材
             </button>
@@ -184,6 +187,7 @@ function BookEditorShell({ book, city, mode, onBookSaved, stickers }: BookShellP
         </header>
 
         {mode === 'journal' && state.journalConflict ? <JournalConflictNotice bookId={book.id} queue={queue} /> : null}
+        {mode === 'collage' && state.collageConflict ? <CollageConflictNotice bookId={book.id} queue={queue} /> : null}
         {stickers ? <StickerRecoveryNotice stickers={stickers} /> : null}
 
         <div className={styles.editor}>

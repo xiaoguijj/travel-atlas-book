@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { renameBook, saveCollage, saveJournal } from '../../data/books';
-import type { JournalContent, TravelBook } from '../../data/contracts';
+import type { CollageCanvas, JournalContent, TravelBook } from '../../data/contracts';
 import { createBookSaveQueue, type SaveField, type SaveQueueState } from '../../data/saving';
 
 const repository = { renameBook, saveJournal, saveCollage };
@@ -13,6 +13,7 @@ export function useBookSaveQueue(
   bookId: string,
   onSaved?: (field: SaveField, book: TravelBook) => void,
   initialJournal?: JournalContent,
+  initialCollage?: CollageCanvas,
 ): { queue: ReturnType<typeof createBookSaveQueue>; state: SaveQueueState } {
   const onSavedRef = useRef(onSaved);
   onSavedRef.current = onSaved;
@@ -23,6 +24,7 @@ export function useBookSaveQueue(
         bookId,
         repository,
         initialJournal,
+        initialCollage,
         onSaved: (field, book) => onSavedRef.current?.(field, book),
       }),
     [bookId],

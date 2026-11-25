@@ -1,6 +1,7 @@
 export {
   createBook,
   createBookRepository,
+  copyCollageDraft,
   copyJournalDraft,
   getBook,
   listBooksByCity,

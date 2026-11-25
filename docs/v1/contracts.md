@@ -216,7 +216,8 @@ createBook(cityId: string, title: string, planId?: string): Promise<TravelBook>
 getBook(bookId: string): Promise<TravelBook | undefined>
 renameBook(bookId: string, title: string): Promise<TravelBook>
 saveJournal(bookId: string, content: JournalContent): Promise<TravelBook>
-saveCollage(bookId: string, canvas: CollageCanvas): Promise<TravelBook>
+saveCollage(bookId: string, canvas: CollageCanvas, precondition?: CollageSavePrecondition): Promise<TravelBook>
+copyCollageDraft(bookId: string, canvas: CollageCanvas): Promise<TravelBook>
 ```
 
 实现入口：`src/data/books`。默认实例已绑定唯一 Dexie；测试用 `createBookRepository(database, { now })` 注入独立数据库和时钟。
@@ -229,7 +230,8 @@ saveCollage(bookId: string, canvas: CollageCanvas): Promise<TravelBook>
 - `getBook`：空 ID 或未知 ID 返回 `undefined`，由手账壳提供退路。
 - `renameBook`：只写 `title`、`updatedAt`。
 - `saveJournal`：只写 `journal`、`updatedAt`。
-- `saveCollage`：只写 `collage`、`updatedAt`。
+- `saveCollage`：只写 `collage`、`updatedAt`。编辑器传入 `{ expected: CollageCanvas | undefined }`，同一事务检测过期画布。冲突返回 `COLLAGE_CONFLICT`，由保存队列保留草稿。
+- `copyCollageDraft`：在同一城市新建一本手账并保存拼贴草稿，原手账保留已保存版本。
 
 **保存协议**：所有更新使用 Dexie `update` 的字段级 patch，不允许调用方回传整本旧 `TravelBook`。读取只用于确认存在并返回最新对象；写事务不会把旧对象整体覆盖回去。因此改标题、保存一种模式、更新计划关联三者互不覆盖。
 
