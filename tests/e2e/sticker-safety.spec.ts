@@ -19,14 +19,11 @@ async function readStickers(page: Page, bookId = BOOK_A): Promise<StickerDocumen
 async function addSticker(page: Page, bookId = BOOK_A, expectedCount = 1): Promise<StickerDocument | null> {
   await page.getByRole('button', { name: '插入贴纸', exact: true }).click();
   const picker = page.getByRole('dialog', { name: '贴纸盒' });
-  // Click and inspect storage in one browser task: a 350ms debounce cannot pass by accident.
-  const immediatelySaved = await picker.getByRole('button', { name: '绿皮火车', exact: true }).evaluate((button, key) => {
-    (button as HTMLButtonElement).click();
-    return JSON.parse(localStorage.getItem(key) ?? 'null') as StickerDocument | null;
-  }, keyFor(bookId));
+  await picker.getByRole('button', { name: '绿皮火车', exact: true }).click();
+  await expect(page.locator('[data-state="saved"], [data-state="error"]')).toBeVisible();
   await picker.getByRole('button', { name: '贴好了', exact: true }).click();
   await expect(page.locator('[data-sticker]')).toHaveCount(expectedCount);
-  return immediatelySaved;
+  return readStickers(page, bookId);
 }
 
 type LeaveAction = 'mode' | 'reload' | 'pagehide' | 'hidden' | 'pointerup';
@@ -43,8 +40,11 @@ async function moveStickerAndAct(page: Page, action: LeaveAction) {
     const pointer = { bubbles: true, pointerId: 7, pointerType: 'mouse', isPrimary: true, button: 0, buttons: 1 };
     // Keep the edit and save/leave signal in one JS task: a debounce timer cannot
     // run between them. A wall-clock limit would instead make busy CI machines fail.
+    const schedule = window.setTimeout;
+    window.setTimeout = ((handler: TimerHandler, delay?: number, ...args: unknown[]) => schedule(handler, delay === 350 ? 60_000 : delay, ...args)) as typeof window.setTimeout;
     node.dispatchEvent(new PointerEvent('pointerdown', { ...pointer, clientX: startX, clientY: startY }));
     window.dispatchEvent(new PointerEvent('pointermove', { ...pointer, clientX: startX + 40, clientY: startY + 25 }));
+    window.setTimeout = schedule;
     if (action === 'mode') document.querySelector<HTMLAnchorElement>('a[href*="mode=collage"]')!.click();
     if (action === 'reload') window.setTimeout(() => window.location.reload(), 0);
     if (action === 'pagehide') window.dispatchEvent(new PageTransitionEvent('pagehide'));
@@ -56,7 +56,6 @@ async function moveStickerAndAct(page: Page, action: LeaveAction) {
     return {
       expectedX: Math.min(1, original.x + 40 / canvas.width),
       expectedY: Math.min(1, original.y + 25 / canvas.height),
-      saved: JSON.parse(localStorage.getItem(key)!) as StickerDocument,
     };
   }, { action, key: keyFor(BOOK_A) });
 }
@@ -119,18 +118,17 @@ test('refresh during an unfinished drag restores the final position', async ({ p
   const moved = await moveStickerAndAct(page, 'reload');
   await navigation;
   await expect(page.locator('[data-sticker]')).toHaveCount(1);
-  const restored = await readStickers(page);
-  expect(restored?.pages[0][0].x).toBeCloseTo(moved.expectedX, 6);
-  expect(restored?.pages[0][0].y).toBeCloseTo(moved.expectedY, 6);
+  await expect.poll(async () => (await readStickers(page))?.pages[0][0].x).toBeCloseTo(moved.expectedX, 6);
+  expect((await readStickers(page))?.pages[0][0].y).toBeCloseTo(moved.expectedY, 6);
 });
 
 for (const lifecycle of ['pagehide', 'hidden'] as const) {
-  test(`${lifecycle} saves the pending gesture synchronously`, async ({ page }) => {
+  test(`${lifecycle} starts saving the pending gesture before the debounce timer`, async ({ page }) => {
     await openBook(page);
     await addSticker(page);
     const moved = await moveStickerAndAct(page, lifecycle);
-    expect(moved.saved.pages[0][0].x).toBeCloseTo(moved.expectedX, 6);
-    expect(moved.saved.pages[0][0].y).toBeCloseTo(moved.expectedY, 6);
+    await expect.poll(async () => (await readStickers(page))?.pages[0][0].x).toBeCloseTo(moved.expectedX, 6);
+    expect((await readStickers(page))!.pages[0][0].y).toBeCloseTo(moved.expectedY, 6);
   });
 }
 
@@ -138,10 +136,10 @@ test('releasing move, scale and rotation handles persists the final values immed
   await openBook(page);
   await addSticker(page);
   const moved = await moveStickerAndAct(page, 'pointerup');
-  expect(moved.saved.pages[0][0].x).toBeCloseTo(moved.expectedX, 6);
+  await expect.poll(async () => (await readStickers(page))?.pages[0][0].x).toBeCloseTo(moved.expectedX, 6);
   for (const [label, field] of [['缩放这张贴纸', 'scale'], ['旋转这张贴纸', 'rotation']] as const) {
     const previous = (await readStickers(page))!.pages[0][0][field];
-    const next = await page.getByRole('button', { name: new RegExp(`^${label}`) }).evaluate((handle, key) => {
+    await page.getByRole('button', { name: new RegExp(`^${label}`) }).evaluate((handle) => {
       const box = handle.getBoundingClientRect();
       const x = box.left + box.width / 2;
       const y = box.top + box.height / 2;
@@ -149,9 +147,8 @@ test('releasing move, scale and rotation handles persists the final values immed
       handle.dispatchEvent(new PointerEvent('pointerdown', { ...pointer, clientX: x, clientY: y }));
       window.dispatchEvent(new PointerEvent('pointermove', { ...pointer, clientX: x + 40, clientY: y + 30 }));
       window.dispatchEvent(new PointerEvent('pointerup', { ...pointer, buttons: 0 }));
-      return (JSON.parse(localStorage.getItem(key)!) as StickerDocument).pages[0][0];
-    }, keyFor(BOOK_A));
-    expect(next[field]).not.toBeCloseTo(previous, 4);
+    });
+    await expect.poll(async () => (await readStickers(page))!.pages[0][0][field]).not.toBeCloseTo(previous, 4);
   }
 });
 
@@ -210,6 +207,70 @@ test('an unreadable original archive disables insertion, stays untouched after r
   expect(await page.evaluate((key) => localStorage.getItem(key), keyFor(BOOK_A))).toBe(original);
 });
 
+test('the shared asset dialog cannot delete a selected canvas sticker', async ({ page }) => {
+  await openBook(page);
+  const stored = await addSticker(page);
+  await page.getByRole('button', { name: '素材', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '挑一张贴进手账' });
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press('Delete');
+  await page.keyboard.press('Backspace');
+  const sticker = page.locator('[data-sticker]');
+  await expect(sticker).toHaveCount(1);
+  expect(await readStickers(page)).toEqual(stored);
+  await dialog.getByRole('button', { name: '关闭素材面板' }).click();
+  await sticker.focus();
+  await page.keyboard.press('Delete');
+  await expect.poll(async () => (await readStickers(page))?.pages[0]).toEqual([]);
+});
+
+async function holdStickerLock(tab: Page) {
+  await tab.evaluate((key) => new Promise<void>((held) => {
+    void navigator.locks.request(key, () => new Promise<void>((release) => {
+      window.addEventListener('release-test-lock', () => release(), { once: true });
+      held();
+    }));
+  }), keyFor(BOOK_A));
+}
+
+test('overlapping saves retain the losing tab’s draft and show a conflict', async ({ page, context }) => {
+  await openBook(page);
+  const second = await context.newPage();
+  await second.goto(`/#/book/${BOOK_A}?mode=journal`);
+  await holdStickerLock(page);
+  for (const [tab, label] of [[page, '绿皮火车'], [second, '胶片相机']] as const) {
+    await tab.getByRole('button', { name: '插入贴纸', exact: true }).click();
+    await tab.getByRole('button', { name: label, exact: true }).click();
+    await tab.getByRole('button', { name: '贴好了', exact: true }).click();
+    await expect(tab.locator('[data-state="saving"]')).toBeVisible();
+  }
+  expect(await readStickers(page)).toBeNull();
+  await page.evaluate(() => window.dispatchEvent(new Event('release-test-lock')));
+  await expect(page.locator('[data-state="saved"]')).toBeVisible();
+  await expect(second.locator('[data-state="error"]')).toContainText('贴纸保存冲突');
+  expect((await readStickers(second))?.pages[0].map((item) => item.assetId)).toEqual(['common-train']);
+  await expect(second.locator('[data-sticker] img')).toHaveAttribute('alt', '胶片相机');
+});
+
+test('closing a tab while its save waits for a lock leaves a recoverable draft', async ({ page, context }) => {
+  await openBook(page);
+  const holder = await context.newPage();
+  await holder.goto('/#/section/inspiration');
+  await holdStickerLock(holder);
+  await page.getByRole('button', { name: '插入贴纸', exact: true }).click();
+  await page.getByRole('button', { name: '绿皮火车', exact: true }).click();
+  await expect(page.locator('[data-state="saving"]')).toBeVisible();
+  // A real navigation runs pagehide while the other tab still owns the lock.
+  page.on('dialog', (dialog) => { void dialog.accept(); });
+  await page.goto('about:blank');
+  await page.close();
+  expect(await readStickers(holder)).toBeNull();
+  await holder.evaluate(() => window.dispatchEvent(new Event('release-test-lock')));
+  await holder.goto(`/#/book/${BOOK_A}?mode=journal`);
+  await expect(holder.locator('[data-state="saved"]')).toBeVisible();
+  expect((await readStickers(holder))?.pages[0].map((item) => item.assetId)).toEqual(['common-train']);
+});
+
 test('an idle second tab picks up saved stickers before editing the same journal', async ({ page, context }) => {
   await openBook(page);
   const second = await context.newPage();
@@ -226,7 +287,8 @@ test('an idle second tab picks up saved stickers before editing the same journal
   await expect(page.locator('[data-sticker]')).toHaveCount(2);
 });
 
-test('a save with a stale archive keeps the draft, reports the conflict and protects the newer archive', async ({ page }) => {
+test('without Web Locks a stale save keeps the draft and protects the newer archive', async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(navigator, 'locks', { value: undefined }));
   await openBook(page);
   const original = (await addSticker(page))!;
   const latest = { ...original, pages: [[{ ...original.pages[0][0], x: 0.8 }]] };

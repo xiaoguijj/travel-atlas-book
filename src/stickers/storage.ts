@@ -1,3 +1,4 @@
+import { db } from '../data/db';
 import { getStickerAsset } from './catalog';
 import type { StickerDocument, StickerInstance, StickerScope } from './types';
 
@@ -44,6 +45,55 @@ export function writeStickerDocument(scope: StickerScope, doc: StickerDocument):
 export function emptyDocument(): StickerDocument {
   return { version: 1, pages: [[]] };
 }
+
+/** Only the read/compare/write section runs under this cross-tab lock. */
+function withStickerWriteLock(scope: StickerScope, save: () => boolean): Promise<boolean> {
+  if (navigator.locks) return navigator.locks.request(stickerKey(scope), save);
+  // Web Locks require HTTPS. A readwrite transaction also serializes tabs on LAN HTTP.
+  return db.transaction('rw', db.books, async () => {
+    await db.books.where(':id').equals(scope.journalId).count();
+    return save();
+  });
+}
+
+export interface StickerCheckpoint {
+  key: string;
+  base: StickerDocument;
+  draft: StickerDocument;
+}
+
+// pagehide cannot wait for a lock. Give each departing editor a separate durable
+// slot so that closing tabs can never overwrite another editor's pending draft.
+function readStickerCheckpoint(scope: StickerScope): StickerCheckpoint | undefined {
+  const prefix = stickerKey(scope) + '.pending.';
+  const storage = window.localStorage;
+  for (let i = 0; i < storage.length; i++) {
+    const key = storage.key(i);
+    if (!key?.startsWith(prefix)) continue;
+    const raw = storage.getItem(key);
+    if (raw === null) continue;
+    const { base, draft } = JSON.parse(raw);
+    assertDocument(base);
+    assertDocument(draft);
+    return { key, base, draft };
+  }
+}
+
+function saveStickerCheckpoint(checkpoint: StickerCheckpoint): void {
+  window.localStorage.setItem(checkpoint.key, JSON.stringify({ base: checkpoint.base, draft: checkpoint.draft }));
+}
+
+export const stickerRepository = {
+  read: readStickerDocument,
+  write: writeStickerDocument,
+  exclusive: withStickerWriteLock,
+  checkpoints: {
+    read: readStickerCheckpoint,
+    createKey: (scope: StickerScope) => stickerKey(scope) + '.pending.' + createInstanceId(),
+    write: saveStickerCheckpoint,
+    remove: (key: string) => window.localStorage.removeItem(key),
+  },
+};
 
 export function createInstanceId(): string {
   const crypto = window.crypto;

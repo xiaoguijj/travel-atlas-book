@@ -8,7 +8,7 @@ export interface StickerPersistence {
   readBlocked?: boolean;
   conflict?: boolean;
   lastSavedAt?: string;
-  flush(): boolean;
+  flush(): boolean | Promise<boolean>;
   isDirty(): boolean;
   discardPending(): void;
 }
@@ -25,7 +25,7 @@ export function coordinateBookSaves(
       const bookSaved = await queue.flush();
       // Read the latest sticker draft AFTER the asynchronous book save. A gesture
       // may have changed it while IndexedDB was still finishing its transaction.
-      const stickersSaved = stickers.flush();
+      const stickersSaved = await stickers.flush();
       return bookSaved && stickersSaved && !queue.isDirty() && !stickers.isDirty();
     },
     discardPending() {

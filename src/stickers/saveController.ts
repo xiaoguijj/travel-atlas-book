@@ -1,6 +1,14 @@
+import type { StickerCheckpoint } from './storage';
 import type { StickerDocument, StickerScope, StickerStatus } from './types';
 
 interface StickerRepository {
+  exclusive?(scope: StickerScope, save: () => boolean): Promise<boolean>;
+  checkpoints?: {
+    read(scope: StickerScope): StickerCheckpoint | undefined;
+    createKey(scope: StickerScope): string;
+    write(checkpoint: StickerCheckpoint): void;
+    remove(key: string): void;
+  };
   read(scope: StickerScope): StickerDocument;
   write(scope: StickerScope, doc: StickerDocument): boolean;
 }
@@ -29,18 +37,23 @@ export function createStickerSaveController(
 ) {
   const boundScope = { ...scope };
   let persisted: StickerDocument = { version: 1, pages: [[]] };
-  let readBlocked = false;
-  try {
-    persisted = repository.read(boundScope);
-  } catch {
-    readBlocked = true;
+  let checkpointKey: string | undefined;
+
+  function load(): StickerSaveSnapshot {
+    try {
+      const current = repository.read(boundScope);
+      const recovery = repository.checkpoints?.read(boundScope);
+      // An earlier writer may have committed the checkpoint before its tab closed.
+      const needsReplay = recovery && JSON.stringify(current) !== JSON.stringify(recovery.draft);
+      persisted = needsReplay ? recovery.base : current;
+      checkpointKey = recovery?.key;
+      return { doc: recovery?.draft ?? current, status: recovery ? 'saving' : 'saved', dirty: Boolean(recovery), readBlocked: false };
+    } catch {
+      return { doc: persisted, status: 'unavailable', dirty: false, readBlocked: true };
+    }
   }
-  let snapshot: StickerSaveSnapshot = {
-    doc: persisted,
-    status: readBlocked ? 'unavailable' : 'saved',
-    dirty: false,
-    readBlocked,
-  };
+
+  let snapshot = load();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const listeners = new Set<() => void>();
 
@@ -55,20 +68,42 @@ export function createStickerSaveController(
     timer = undefined;
   }
 
-  function flush(): boolean {
-    clearTimer();
+  function clearCheckpoint(): void {
+    if (checkpointKey) repository.checkpoints?.remove(checkpointKey);
+    checkpointKey = undefined;
+  }
+
+  function checkpoint(): void {
+    if (!snapshot.dirty || !repository.checkpoints) return;
+    try {
+      // Never reuse a slot: a reopened tab may still be finishing an older recovery.
+      const key = repository.checkpoints.createKey(boundScope);
+      repository.checkpoints.write({ key, base: persisted, draft: snapshot.doc });
+      clearCheckpoint();
+      checkpointKey = key;
+    } catch {
+      // Retain the in-memory draft and let the normal save/leave guard report failure.
+    }
+  }
+
+  function saveNow(): boolean {
     if (!snapshot.dirty) return true;
     const doc = snapshot.doc;
     let saved = false;
     let conflict = snapshot.conflict ?? false;
     try {
       const latest = repository.read(boundScope);
-      conflict = JSON.stringify(latest) !== JSON.stringify(persisted);
-      if (!conflict) saved = repository.write(boundScope, doc);
+      const current = JSON.stringify(latest);
+      const alreadySaved = current === JSON.stringify(doc);
+      conflict = !alreadySaved && current !== JSON.stringify(persisted);
+      saved = alreadySaved || (!conflict && repository.write(boundScope, doc));
+      if (saved) {
+        persisted = doc;
+        clearCheckpoint();
+      }
     } catch {
-      // 读取或写入失败时保留内存草稿，等用户重试。
+      saved = false;
     }
-    if (saved) persisted = doc;
     emit({
       doc,
       status: saved ? 'saved' : 'unavailable',
@@ -80,11 +115,27 @@ export function createStickerSaveController(
     return saved;
   }
 
+  function flush(): boolean | Promise<boolean> {
+    clearTimer();
+    if (!snapshot.dirty) return true;
+    if (!repository.exclusive) return saveNow();
+    return repository.exclusive(boundScope, saveNow).catch(() => {
+      if (!snapshot.dirty) return true;
+      emit({ ...snapshot, status: 'unavailable' });
+      return false;
+    });
+  }
+
   function refresh(): boolean {
     if (snapshot.dirty) return false;
+    if (snapshot.readBlocked) {
+      emit(load());
+      if (snapshot.dirty) void flush();
+      return !snapshot.readBlocked;
+    }
     try {
       const latest = repository.read(boundScope);
-      if (snapshot.readBlocked || JSON.stringify(latest) !== JSON.stringify(persisted)) {
+      if (JSON.stringify(latest) !== JSON.stringify(persisted)) {
         persisted = latest;
         emit({ doc: latest, status: 'saved', dirty: false, readBlocked: false });
       }
@@ -112,6 +163,7 @@ export function createStickerSaveController(
       else timer = setTimeout(flush, debounceMs);
     },
     flush,
+    checkpoint,
     refresh,
     retry() {
       return snapshot.readBlocked ? refresh() : flush();
@@ -119,6 +171,7 @@ export function createStickerSaveController(
     discardPending() {
       clearTimer();
       if (snapshot.readBlocked) return;
+      clearCheckpoint();
       emit({ ...snapshot, doc: persisted, status: 'saved', dirty: false, conflict: false });
       refresh();
     },

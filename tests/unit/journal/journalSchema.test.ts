@@ -63,6 +63,10 @@ describe('loading a Journal with the actual editor schema', () => {
   });
 
   it.each([
+    ['unknown mark metadata', document({
+      type: 'paragraph', content: [{ type: 'text', text: '原文', marks: [{ type: 'bold', attrs: { weight: 800 } }] }],
+    })],
+    ['unknown media metadata', document({ type: 'atlasMedia', attrs: { assetId: 'photo:kept', crop: [0, 0, 50, 50] } })],
     ['an unknown node', document(paragraph('保留正文'), { type: 'futureWidget' })],
     ['an unknown mark', document({
       type: 'paragraph',

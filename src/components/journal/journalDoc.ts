@@ -32,6 +32,12 @@ export function journalDocFor(content: JournalContent | undefined): JournalDocum
 /** 只有空段落、没有文字也没有媒体块，就算「还没动笔」。 */
 export function isJournalBlank(content: JournalContent | undefined): boolean {
   if (!content) return true;
+  try {
+    assertJournalContent(content);
+  } catch {
+    // Keep unreadable books accessible through the shelf and mode selector.
+    return false;
+  }
   return countText(content.doc) === 0 && !hasMedia(content.doc);
 }
 

@@ -79,6 +79,32 @@ for (const entry of ['journal toolbar', 'shared toolbar'] as const) {
   });
 }
 
+test('a damaged book remains reachable from a shelf shared with a healthy book', async ({ page }) => {
+  const broken = { doc: { type: 'doc', content: [null] } } as unknown as JournalContent;
+  await seedBooks(page, [seedBook('healthy', '正常手账'), seedBook(BOOK_ID, '待恢复手账', 'nanjing', { journal: broken })]);
+  await page.goto('/#/section/journals?cityId=nanjing');
+  await page.getByRole('button', { name: /正常手账/ }).click();
+  await expect(page.getByRole('link', { name: /Journal 横线日记本/ })).toBeVisible();
+  await page.goto('/#/section/journals?cityId=nanjing');
+  await page.getByRole('button', { name: /待恢复手账/ }).click();
+  await page.getByRole('link', { name: /Journal 横线日记本/ }).click();
+  await expect(page.getByRole('alert')).toContainText('正文暂时无法完整读取');
+  expect((await readBook(page, BOOK_ID))?.journal).toEqual(broken);
+});
+
+test('legacy paragraph formatting survives a title edit and reload in recovery', async ({ page }) => {
+  const original: JournalContent = { doc: { type: 'doc', content: [{ ...paragraph('居中的文字'), attrs: { textAlign: 'center' } }] } };
+  await seedBooks(page, [seedBook(BOOK_ID, '旧版排版', 'nanjing', { journal: original })]);
+  await page.goto(BOOK_URL);
+  await expect(page.getByRole('alert')).toContainText('正文暂时无法完整读取');
+  await expect(page.getByRole('textbox', { name: '手账正文' })).toHaveCount(0);
+  await page.getByLabel('手账标题').fill('新标题');
+  await expect.poll(async () => (await readBook(page, BOOK_ID))?.title).toBe('新标题');
+  await page.reload();
+  await expect(page.getByRole('alert')).toContainText('正文暂时无法完整读取');
+  expect((await readBook(page, BOOK_ID))?.journal).toEqual(original);
+});
+
 test('an unsupported document keeps its original content and flushes a just-edited title before reloading', async ({ page }) => {
   const original: JournalContent = {
     doc: {

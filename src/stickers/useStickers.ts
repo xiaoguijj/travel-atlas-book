@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createStickerSaveController } from './saveController';
-import { MAX_SCALE, MIN_SCALE, createInstanceId, readStickerDocument, stickerKey, writeStickerDocument } from './storage';
+import { MAX_SCALE, MIN_SCALE, createInstanceId, stickerKey, stickerRepository } from './storage';
 import type { StickerDocument, StickerInstance, StickerScope, StickerStatus } from './types';
 
 /**
@@ -10,8 +10,6 @@ import type { StickerDocument, StickerInstance, StickerScope, StickerStatus } fr
  * Collage 用法：同一页就是 pages[0]，pageIndex 恒为 0。
  * 组件本身不碰存储，宿主页面拿着这个 API 传给 StickerLayer 就行。
  */
-
-const repository = { read: readStickerDocument, write: writeStickerDocument };
 
 /** 新贴纸的落点：按已贴数量错开一点，免得第二张正好压在第一天同一个点上 */
 const CASCADE = [0, 0.045, -0.045, 0.09, -0.09, 0.02];
@@ -26,10 +24,10 @@ export interface StickerApi {
   /** 失败草稿同样保持 dirty，直到成功写入或用户明确放弃。 */
   dirty: boolean;
   isDirty: () => boolean;
-  /** 同步补存最新草稿；失败返回 false，可直接再次调用重试。 */
-  flush: () => boolean;
+  /** 补存最新草稿；失败返回 false，可直接再次调用重试。 */
+  flush: () => boolean | Promise<boolean>;
   /** 读取失败时只重新读取原档；写入失败时重新保存最新草稿。 */
-  retry: () => boolean;
+  retry: () => boolean | Promise<boolean>;
   discardPending: () => void;
   selectedId: string | null;
   select: (instanceId: string | null) => void;
@@ -44,7 +42,7 @@ export interface StickerApi {
 export function useStickers(scope: StickerScope, pageIndex: number): StickerApi {
   const { cityId, mode, journalId } = scope;
   const controller = useMemo(
-    () => createStickerSaveController({ cityId, mode, journalId }, repository),
+    () => createStickerSaveController({ cityId, mode, journalId }, stickerRepository),
     [cityId, mode, journalId],
   );
   const { doc, status, dirty, lastSavedAt, readBlocked, conflict } = useSyncExternalStore(
@@ -63,18 +61,23 @@ export function useStickers(scope: StickerScope, pageIndex: number): StickerApi 
   useEffect(() => {
     const key = stickerKey({ cityId, mode, journalId });
     const flush = () => { controller.flush(); };
+    const onPageHide = () => {
+      controller.checkpoint();
+      flush();
+    };
     const onStorage = (event: StorageEvent) => {
       if (event.key === key || event.key === null) controller.refresh();
     };
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') flush();
     };
-    window.addEventListener('pagehide', flush);
+    window.addEventListener('pagehide', onPageHide);
     window.addEventListener('storage', onStorage);
     document.addEventListener('visibilitychange', onVisibilityChange);
-    controller.refresh();
+    if (controller.isDirty()) flush();
+    else controller.refresh();
     return () => {
-      window.removeEventListener('pagehide', flush);
+      window.removeEventListener('pagehide', onPageHide);
       window.removeEventListener('storage', onStorage);
       document.removeEventListener('visibilitychange', onVisibilityChange);
       // 正常路由由宿主先保存并拦截失败；卸载时仍补存尚在防抖窗口的修改。

@@ -159,20 +159,14 @@ export function StickerLayer({ instances, selectedId, onSelect, onUpdate, onRemo
   }, [onSelect]);
 
   /** 键盘删除与退出选中，但光标在文字里时绝不插手——那是在打字，不是在删贴纸 */
-  useEffect(() => {
-    if (!selectedId) return undefined;
-    const handler = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target && (target.isContentEditable || /^(input|textarea|select)$/i.test(target.tagName))) return;
-      if (event.key === 'Escape') onSelect?.(null);
-      if ((event.key === 'Delete' || event.key === 'Backspace') && onRemove) {
-        event.preventDefault();
-        onRemove(selectedId);
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [selectedId, onSelect, onRemove]);
+  function handleLayerKey(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (!selectedId) return;
+    if (event.key === 'Escape') onSelect?.(null);
+    if ((event.key === 'Delete' || event.key === 'Backspace') && onRemove) {
+      event.preventDefault();
+      onRemove(selectedId);
+    }
+  }
 
   /**
    * 四个把手的位置每轮重算：贴纸会转，角上的点在层里就得按旋转矩阵推出来，
@@ -242,7 +236,7 @@ export function StickerLayer({ instances, selectedId, onSelect, onUpdate, onRemo
   }
 
   return (
-    <div ref={rootRef} className={styles.layer} data-sticker-layer="">
+    <div ref={rootRef} className={styles.layer} data-sticker-layer="" onKeyDown={handleLayerKey}>
       {sorted.map((instance, index) => (
         <Sticker
           key={instance.instanceId}

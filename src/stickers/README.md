@@ -62,7 +62,7 @@ const stickers = useStickers({ cityId: city.id, mode: 'journal', journalId: book
 `page` 直接当第二个参数传进去，翻页时层里换的就是另一页的实例——不同页的贴纸互不影响。
 
 宿主同时负责正文和贴纸的保存反馈与离开保护：`dirty` 用于渲染，`isDirty()` 用于离开瞬间
-读取最新状态；`flush()` 同步保存并返回成功与否，手动重试调用 `retry()`；`discardPending()` 只在用户
+读取最新状态；`await flush()` 等待跨标签页写锁并返回保存结果，手动重试调用 `retry()`；`discardPending()` 只在用户
 明确放弃时调用。写入失败保留草稿和 dirty，只有真正写入成功才更新 `lastSavedAt`。
 页面不能在贴纸仍 dirty 或 unavailable 时对整本手账显示“已保存”。
 `readBlocked` 表示旧档没有完整读出，此时所有内容修改都被禁止，`retry()` 仅重新读取原档，
@@ -134,7 +134,7 @@ const doc = readStickerDocument({ cityId, mode: 'collage', journalId: 'default' 
 - 点画布空白处取消选中；`Delete`/`Backspace` 删除选中，`Esc` 取消选中。
 - **光标在标题、日期、正文里时，键盘事件一律放行**，绝不在打字时把贴纸删了；按住贴纸也不会抢走正文的焦点和选区。
 - 连续移动、缩放和旋转以 350ms 防抖写入，手势结束立即补存；添加、删除、复制、换层立即保存。
-  切换模式先由宿主保存并检查失败，卸载、pagehide、页面隐藏另有同步补存。
+  切换模式先由宿主保存并检查失败，页面隐藏时也发起补存。pagehide 会先同步保存本页独立的待写草稿，下次打开时在锁内核对基线后恢复。
   明确放弃后定时器和补存均不会再写入；存储持续不可用时仍需提示用户，不能保证强制关闭后保留未存草稿。
 
 ## 素材
