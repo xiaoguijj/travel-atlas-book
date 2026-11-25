@@ -4,7 +4,7 @@ import type { BookSaveQueue } from '../../data/saving';
 import styles from './LeaveGuard.module.css';
 
 interface LeaveGuardProps {
-  queue: Pick<BookSaveQueue, 'flush' | 'discardPending' | 'isDirty'>;
+  queue: Pick<BookSaveQueue, 'flush' | 'isDirty'> & { discardPending(): void | Promise<void> };
   dirty: boolean;
   errorMessage: string | null;
 }
@@ -22,13 +22,18 @@ export function LeaveGuard({ queue, dirty, errorMessage }: LeaveGuardProps) {
       (currentLocation.pathname !== nextLocation.pathname ||
         currentLocation.search !== nextLocation.search),
   );
-  const [phase, setPhase] = useState<'idle' | 'saving' | 'failed'>('idle');
+  const [phase, setPhase] = useState<'idle' | 'saving' | 'discarding' | 'failed'>('idle');
+  const [discardError, setDiscardError] = useState<string | null>(null);
   const attempt = useRef(0);
+  const discardInProgress = useRef(false);
+  const dialogRef = useRef<HTMLElement>(null);
   const proceedRef = useRef<(() => void) | undefined>(undefined);
   proceedRef.current = blocker.state === 'blocked' ? blocker.proceed : undefined;
 
   const saveThenLeave = async () => {
+    if (discardInProgress.current) return;
     const currentAttempt = ++attempt.current;
+    setDiscardError(null);
     setPhase('saving');
     let saved = false;
     try {
@@ -37,13 +42,38 @@ export function LeaveGuard({ queue, dirty, errorMessage }: LeaveGuardProps) {
       // A failed save must keep navigation blocked, including unexpected storage errors.
     }
     if (currentAttempt !== attempt.current) return;
-    if (saved) proceedRef.current?.();
+    if (saved && !queue.isDirty()) proceedRef.current?.();
     else setPhase('failed');
+  };
+
+  const discardThenLeave = async () => {
+    if (discardInProgress.current) return;
+    discardInProgress.current = true;
+    const currentAttempt = ++attempt.current;
+    setDiscardError(null);
+    setPhase('discarding');
+    try {
+      await queue.discardPending();
+      if (currentAttempt !== attempt.current) return;
+      if (queue.isDirty()) {
+        setDiscardError('还有未处理的修改，已留在本页。请重试保存或放弃修改后再离开。');
+        setPhase('failed');
+        return;
+      }
+      proceedRef.current?.();
+    } catch {
+      if (currentAttempt !== attempt.current) return;
+      setDiscardError('放弃修改未能完成，已留在本页。请重试，或留在本页继续处理。');
+      setPhase('failed');
+    } finally {
+      discardInProgress.current = false;
+    }
   };
 
   useEffect(() => {
     if (blocker.state !== 'blocked') {
       setPhase('idle');
+      setDiscardError(null);
       attempt.current += 1;
       return;
     }
@@ -66,8 +96,30 @@ export function LeaveGuard({ queue, dirty, errorMessage }: LeaveGuardProps) {
   useEffect(() => () => { attempt.current += 1; }, []);
 
   useEffect(() => {
+    if (phase !== 'discarding') return;
+    // Discard may already have removed persistent data: it cannot be undone by
+    // cancelling navigation. Keep focus here until it completes or fails.
+    const keepFocus = (event: FocusEvent) => {
+      if (discardInProgress.current && !dialogRef.current?.contains(event.target as Node)) {
+        dialogRef.current?.focus();
+      }
+    };
+    dialogRef.current?.focus();
+    document.addEventListener('focusin', keepFocus);
+    return () => document.removeEventListener('focusin', keepFocus);
+  }, [phase]);
+
+  useEffect(() => {
     if (blocker.state !== 'blocked') return;
     const onKeyDown = (event: KeyboardEvent) => {
+      if (discardInProgress.current) {
+        if (event.key === 'Escape' || event.key === 'Tab') {
+          event.preventDefault();
+          event.stopPropagation();
+          dialogRef.current?.focus();
+        }
+        return;
+      }
       if (event.key !== 'Escape') return;
       attempt.current += 1;
       blocker.reset();
@@ -80,32 +132,32 @@ export function LeaveGuard({ queue, dirty, errorMessage }: LeaveGuardProps) {
   if (blocker.state !== 'blocked') return null;
 
   const failed = phase === 'failed';
+  const discarding = phase === 'discarding';
 
   return (
     <div className={styles.overlay}>
-      <section role="dialog" aria-modal="true" aria-labelledby="leave-guard-title" className={styles.dialog}>
+      <section ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="leave-guard-title" className={styles.dialog}>
         <p className={styles.kicker}>{failed ? '最后一页还没干' : '合上本子之前'}</p>
-        <h2 id="leave-guard-title">{failed ? '保存失败，暂时不能离开' : '正在保存这一页…'}</h2>
+        <h2 id="leave-guard-title">{failed ? (discardError ? '放弃修改失败，暂时不能离开' : '保存失败，暂时不能离开') : discarding ? '正在放弃修改…' : '正在保存这一页…'}</h2>
         <p className={styles.body}>
           {failed
-            ? errorMessage || '内容还留在本页草稿里。可以重试一次，或明确放弃这次修改再离开。'
-            : '把还没写进本子的标题、正文和贴纸补存一下，通常只要一小会儿。'}
+            ? discardError || errorMessage || '内容还留在本页草稿里。可以重试一次，或明确放弃这次修改再离开。'
+            : discarding
+              ? '正在放弃未保存的修改，完成后会离开。'
+              : '把还没写进本子的标题、正文和贴纸补存一下，通常只要一小会儿。'}
         </p>
 
         <div className={styles.actions}>
-          {failed ? (
+          {failed || discarding ? (
             <>
-              <button type="button" className={styles.primary} autoFocus onClick={() => void saveThenLeave()}>
+              <button type="button" className={styles.primary} autoFocus disabled={discarding} onClick={() => void saveThenLeave()}>
                 重试保存并离开
               </button>
               <button
                 type="button"
                 className={styles.danger}
-                onClick={() => {
-                  attempt.current += 1;
-                  queue.discardPending();
-                  blocker.proceed();
-                }}
+                disabled={discarding}
+                onClick={() => void discardThenLeave()}
               >
                 放弃修改并离开
               </button>
@@ -114,7 +166,9 @@ export function LeaveGuard({ queue, dirty, errorMessage }: LeaveGuardProps) {
           <button
             type="button"
             className={styles.secondary}
+            disabled={discarding}
             onClick={() => {
+              if (discardInProgress.current) return;
               attempt.current += 1;
               blocker.reset();
               setPhase('idle');

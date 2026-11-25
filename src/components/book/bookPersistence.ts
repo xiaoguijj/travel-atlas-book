@@ -7,13 +7,17 @@ export interface StickerPersistence {
   dirty: boolean;
   readBlocked?: boolean;
   conflict?: boolean;
+  recoveryCount?: number;
+  recoveryError?: string;
   lastSavedAt?: string;
   flush(): boolean | Promise<boolean>;
   isDirty(): boolean;
-  discardPending(): void;
+  discardPending(): void | Promise<void>;
 }
 
-export type BookPersistence = Pick<BookSaveQueue, 'flush' | 'isDirty' | 'discardPending'>;
+export type BookPersistence = Pick<BookSaveQueue, 'flush' | 'isDirty'> & {
+  discardPending(): void | Promise<void>;
+};
 
 export function coordinateBookSaves(
   queue: BookSaveQueue,
@@ -28,19 +32,36 @@ export function coordinateBookSaves(
       const stickersSaved = await stickers.flush();
       return bookSaved && stickersSaved && !queue.isDirty() && !stickers.isDirty();
     },
-    discardPending() {
-      queue.discardPending();
-      stickers.discardPending();
+    async discardPending() {
+      // Do not let a body debounce expire while waiting for another tab's
+      // sticker lock. If deletion fails, the body draft must still be available.
+      const resume = queue.pauseAutoSave();
+      try {
+        await stickers.discardPending();
+        queue.discardPending();
+      } finally {
+        resume();
+      }
     },
   };
 }
 
 export function bookSaveFeedback(
   book: SaveQueueState,
-  stickers: Pick<StickerPersistence, 'status' | 'dirty' | 'lastSavedAt' | 'readBlocked' | 'conflict'> | undefined,
+  stickers: Pick<StickerPersistence, 'status' | 'dirty' | 'lastSavedAt' | 'readBlocked' | 'conflict' | 'recoveryCount' | 'recoveryError'> | undefined,
   journalBlocked = false,
 ): { state: SaveQueueState; message?: string } {
-  if (!stickers) return { state: book };
+  const journalConflict = Boolean(book.journalConflict || book.error?.code === 'JOURNAL_CONFLICT');
+  if (journalConflict) {
+    const explanation = '另一个标签页已更新正文，本页草稿已保留。可先另存本页正文，再在副本中继续编辑。';
+    book = {
+      ...book,
+      status: 'error',
+      error: new DataError('JOURNAL_CONFLICT', book.error && book.error.code !== 'JOURNAL_CONFLICT'
+        ? `${book.error.message}；${explanation}` : explanation),
+    };
+  }
+  if (!stickers) return { state: book, message: journalConflict ? '正文保存冲突，草稿已保留' : undefined };
 
   const bookFailed = book.status === 'error';
   const stickersFailed = stickers.status === 'unavailable';
@@ -49,15 +70,19 @@ export function bookSaveFeedback(
     .filter((value): value is string => Boolean(value))
     .sort()
     .pop();
-  const status = bookFailed || stickersFailed
+  const recoveryCount = stickers.recoveryCount ?? 0;
+  const status = bookFailed || stickersFailed || stickers.recoveryError
     ? 'error'
     : saving
       ? 'saving'
-      : book.status === 'saved' || stickers.lastSavedAt
+      : recoveryCount > 0
+        ? 'ready'
+        : book.status === 'saved' || stickers.lastSavedAt
         ? 'saved'
         : 'ready';
 
-  let message: string | undefined;
+  let message: string | undefined = journalConflict ? '正文保存冲突，草稿已保留'
+    : bookFailed ? '手账保存失败' : undefined;
   let error = book.error;
   if (stickers.readBlocked) {
     message = bookFailed ? '手账保存失败，贴纸读取失败' : '贴纸读取失败，原存档已保留';
@@ -86,7 +111,15 @@ export function bookSaveFeedback(
     );
   }
 
-  if (journalBlocked && stickers.conflict) {
+  if (stickers.recoveryError) {
+    message = message ? `${message}；贴纸草稿处理未完成` : '贴纸草稿处理未完成';
+    error = new DataError(
+      'STORAGE_WRITE_FAILED',
+      error ? `${error.message}；${stickers.recoveryError}` : stickers.recoveryError,
+    );
+  }
+
+  if (journalBlocked && (stickers.conflict || stickers.recoveryError)) {
     message += '，正文保护中';
   } else if (journalBlocked) {
     message = stickers.readBlocked
@@ -98,6 +131,12 @@ export function bookSaveFeedback(
           : status === 'saving'
             ? '正在保存其他修改，正文保护中'
             : '其他修改已保存，正文保护中';
+  }
+
+  if (recoveryCount > 0) {
+    const recoveryMessage = `还有 ${recoveryCount} 份贴纸草稿待处理`;
+    message = message ? `${message}；${recoveryMessage}`
+      : status === 'saving' ? `正在保存；${recoveryMessage}` : recoveryMessage;
   }
 
   return {
