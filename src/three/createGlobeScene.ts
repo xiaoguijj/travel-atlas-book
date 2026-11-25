@@ -165,6 +165,20 @@ export function createGlobeScene(options: GlobeSceneOptions): GlobeSceneHandle {
     controls.autoRotate = false;
     window.clearTimeout(resumeTimer);
   };
+  const clearRotationInertia = () => {
+    const position = camera.position.clone();
+    controls.enableDamping = false;
+    controls.update(0);
+    controls.enableDamping = true;
+    camera.position.copy(position);
+    controls.update(0);
+  };
+  const holdMarkerRotation = () => {
+    const wasAutoRotating = controls.autoRotate;
+    holdRotation();
+    // 只在暂停自转时清除余量，拖拽或缩放期间保留手势本身的阻尼。
+    if (wasAutoRotating) clearRotationInertia();
+  };
 
   /**
    * 球体本身不转，是相机绕着它转，
@@ -219,11 +233,7 @@ export function createGlobeScene(options: GlobeSceneOptions): GlobeSceneHandle {
     if (!marker) return;
     onStart();
     // 清除拖动惯性，让相机抵达后精确停住。
-    const positionBeforeUpdate = camera.position.clone();
-    controls.enableDamping = false;
-    controls.update();
-    controls.enableDamping = true;
-    camera.position.copy(positionBeforeUpdate);
+    clearRotationInertia();
 
     const from = camera.position.clone().normalize();
     const to = marker.local.clone().normalize();
@@ -301,7 +311,7 @@ export function createGlobeScene(options: GlobeSceneOptions): GlobeSceneHandle {
     const nearMarker = hovered !== null;
     if (nearMarker !== pointerNearMarker) {
       pointerNearMarker = nearMarker;
-      if (nearMarker) holdRotation();
+      if (nearMarker) holdMarkerRotation();
       else scheduleRotationResume();
     }
 
@@ -392,7 +402,7 @@ export function createGlobeScene(options: GlobeSceneOptions): GlobeSceneHandle {
     },
     setFocusHeld(held) {
       focusHeld = held;
-      if (held) holdRotation();
+      if (held) holdMarkerRotation();
       else scheduleRotationResume();
     },
     dispose() {
