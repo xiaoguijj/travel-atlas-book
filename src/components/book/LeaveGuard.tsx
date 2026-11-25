@@ -89,7 +89,7 @@ export function LeaveGuard({ queue, dirty, errorMessage }: LeaveGuardProps) {
         <p className={styles.body}>
           {failed
             ? errorMessage || '内容还留在本页草稿里。可以重试一次，或明确放弃这次修改再离开。'
-            : '把还没写进本子的标题和正文补存一下，通常只要一小会儿。'}
+            : '把还没写进本子的标题、正文和贴纸补存一下，通常只要一小会儿。'}
         </p>
 
         <div className={styles.actions}>

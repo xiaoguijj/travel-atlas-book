@@ -14,6 +14,8 @@ import {
 } from '../../config/journal';
 import type { TravelBook } from '../../data/contracts';
 import type { City } from '../../data/types';
+import { StickerLayer } from '../../stickers';
+import type { StickerApi } from '../../stickers';
 import { JournalEditor, type JournalEditorComponentProps } from './JournalEditor';
 import styles from './JournalView.module.css';
 
@@ -25,6 +27,11 @@ interface JournalViewProps extends JournalEditorComponentProps {
    */
   book?: TravelBook;
   city?: City;
+  /**
+   * V4 通用贴纸系统，由手账壳用 useStickers 建好再传进来；贴纸层挂在纸页
+   * 舞台内部，正文本体与保存队列完全不感知它的存在。
+   */
+  stickers?: StickerApi;
 }
 
 /**
@@ -34,7 +41,7 @@ interface JournalViewProps extends JournalEditorComponentProps {
  * `src/config/journal.ts` 量好的坐标贴上去；保存一律走手账壳的队列，
  * 本页只把 onChange 往上传，不碰数据库。
  */
-export function JournalView({ content, book, city, ...editorProps }: JournalViewProps) {
+export function JournalView({ content, book, city, stickers, ...editorProps }: JournalViewProps) {
   const stageVars = {
     '--rule-step': artCqw(journalArt, journalRules.step),
     '--body-size': artCqw(journalArt, journalBodyFontPx),
@@ -73,6 +80,19 @@ export function JournalView({ content, book, city, ...editorProps }: JournalView
           ) : null}
 
           <JournalEditor content={content} {...editorProps} />
+
+          {stickers && book && city ? (
+            <StickerLayer
+              instances={stickers.instances}
+              selectedId={stickers.selectedId}
+              onSelect={stickers.select}
+              onUpdate={stickers.update}
+              onRemove={stickers.remove}
+              onDuplicate={stickers.duplicate}
+              onReorder={stickers.reorder}
+              onGestureEnd={stickers.flush}
+            />
+          ) : null}
         </div>
       </div>
 
