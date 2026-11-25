@@ -65,7 +65,6 @@ for (const sticker of [
     const selected = '选中的这句话必须完整保留。';
     const suffix = '傍晚回到城里。';
     const nextParagraph = '下一段的顺序也不能改变。';
-    const caption = `${sticker.label}留在这一页。`;
     const original: JournalContent = {
       doc: { type: 'doc', content: [paragraph(prefix + selected + suffix), paragraph(nextParagraph)] },
     };
@@ -88,31 +87,33 @@ for (const sticker of [
 
     const media = editor.locator('[data-type="atlasMedia"]');
     await expect(media).toHaveCount(1);
-    await expect(media.getByText(assetId, { exact: true })).toBeVisible();
     await expectLoadedArtwork(media.getByRole('img', { name: sticker.label, exact: true }), sticker.rawId);
-    await media.getByRole('textbox', { name: '素材说明', exact: true }).fill(caption);
+    await expect(media.getByRole('textbox', { name: '素材说明' })).toHaveCount(0);
 
     const expectedOrder = [
       { type: 'paragraph', text: prefix + selected },
-      { type: 'atlasMedia', assetId, caption },
+      { type: 'atlasMedia', assetId, caption: '' },
       { type: 'paragraph', text: suffix },
       { type: 'paragraph', text: nextParagraph },
     ];
     await expect.poll(async () => documentOrder((await readBook(page, bookId))?.journal)).toEqual(expectedOrder);
     const stored = (await readBook(page, bookId))!.journal!;
-    expect(stored.doc.content?.[1].attrs).toEqual({ assetId, caption });
+    expect(stored.doc.content?.[1].attrs).toEqual({ assetId, caption: '' });
     await expect(editor.locator(':scope > p')).toHaveText([prefix + selected, suffix, nextParagraph]);
 
     await page.reload();
     await expect(editor).toBeVisible();
     await expect(editor.locator(':scope > p')).toHaveText([prefix + selected, suffix, nextParagraph]);
     await expect(media).toHaveCount(1);
-    await expect(media.getByText(assetId, { exact: true })).toBeVisible();
-    await expect(media.getByRole('textbox', { name: '素材说明', exact: true })).toHaveValue(caption);
-    await expectLoadedArtwork(media.getByRole('img', { name: caption, exact: true }), sticker.rawId);
+    await expect(media.getByRole('textbox', { name: '素材说明' })).toHaveCount(0);
+    await expectLoadedArtwork(media.getByRole('img', { name: sticker.label, exact: true }), sticker.rawId);
     const restored = (await readBook(page, bookId))?.journal;
     expect(documentOrder(restored)).toEqual(expectedOrder);
     expect(restored).toEqual(stored);
+
+    await media.getByRole('img', { name: sticker.label, exact: true }).click();
+    await media.getByRole('button', { name: '取走这一格', exact: true }).click();
+    await expect(media).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 }

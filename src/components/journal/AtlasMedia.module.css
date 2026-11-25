@@ -99,6 +99,54 @@
   outline-offset: 2px;
 }
 
+/* 贴纸就是裁好的那张图本身：不加框、不占说明行，点选后右上角浮出取走小圆钮。 */
+.sticker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  margin: 0;
+  vertical-align: top;
+}
+
+.stickerImage {
+  height: calc(var(--rule-step, 3.287cqw) * 3);
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.stickerSelected .stickerImage {
+  outline: 2px dashed rgb(176 141 87 / 0.9);
+  outline-offset: 2px;
+}
+
+.stickerRemove {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid rgb(176 141 87 / 0.8);
+  border-radius: 50%;
+  background: rgb(247 240 227 / 0.95);
+  color: var(--tab-ink);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.stickerRemove:hover,
+.stickerRemove:focus-visible {
+  background: rgb(247 240 227 / 1);
+  border-color: rgb(120 84 40 / 0.95);
+  outline: none;
+}
+
 @media (max-width: 720px) {
   /* 窄屏上 1cqw 太小，说明与编号改用固定下限，按钮照旧点得动 */
   .placeholder,

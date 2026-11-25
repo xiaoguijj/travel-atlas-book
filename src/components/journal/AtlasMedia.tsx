@@ -104,6 +104,38 @@ function AtlasMediaView(props: NodeViewProps) {
     };
   }, [assetId, getAsset]);
 
+  const isSticker = assetId.startsWith('sticker:');
+
+  if (isSticker) {
+    return (
+      <NodeViewWrapper
+        className={props.selected ? `${styles.sticker} ${styles.stickerSelected}` : styles.sticker}
+        data-type={JOURNAL_MEDIA_NODE_NAME}
+      >
+        {src ? (
+          <img
+            className={styles.stickerImage}
+            src={src}
+            alt={caption || resource?.label || assetId}
+            draggable={false}
+          />
+        ) : (
+          <p className={styles.placeholder}>{placeholderCopy(state, assetId)}</p>
+        )}
+        {props.selected || !src ? (
+          <button
+            type="button"
+            className={styles.stickerRemove}
+            aria-label="取走这一格"
+            onClick={() => props.deleteNode()}
+          >
+            ×
+          </button>
+        ) : null}
+      </NodeViewWrapper>
+    );
+  }
+
   return (
     <NodeViewWrapper
       className={props.selected ? `${styles.block} ${styles.blockSelected}` : styles.block}
