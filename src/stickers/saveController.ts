@@ -11,6 +11,8 @@ export interface StickerSaveSnapshot {
   dirty: boolean;
   /** 原档未完整读出时禁止任何修改或空档写入；仍允许无草稿离开。 */
   readBlocked: boolean;
+  /** 其他标签页已修改原档，保留本页草稿并阻止覆盖。 */
+  conflict?: boolean;
   /** 仅由一次实际成功的写入更新；读取存档不会伪造保存时间。 */
   lastSavedAt?: string;
 }
@@ -58,10 +60,13 @@ export function createStickerSaveController(
     if (!snapshot.dirty) return true;
     const doc = snapshot.doc;
     let saved = false;
+    let conflict = snapshot.conflict ?? false;
     try {
-      saved = repository.write(boundScope, doc);
+      const latest = repository.read(boundScope);
+      conflict = JSON.stringify(latest) !== JSON.stringify(persisted);
+      if (!conflict) saved = repository.write(boundScope, doc);
     } catch {
-      // 仓储通常返回 false；意外抛错也不能丢掉仍在内存中的草稿。
+      // 读取或写入失败时保留内存草稿，等用户重试。
     }
     if (saved) persisted = doc;
     emit({
@@ -69,9 +74,25 @@ export function createStickerSaveController(
       status: saved ? 'saved' : 'unavailable',
       dirty: !saved,
       readBlocked: false,
+      conflict,
       lastSavedAt: saved ? new Date().toISOString() : snapshot.lastSavedAt,
     });
     return saved;
+  }
+
+  function refresh(): boolean {
+    if (snapshot.dirty) return false;
+    try {
+      const latest = repository.read(boundScope);
+      if (snapshot.readBlocked || JSON.stringify(latest) !== JSON.stringify(persisted)) {
+        persisted = latest;
+        emit({ doc: latest, status: 'saved', dirty: false, readBlocked: false });
+      }
+      return true;
+    } catch {
+      emit({ ...snapshot, status: 'unavailable', readBlocked: true });
+      return false;
+    }
   }
 
   return {
@@ -91,22 +112,15 @@ export function createStickerSaveController(
       else timer = setTimeout(flush, debounceMs);
     },
     flush,
+    refresh,
     retry() {
-      if (!snapshot.readBlocked) return flush();
-      try {
-        const doc = repository.read(boundScope);
-        persisted = doc;
-        emit({ doc, status: 'saved', dirty: false, readBlocked: false });
-        return true;
-      } catch {
-        // 重试读取失败仍保持保护，不能转成可写的空白本。
-        return false;
-      }
+      return snapshot.readBlocked ? refresh() : flush();
     },
     discardPending() {
       clearTimer();
       if (snapshot.readBlocked) return;
-      emit({ ...snapshot, doc: persisted, status: 'saved', dirty: false });
+      emit({ ...snapshot, doc: persisted, status: 'saved', dirty: false, conflict: false });
+      refresh();
     },
   };
 }

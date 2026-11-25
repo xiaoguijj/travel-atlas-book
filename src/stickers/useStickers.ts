@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { createStickerSaveController } from './saveController';
-import { MAX_SCALE, MIN_SCALE, createInstanceId, readStickerDocument, writeStickerDocument } from './storage';
+import { MAX_SCALE, MIN_SCALE, createInstanceId, readStickerDocument, stickerKey, writeStickerDocument } from './storage';
 import type { StickerDocument, StickerInstance, StickerScope, StickerStatus } from './types';
 
 /**
@@ -22,6 +22,7 @@ export interface StickerApi {
   status: StickerStatus;
   lastSavedAt?: string;
   readBlocked: boolean;
+  conflict?: boolean;
   /** 失败草稿同样保持 dirty，直到成功写入或用户明确放弃。 */
   dirty: boolean;
   isDirty: () => boolean;
@@ -46,7 +47,7 @@ export function useStickers(scope: StickerScope, pageIndex: number): StickerApi 
     () => createStickerSaveController({ cityId, mode, journalId }, repository),
     [cityId, mode, journalId],
   );
-  const { doc, status, dirty, lastSavedAt, readBlocked } = useSyncExternalStore(
+  const { doc, status, dirty, lastSavedAt, readBlocked, conflict } = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot,
     controller.getSnapshot,
@@ -60,20 +61,27 @@ export function useStickers(scope: StickerScope, pageIndex: number): StickerApi 
   }, [controller]);
 
   useEffect(() => {
+    const key = stickerKey({ cityId, mode, journalId });
     const flush = () => { controller.flush(); };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === key || event.key === null) controller.refresh();
+    };
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') flush();
     };
     window.addEventListener('pagehide', flush);
+    window.addEventListener('storage', onStorage);
     document.addEventListener('visibilitychange', onVisibilityChange);
+    controller.refresh();
     return () => {
       window.removeEventListener('pagehide', flush);
+      window.removeEventListener('storage', onStorage);
       document.removeEventListener('visibilitychange', onVisibilityChange);
       // 正常路由由宿主先保存并拦截失败；卸载时仍补存尚在防抖窗口的修改。
       // discardPending 已清掉 dirty，因此明确放弃后这里不会重新写入。
       flush();
     };
-  }, [controller]);
+  }, [cityId, mode, journalId, controller]);
 
   /** 连续拖动防抖，增删复制等离散动作立即保存。 */
   const mutate = useCallback(
@@ -179,6 +187,7 @@ export function useStickers(scope: StickerScope, pageIndex: number): StickerApi 
     status,
     lastSavedAt,
     readBlocked,
+    conflict,
     dirty,
     isDirty: controller.isDirty,
     flush: controller.flush,

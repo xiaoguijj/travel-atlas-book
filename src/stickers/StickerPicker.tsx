@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
 import { getCityById } from '../data/cities';
 import { searchStickers, stickerAssets, stickerUrl, stickersOf } from './catalog';
 import styles from './StickerPicker.module.css';
@@ -31,16 +31,17 @@ export function StickerPicker({ open, onPick, onClose, cityId, disabled = false 
   const [tab, setTab] = useState<Tab>('common');
   const [query, setQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const doneRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    if (!open) return undefined;
+  useLayoutEffect(() => {
+    if (!open) return;
+    const opener = document.activeElement;
     searchRef.current?.focus();
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+    return () => {
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus({ preventScroll: true });
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [open, onClose]);
+  }, [open]);
 
   const shown = useMemo(() => {
     const trimmed = query.trim();
@@ -63,17 +64,32 @@ export function StickerPicker({ open, onPick, onClose, cityId, disabled = false 
     searchRef.current?.focus();
   }
 
+  function handleKeys(event: KeyboardEvent<HTMLElement>) {
+    // 贴纸盒打开时，画布上的删除和取消选中快捷键不能接管键盘。
+    event.stopPropagation();
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onClose();
+    } else if (event.key === 'Tab') {
+      const [from, to] = event.shiftKey ? [closeRef, doneRef] : [doneRef, closeRef];
+      if (event.target === from.current) {
+        event.preventDefault();
+        to.current?.focus();
+      }
+    }
+  }
+
   return (
     <div className={styles.backdrop} onPointerDown={(event) => {
       if (event.target === event.currentTarget) onClose();
     }}>
-      <section className={styles.box} role="dialog" aria-modal="true" aria-label="贴纸盒">
+      <section className={styles.box} role="dialog" aria-modal="true" aria-label="贴纸盒" onKeyDown={handleKeys}>
         <header className={styles.head}>
           <h2>贴纸盒</h2>
           <p className={styles.hint}>
             {cityId ? `${cityNameOf(cityId)}的这一页 · ` : ''}点一张就贴上去，可以反复贴、跨城市贴。
           </p>
-          <button type="button" className={styles.close} onClick={onClose} aria-label="关闭贴纸盒">
+          <button ref={closeRef} type="button" className={styles.close} onClick={onClose} aria-label="关闭贴纸盒">
             ✕
           </button>
         </header>
@@ -122,7 +138,7 @@ export function StickerPicker({ open, onPick, onClose, cityId, disabled = false 
             共 {stickerAssets.length} 张：全域小集 4 张、城市邮票 6 张、城市文化 24 张。
             {query.trim() ? ` 当前结果 ${shown.length} 张。` : ''}
           </p>
-          <button type="button" className={styles.done} onClick={onClose}>
+          <button ref={doneRef} type="button" className={styles.done} onClick={onClose}>
             贴好了
           </button>
         </footer>

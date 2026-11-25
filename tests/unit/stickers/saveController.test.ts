@@ -13,15 +13,44 @@ function documentAt(x: number): StickerDocument {
 }
 
 function repository() {
+  const records = new Map<string, StickerDocument>();
   return {
-    read: vi.fn((_scope: StickerScope): StickerDocument => ({ version: 1, pages: [[]] })),
-    write: vi.fn((_scope: StickerScope, _doc: StickerDocument) => true),
+    read: vi.fn((scope: StickerScope): StickerDocument => records.get(scope.journalId) ?? { version: 1, pages: [[]] }),
+    write: vi.fn((scope: StickerScope, doc: StickerDocument) => {
+      records.set(scope.journalId, doc);
+      return true;
+    }),
   };
 }
 
 describe('sticker save controller', () => {
   beforeEach(() => { vi.useFakeTimers(); });
   afterEach(() => { vi.useRealTimers(); });
+
+  it('checks the latest saved document before writing even before a storage event arrives', () => {
+    const storage = repository();
+    const firstTab = createStickerSaveController(scopeA, storage);
+    const secondTab = createStickerSaveController(scopeA, storage);
+    secondTab.update(documentAt(0.9));
+    firstTab.update(documentAt(0.3), true);
+
+    expect(secondTab.refresh()).toBe(false);
+    expect(secondTab.flush()).toBe(false);
+    expect(secondTab.retry()).toBe(false);
+    expect(secondTab.getSnapshot()).toMatchObject({
+      doc: documentAt(0.9),
+      status: 'unavailable',
+      dirty: true,
+      conflict: true,
+    });
+    expect(storage.write).toHaveBeenCalledExactlyOnceWith(scopeA, documentAt(0.3));
+
+    secondTab.discardPending();
+    expect(secondTab.getSnapshot()).toMatchObject({ doc: documentAt(0.3), dirty: false });
+    expect(secondTab.getSnapshot().conflict).toBeFalsy();
+    secondTab.update(documentAt(0.7), true);
+    expect(storage.write).toHaveBeenLastCalledWith(scopeA, documentAt(0.7));
+  });
 
   it('debounces movement and saves only its latest position', () => {
     const storage = repository();

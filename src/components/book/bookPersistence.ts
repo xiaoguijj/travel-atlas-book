@@ -6,6 +6,7 @@ export interface StickerPersistence {
   status: 'saved' | 'saving' | 'unavailable';
   dirty: boolean;
   readBlocked?: boolean;
+  conflict?: boolean;
   lastSavedAt?: string;
   flush(): boolean;
   isDirty(): boolean;
@@ -36,9 +37,11 @@ export function coordinateBookSaves(
 
 export function bookSaveFeedback(
   book: SaveQueueState,
-  stickers: Pick<StickerPersistence, 'status' | 'dirty' | 'lastSavedAt' | 'readBlocked'>,
+  stickers: Pick<StickerPersistence, 'status' | 'dirty' | 'lastSavedAt' | 'readBlocked' | 'conflict'> | undefined,
   journalBlocked = false,
 ): { state: SaveQueueState; message?: string } {
+  if (!stickers) return { state: book };
+
   const bookFailed = book.status === 'error';
   const stickersFailed = stickers.status === 'unavailable';
   const saving = book.status === 'saving' || book.pending.length > 0 || stickers.dirty;
@@ -62,6 +65,13 @@ export function bookSaveFeedback(
       'DATABASE_UNAVAILABLE',
       `${bookFailed ? `${book.error?.message ?? '手账内容保存失败'}；` : ''}贴纸存档暂时无法读取，原始记录已保留。请重试读取，恢复前不会覆盖原存档。`,
     );
+  } else if (stickers.conflict) {
+    message = bookFailed ? '手账保存失败，贴纸有冲突' : '贴纸保存冲突，草稿已保留';
+    const conflictMessage = '另一个标签页已更新贴纸。本页草稿仍可查看。若要载入对方版本，请在离开提示中选择「放弃修改并离开」后重新打开。';
+    error = new DataError(
+      'STORAGE_WRITE_FAILED',
+      bookFailed ? `${book.error?.message ?? '手账内容保存失败'}；${conflictMessage}` : conflictMessage,
+    );
   } else if (stickersFailed) {
     message = bookFailed
       ? '手账内容与贴纸保存失败'
@@ -76,7 +86,9 @@ export function bookSaveFeedback(
     );
   }
 
-  if (journalBlocked) {
+  if (journalBlocked && stickers.conflict) {
+    message += '，正文保护中';
+  } else if (journalBlocked) {
     message = stickers.readBlocked
       ? `${bookFailed ? '标题保存失败、' : ''}贴纸读取失败，正文保护中`
       : status === 'ready'

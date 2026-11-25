@@ -18,7 +18,7 @@ import { createStableId } from '../../data/ids';
 import { importPhoto } from '../../data/photos';
 import type { SaveField } from '../../data/saving';
 import type { City } from '../../data/types';
-import { StickerPicker, useStickers } from '../../stickers';
+import { StickerPicker, useStickers, type StickerApi } from '../../stickers';
 import { AssetPanel } from '../assets/AssetPanel';
 import { InnerPageLayout } from '../layout/InnerPageLayout';
 import { LeaveGuard } from './LeaveGuard';
@@ -50,7 +50,16 @@ interface BookShellProps {
  * Journal 与 Collage 共用的手账壳：标题、模式导航、保存反馈、失败重试、离开守卫和素材面板。
  * 两侧编辑器只拿 V1-02 冻结的 props，不直接查库，也不持有 object URL。
  */
-export function BookShell({ book, city, mode, onBookSaved }: BookShellProps) {
+export function BookShell(props: BookShellProps) {
+  return props.mode === 'journal' ? <JournalBookShell {...props} /> : <BookEditorShell {...props} />;
+}
+
+function JournalBookShell(props: BookShellProps) {
+  const stickers = useStickers({ cityId: props.city.id, mode: 'journal', journalId: props.book.id }, 0);
+  return <BookEditorShell {...props} stickers={stickers} />;
+}
+
+function BookEditorShell({ book, city, mode, onBookSaved, stickers }: BookShellProps & { stickers?: StickerApi }) {
   const handleSaved = useCallback(
     (_field: SaveField, saved: TravelBook) => {
       onBookSaved(saved);
@@ -65,15 +74,10 @@ export function BookShell({ book, city, mode, onBookSaved }: BookShellProps) {
   const [insertionRequest, setInsertionRequest] = useState<AssetInsertionRequest | null>(null);
   const [journalLoadBlocked, setJournalLoadBlocked] = useState(false);
 
-  // 贴纸仍按城市、模式和本子独立存储；保存反馈与离开保护由公共壳协调。
-  const stickers = useStickers({ cityId: city.id, mode, journalId: book.id }, 0);
+  const { flush, isDirty, discardPending, retry } = stickers ?? {};
   const persistence = useMemo(
-    () => coordinateBookSaves(queue, {
-      flush: stickers.flush,
-      isDirty: stickers.isDirty,
-      discardPending: stickers.discardPending,
-    }),
-    [queue, stickers.flush, stickers.isDirty, stickers.discardPending],
+    () => flush && isDirty && discardPending ? coordinateBookSaves(queue, { flush, isDirty, discardPending }) : queue,
+    [queue, flush, isDirty, discardPending],
   );
   const feedback = bookSaveFeedback(state, stickers, journalLoadBlocked);
 
@@ -120,8 +124,8 @@ export function BookShell({ book, city, mode, onBookSaved }: BookShellProps) {
   }, []);
 
   const retrySave = useCallback(() => {
-    void queue.flush().then(() => { stickers.retry(); });
-  }, [queue, stickers.retry]);
+    void queue.flush().then(() => { retry?.(); });
+  }, [queue, retry]);
 
   const reloadJournal = useCallback(async () => {
     // Preserve pending titles and sticker gestures before rereading the journal.
@@ -216,7 +220,7 @@ export function BookShell({ book, city, mode, onBookSaved }: BookShellProps) {
         </div>
 
         {panel ? (
-          mode === 'journal' && panel.kind === 'sticker' ? (
+          stickers && panel.kind === 'sticker' ? (
             <StickerPicker
               open
               disabled={stickers.readBlocked}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEventHandler, type ReactNode } from 'react';
 import type { Extensions, JSONContent } from '@tiptap/core';
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import { artBoxStyle, artCqw, journalArt, journalRules, journalToolbarBox, journalWritingBox } from '../../config/journal';
@@ -230,7 +230,10 @@ function EditableJournalEditor({
           <FormatButton label="插入照片" onClick={() => openAssetPanel('photo')}>
             照片
           </FormatButton>
-          <FormatButton label="插入贴纸" onClick={() => openAssetPanel('sticker')}>
+          <FormatButton label="插入贴纸" onClick={(event) => {
+            event.currentTarget.focus({ preventScroll: true });
+            openAssetPanel('sticker');
+          }}>
             贴纸
           </FormatButton>
         </div>
@@ -251,7 +254,7 @@ function FormatButton({
   label: string;
   active?: boolean;
   disabled?: boolean;
-  onClick: () => void;
+  onClick: MouseEventHandler<HTMLButtonElement>;
   children: ReactNode;
 }) {
   return (

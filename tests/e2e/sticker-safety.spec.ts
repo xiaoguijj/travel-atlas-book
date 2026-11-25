@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import type { StickerDocument } from '../../src/stickers/types';
-import { seedBook, seedBooks } from './book-helpers';
+import { readBook, seedBook, seedBooks } from './book-helpers';
 
 const BOOK_A = 'sticker-safety-a';
 const BOOK_B = 'sticker-safety-b';
@@ -16,7 +16,7 @@ async function readStickers(page: Page, bookId = BOOK_A): Promise<StickerDocumen
   return page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null') as StickerDocument | null, keyFor(bookId));
 }
 
-async function addSticker(page: Page, bookId = BOOK_A): Promise<StickerDocument | null> {
+async function addSticker(page: Page, bookId = BOOK_A, expectedCount = 1): Promise<StickerDocument | null> {
   await page.getByRole('button', { name: '插入贴纸', exact: true }).click();
   const picker = page.getByRole('dialog', { name: '贴纸盒' });
   // Click and inspect storage in one browser task: a 350ms debounce cannot pass by accident.
@@ -25,7 +25,7 @@ async function addSticker(page: Page, bookId = BOOK_A): Promise<StickerDocument 
     return JSON.parse(localStorage.getItem(key) ?? 'null') as StickerDocument | null;
   }, keyFor(bookId));
   await picker.getByRole('button', { name: '贴好了', exact: true }).click();
-  await expect(page.locator('[data-sticker]')).toHaveCount(1);
+  await expect(page.locator('[data-sticker]')).toHaveCount(expectedCount);
   return immediatelySaved;
 }
 
@@ -208,4 +208,102 @@ test('an unreadable original archive disables insertion, stays untouched after r
   await page.locator('a[href*="mode=collage"]').click();
   await page.waitForURL(/mode=collage/);
   expect(await page.evaluate((key) => localStorage.getItem(key), keyFor(BOOK_A))).toBe(original);
+});
+
+test('an idle second tab picks up saved stickers before editing the same journal', async ({ page, context }) => {
+  await openBook(page);
+  const second = await context.newPage();
+  await second.goto(`/#/book/${BOOK_A}?mode=journal`);
+  await expect(second.getByRole('button', { name: '插入贴纸', exact: true })).toBeVisible();
+
+  const first = await addSticker(page);
+  await expect(second.locator('[data-sticker]')).toHaveCount(1);
+  const afterSecond = await addSticker(second, BOOK_A, 2);
+  expect(afterSecond?.pages[0][0]).toEqual(first?.pages[0][0]);
+  expect(afterSecond?.pages[0][1].instanceId).not.toBe(first?.pages[0][0].instanceId);
+  await expect(page.locator('[data-sticker]')).toHaveCount(2);
+  await page.reload();
+  await expect(page.locator('[data-sticker]')).toHaveCount(2);
+});
+
+test('a save with a stale archive keeps the draft, reports the conflict and protects the newer archive', async ({ page }) => {
+  await openBook(page);
+  const original = (await addSticker(page))!;
+  const latest = { ...original, pages: [[{ ...original.pages[0][0], x: 0.8 }]] };
+  await page.getByRole('button', { name: '插入贴纸', exact: true }).click();
+  const picker = page.getByRole('dialog', { name: '贴纸盒' });
+  await picker.getByRole('button', { name: '胶片相机', exact: true }).evaluate((button, { key, latest }) => {
+    // Simulate a write whose storage notification has yet to reach this controller.
+    localStorage.setItem(key, JSON.stringify(latest));
+    (button as HTMLButtonElement).click();
+  }, { key: keyFor(BOOK_A), latest });
+  await picker.getByRole('button', { name: '贴好了', exact: true }).click();
+  await expect(page.locator('[data-sticker]')).toHaveCount(2);
+  await expect(page.locator('[data-state="error"]')).toContainText('贴纸保存冲突，草稿已保留');
+  expect(await readStickers(page)).toEqual(latest);
+
+  await page.locator('a[href*="mode=collage"]').click();
+  const guard = page.getByRole('dialog', { name: '保存失败，暂时不能离开' });
+  await expect(guard).toContainText('另一个标签页已更新贴纸');
+  await guard.getByRole('button', { name: '放弃修改并离开' }).click();
+  await page.waitForURL(/mode=collage/);
+  expect(await readStickers(page)).toEqual(latest);
+});
+
+test('unused sticker archive does not affect collage title save feedback', async ({ page }) => {
+  await seedBooks(page, [seedBook(BOOK_A, '拼贴手账')]);
+  await page.evaluate((key) => localStorage.setItem(key, '{broken'), keyFor(BOOK_A, 'collage'));
+  await page.goto(`/#/book/${BOOK_A}?mode=collage`);
+  await page.getByRole('textbox', { name: '手账标题', exact: true }).fill('拼贴标题已保存');
+  await expect(page.locator('[data-state="saved"]')).toContainText('已保存');
+  expect((await readBook(page, BOOK_A))?.title).toBe('拼贴标题已保存');
+});
+
+test('selected sticker handles follow the paper size without reselecting', async ({ page }) => {
+  await page.setViewportSize({ width: 1360, height: 850 });
+  await openBook(page);
+  const instance = (await addSticker(page))!.pages[0][0];
+  const sticker = page.locator('[data-sticker]');
+  const remove = page.getByRole('button', { name: '删除这张贴纸', exact: true });
+  const before = (await remove.boundingBox())!;
+
+  await page.setViewportSize({ width: 1000, height: 620 });
+  await expect.poll(() => sticker.evaluate((node, { x, rotation }) => {
+    const layer = node.parentElement!;
+    const handle = layer.querySelector<HTMLButtonElement>('[aria-label="删除这张贴纸"]')!;
+    const angle = rotation * Math.PI / 180;
+    const cornerX = layer.clientWidth * x
+      + (node as HTMLElement).offsetWidth / 2 * Math.cos(angle)
+      + (node as HTMLElement).offsetHeight / 2 * Math.sin(angle);
+    return Math.abs(Number.parseFloat(handle.style.left) - cornerX);
+  }, instance)).toBeLessThan(1);
+  expect(Math.abs((await remove.boundingBox())!.x - before.x)).toBeGreaterThan(80);
+  await remove.click();
+  await expect(sticker).toHaveCount(0);
+});
+
+test('sticker picker wraps focus, contains keyboard shortcuts and restores its opener', async ({ page }) => {
+  await openBook(page);
+  const opener = page.getByRole('button', { name: '插入贴纸', exact: true });
+  await opener.focus();
+  await page.keyboard.press('Enter');
+  const picker = page.getByRole('dialog', { name: '贴纸盒' });
+  await expect(picker.getByRole('searchbox')).toBeFocused();
+
+  const sticker = picker.getByRole('button', { name: '绿皮火车', exact: true });
+  await sticker.click();
+  await page.keyboard.press('Delete');
+  await expect(page.locator('[data-sticker]')).toHaveCount(1);
+
+  const close = picker.getByRole('button', { name: '关闭贴纸盒', exact: true });
+  const done = picker.getByRole('button', { name: '贴好了', exact: true });
+  await done.focus();
+  await page.keyboard.press('Tab');
+  await expect(close).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(done).toBeFocused();
+
+  await page.keyboard.press('Escape');
+  await expect(picker).toBeHidden();
+  await expect(opener).toBeFocused();
 });

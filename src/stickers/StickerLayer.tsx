@@ -185,26 +185,30 @@ export function StickerLayer({ instances, selectedId, onSelect, onUpdate, onRemo
       setControls(null);
       return;
     }
-    const box = node.getBoundingClientRect();
-    const host = root.getBoundingClientRect();
-    const centerX = box.left - host.left + box.width / 2;
-    const centerY = box.top - host.top + box.height / 2;
-    // offsetWidth/Height 是变换之前的尺寸，配合中心点就能算出真正的四个角
-    const halfW = node.offsetWidth / 2;
-    const halfH = node.offsetHeight / 2;
     const rad = (selected.rotation * Math.PI) / 180;
     const cos = Math.cos(rad);
     const sin = Math.sin(rad);
-    const corner = (px: number, py: number) => ({ left: centerX + px * cos - py * sin, top: centerY + px * sin + py * cos });
 
-    setControls({
-      scale: corner(halfW, halfH),
-      rotate: corner(0, -halfH - ROTATE_LIFT),
-      duplicate: corner(-halfW, -halfH),
-      remove: corner(halfW, -halfH),
-    });
-    // selected 的 x/y/scale/rotation 变了都会让 instances 换引用，跟着重算就够
-  }, [instances, selected]);
+    const positionControls = () => {
+      // 把手与贴纸共用层内坐标，外部纸页的倾斜由 CSS 一起处理。
+      const centerX = root.clientWidth * selected.x;
+      const centerY = root.clientHeight * selected.y;
+      const halfW = node.offsetWidth / 2;
+      const halfH = node.offsetHeight / 2;
+      const corner = (px: number, py: number) => ({ left: centerX + px * cos - py * sin, top: centerY + px * sin + py * cos });
+
+      setControls({
+        scale: corner(halfW, halfH),
+        rotate: corner(0, -halfH - ROTATE_LIFT),
+        duplicate: corner(-halfW, -halfH),
+        remove: corner(halfW, -halfH),
+      });
+    };
+    positionControls();
+    const observer = new ResizeObserver(positionControls);
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, [selected]);
 
   function startMove(event: ReactPointerEvent<HTMLDivElement>, instance: StickerInstance) {
     const started = begin(event, {
