@@ -14,8 +14,8 @@ import styles from './JournalEditor.module.css';
 /** View-only loading feedback; the shared data/editor contract remains unchanged. */
 export interface JournalEditorComponentProps extends JournalEditorProps {
   onLoadBlocked?: (blocked: boolean) => void;
-  /** The host saves pending fields before reloading; the editor never reloads directly. */
-  onReloadRequested?: () => void | Promise<void>;
+  /** Returns true when pending fields are saved and reload starts, false when it is blocked. */
+  onReloadRequested?: () => boolean | Promise<boolean>;
 }
 
 /**
@@ -280,7 +280,8 @@ function RecoveryNotice({ onReloadRequested }: Pick<JournalEditorComponentProps,
     setReloading(true);
     setReloadFailed(false);
     try {
-      await onReloadRequested();
+      const reloaded = await onReloadRequested();
+      setReloadFailed(!reloaded);
     } catch {
       setReloadFailed(true);
     } finally {

@@ -13,6 +13,7 @@ export type { StickerPickerProps } from './StickerPicker';
 
 export { useStickers } from './useStickers';
 export type { StickerApi } from './useStickers';
+export type { StickerRecoveryCandidate } from './saveController';
 
 export { createInstanceId, emptyDocument, MAX_SCALE, MIN_SCALE, readStickerDocument, stickerKey, writeStickerDocument } from './storage';
 

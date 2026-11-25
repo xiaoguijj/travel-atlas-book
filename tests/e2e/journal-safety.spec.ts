@@ -147,6 +147,55 @@ test('an unsupported document keeps its original content and flushes a just-edit
   expect(unexpectedDialogs).toEqual([]);
 });
 
+test('recovery reports a blocked reload, permits retry and reloads after the title is corrected', async ({ page }) => {
+  const original: JournalContent = {
+    doc: {
+      type: 'doc',
+      content: [
+        paragraph('重新读取失败也不能覆盖这段原文。'),
+        { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: '尚不支持的标题' }] },
+      ],
+    },
+  };
+  await seedBooks(page, [seedBook(BOOK_ID, '等待恢复的手账', 'nanjing', { journal: original })]);
+  await page.goto(BOOK_URL);
+  const recovery = page.getByRole('alert').filter({ hasText: '正文暂时无法完整读取' });
+  const reloadButton = recovery.getByRole('button', { name: '重新读取正文', exact: true });
+  const title = page.getByLabel('手账标题');
+  const failure = recovery.getByText('其他修改暂时没能保存，已留在本页。请重试保存后再重新读取。', { exact: true });
+  await expect(reloadButton).toBeEnabled();
+
+  // An invalid title makes the real save queue return false without throwing.
+  // The recovery action must report that result and retain the unsaved input.
+  await title.fill('');
+  await reloadButton.click();
+  await expect(failure).toBeVisible();
+  await expect(reloadButton).toBeEnabled();
+  await expect(title).toHaveValue('');
+  await expect(page.locator('header [role="status"]')).toContainText('标题保存失败，正文保护中');
+  expect((await readBook(page, BOOK_ID))?.title).toBe('等待恢复的手账');
+  expect((await readBook(page, BOOK_ID))?.journal).toEqual(original);
+
+  // Retrying the same failure remains possible and cannot dismiss the warning.
+  await reloadButton.click();
+  await expect(failure).toBeVisible();
+  await expect(reloadButton).toBeEnabled();
+  await expect(title).toHaveValue('');
+
+  await title.fill('修正标题后继续恢复');
+  await Promise.all([
+    page.waitForEvent('domcontentloaded'),
+    reloadButton.click(),
+  ]);
+  await expect(recovery).toContainText('正文编辑和自动保存已暂停');
+  await expect(failure).toHaveCount(0);
+  await expect(title).toHaveValue('修正标题后继续恢复');
+  await expect(page.getByRole('textbox', { name: '手账正文', exact: true })).toHaveCount(0);
+  const reloaded = await readBook(page, BOOK_ID);
+  expect(reloaded?.title).toBe('修正标题后继续恢复');
+  expect(reloaded?.journal).toEqual(original);
+});
+
 test('reopening in the same session retains text and intentionally clearing it stays empty after reload', async ({ page }) => {
   await seedBooks(page, [seedBook(BOOK_ID, '来回打开和删空')]);
   await page.goto(BOOK_URL);

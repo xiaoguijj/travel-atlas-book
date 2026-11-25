@@ -284,3 +284,143 @@ test('save failure is reported, retry works and leaving can be cancelled', async
 
   expect(errors).toEqual([]);
 });
+
+const STICKER_KEY = `travel-atlas-book.stickers.nanjing.journal.${BOOK_A}`;
+
+async function prepareFailedStickerCheckpoint(page: Page): Promise<string> {
+  await seedBooks(page, [seedBook(BOOK_A, TITLE_A)]);
+  await page.goto(`/#/book/${BOOK_A}?mode=journal`);
+  await page.evaluate((archiveKey) => {
+    const setItem = Storage.prototype.setItem;
+    window.addEventListener('test:allow-sticker-writes', () => {
+      Storage.prototype.setItem = setItem;
+    }, { once: true });
+    Storage.prototype.setItem = function (key, value) {
+      // Keep checkpoint storage writable so the real pagehide path creates a
+      // durable slot owned by this editor, while its main archive cannot save.
+      if (key === archiveKey) throw new DOMException('Simulated full archive', 'QuotaExceededError');
+      setItem.call(this, key, value);
+    };
+  }, STICKER_KEY);
+  await page.getByRole('button', { name: '插入贴纸', exact: true }).click();
+  const picker = page.getByRole('dialog', { name: '贴纸盒', exact: true });
+  await picker.getByRole('button', { name: '绿皮火车', exact: true }).click();
+  await expect(page.locator('[data-state="error"]')).toBeVisible();
+  await picker.getByRole('button', { name: '贴好了', exact: true }).click();
+  const keys = await page.evaluate((archiveKey) => {
+    window.dispatchEvent(new PageTransitionEvent('pagehide'));
+    return Object.keys(localStorage).filter((key) => key.startsWith(archiveKey + '.pending.'));
+  }, STICKER_KEY);
+  expect(keys).toHaveLength(1);
+  return keys[0];
+}
+
+async function holdBookStickerLock(holder: Page): Promise<void> {
+  await holder.goto('/#/section/inspiration');
+  await holder.evaluate((key) => new Promise<void>((held) => {
+    void navigator.locks.request(key, () => new Promise<void>((release) => {
+      window.addEventListener('test:release-sticker-lock', () => release(), { once: true });
+      held();
+    }));
+  }), STICKER_KEY);
+}
+
+test('discard waits for checkpoint deletion and cannot be cancelled or repeated while pending', async ({ page, context }) => {
+  const checkpointKey = await prepareFailedStickerCheckpoint(page);
+  await page.getByLabel('手账标题').fill('');
+  await page.locator('a[href*="mode=collage"]').click();
+  const failed = page.getByRole('dialog', { name: '保存失败，暂时不能离开', exact: true });
+  await expect(failed).toBeVisible();
+  const holder = await context.newPage();
+  await holdBookStickerLock(holder);
+
+  // The holder is a separate tab; focus assertions must exercise this tab.
+  await page.bringToFront();
+  await failed.getByRole('button', { name: '放弃修改并离开', exact: true }).click();
+  const pending = page.getByRole('dialog', { name: '正在放弃修改…', exact: true });
+  await expect(pending).toBeVisible();
+  await expect(pending.getByRole('button', { name: '放弃修改并离开', exact: true })).toBeDisabled();
+  await expect(pending.getByRole('button', { name: '重试保存并离开', exact: true })).toBeDisabled();
+  await expect(pending.getByRole('button', { name: '留在本页', exact: true })).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Tab');
+  await expect(pending).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(pending).toBeFocused();
+  await expect(page).toHaveURL(/mode=journal/);
+  expect(await page.evaluate((key) => localStorage.getItem(key), checkpointKey)).not.toBeNull();
+  expect((await readBook(page, BOOK_A))?.title).toBe(TITLE_A);
+
+  // Once writes work again, cleanup must still respect the completed discard.
+  await page.evaluate(() => window.dispatchEvent(new Event('test:allow-sticker-writes')));
+  await holder.evaluate(() => window.dispatchEvent(new Event('test:release-sticker-lock')));
+  await page.waitForURL(/mode=collage/);
+  expect(await page.evaluate((key) => localStorage.getItem(key), checkpointKey)).toBeNull();
+  expect(await page.evaluate((key) => localStorage.getItem(key), STICKER_KEY)).toBeNull();
+  expect((await readBook(page, BOOK_A))?.title).toBe(TITLE_A);
+  await holder.close();
+});
+
+test('failed checkpoint deletion keeps the page and title draft, then permits a discard retry', async ({ page }) => {
+  const checkpointKey = await prepareFailedStickerCheckpoint(page);
+  await page.evaluate((blockedKey) => {
+    const removeItem = Storage.prototype.removeItem;
+    window.addEventListener('test:allow-checkpoint-deletion', () => {
+      Storage.prototype.removeItem = removeItem;
+    }, { once: true });
+    Storage.prototype.removeItem = function (key) {
+      if (key === blockedKey) throw new DOMException('Simulated denied cleanup', 'SecurityError');
+      removeItem.call(this, key);
+    };
+  }, checkpointKey);
+  await page.getByLabel('手账标题').fill('');
+  await page.locator('a[href*="mode=collage"]').click();
+  const saveFailure = page.getByRole('dialog', { name: '保存失败，暂时不能离开', exact: true });
+  await saveFailure.getByRole('button', { name: '放弃修改并离开', exact: true }).click();
+  const discardFailure = page.getByRole('dialog', { name: '放弃修改失败，暂时不能离开', exact: true });
+  await expect(discardFailure).toContainText('放弃修改未能完成，已留在本页');
+  await expect(discardFailure.getByRole('button', { name: '放弃修改并离开', exact: true })).toBeEnabled();
+  await expect(discardFailure.getByRole('button', { name: '留在本页', exact: true })).toBeEnabled();
+  await expect(page).toHaveURL(/mode=journal/);
+  await expect(page.getByLabel('手账标题')).toHaveValue('');
+  await expect(page.locator('[data-sticker]')).toHaveCount(1);
+  expect(await page.evaluate((key) => localStorage.getItem(key), checkpointKey)).not.toBeNull();
+  expect((await readBook(page, BOOK_A))?.title).toBe(TITLE_A);
+
+  await page.keyboard.press('Escape');
+  await expect(discardFailure).toBeHidden();
+  await expect(page.getByLabel('手账标题')).toHaveValue('');
+  await page.evaluate(() => window.dispatchEvent(new Event('test:allow-checkpoint-deletion')));
+  await page.locator('a[href*="mode=collage"]').click();
+  await saveFailure.getByRole('button', { name: '放弃修改并离开', exact: true }).click();
+  await page.waitForURL(/mode=collage/);
+  expect(await page.evaluate((key) => localStorage.getItem(key), checkpointKey)).toBeNull();
+  expect(await page.evaluate((key) => localStorage.getItem(key), STICKER_KEY)).toBeNull();
+  expect((await readBook(page, BOOK_A))?.title).toBe(TITLE_A);
+});
+
+test('cancelling an in-flight save prevents its later completion from leaving the page', async ({ page, context }) => {
+  const checkpointKey = await prepareFailedStickerCheckpoint(page);
+  const holder = await context.newPage();
+  await holdBookStickerLock(holder);
+  await page.evaluate(() => window.dispatchEvent(new Event('test:allow-sticker-writes')));
+  await page.locator('a[href*="mode=collage"]').click();
+  const saving = page.getByRole('dialog', { name: '正在保存这一页…', exact: true });
+  await expect(saving).toBeVisible();
+  await expect(saving.getByRole('button', { name: '留在本页', exact: true })).toBeEnabled();
+  await saving.getByRole('button', { name: '留在本页', exact: true }).click();
+  await expect(saving).toBeHidden();
+
+  await holder.evaluate(() => window.dispatchEvent(new Event('test:release-sticker-lock')));
+  // Wait behind every already queued save, including the cancelled guard's
+  // flush, before asserting that its eventual completion cannot navigate.
+  await page.evaluate((key) => navigator.locks.request(key, () => undefined), STICKER_KEY);
+  await waitSaved(page);
+  await expect(page).toHaveURL(/mode=journal/);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: '手账正文', exact: true })).toBeVisible();
+  await expect(page.locator('[data-sticker]')).toHaveCount(1);
+  expect(await page.evaluate((key) => localStorage.getItem(key), checkpointKey)).toBeNull();
+  expect(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!).pages[0][0].assetId, STICKER_KEY)).toBe('common-train');
+  await holder.close();
+});

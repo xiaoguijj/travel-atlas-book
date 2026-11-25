@@ -1,0 +1,18 @@
+.notice {
+  padding: 14px 18px;
+  border: 1px solid #d8ad76;
+  border-radius: 8px;
+  background: #fff4df;
+  color: #51361c;
+  font-size: 0.86rem;
+  line-height: 1.65;
+}
+
+.notice h2 { margin: 0 0 6px; font-size: 1rem; }
+.notice p { margin: 6px 0; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: 12px 0 6px; }
+.actions button, .actions a { min-height: 40px; padding: 8px 12px; font: inherit; }
+.actions button { border: 1px solid #78512d; border-radius: 5px; color: #fff; background: #684623; cursor: pointer; }
+.actions button:disabled { opacity: 0.65; cursor: wait; }
+.actions a { color: #593813; text-decoration: underline; }
+.actions button:focus-visible, .actions a:focus-visible { outline: 3px solid #227587; outline-offset: 3px; }

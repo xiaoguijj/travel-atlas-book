@@ -1,8 +1,10 @@
 import {
   DataError,
+  MAX_BOOK_TITLE_LENGTH,
   type CollageCanvas,
   type IsoDateTime,
   type JournalContent,
+  type JournalSavePrecondition,
   type TravelBook,
 } from '../contracts';
 import { db as defaultDatabase, toDataError, type TravelAtlasDatabase } from '../db';
@@ -16,6 +18,7 @@ import {
   planIncludesCity,
   requireCity,
 } from '../validation';
+import { sameJournalContent } from './journalEquality';
 
 export interface BookRepositoryOptions {
   /** 测试可注入固定时钟；生产缺省使用当前 UTC 时间。 */
@@ -28,7 +31,9 @@ export interface BookRepository {
   createBook(cityId: string, title: string, planId?: string): Promise<TravelBook>;
   getBook(bookId: string): Promise<TravelBook | undefined>;
   renameBook(bookId: string, title: string): Promise<TravelBook>;
-  saveJournal(bookId: string, content: JournalContent): Promise<TravelBook>;
+  saveJournal(bookId: string, content: JournalContent, precondition?: JournalSavePrecondition): Promise<TravelBook>;
+  /** Preserve a conflicting editor draft in a new book, without replacing the source. */
+  copyJournalDraft(bookId: string, content: JournalContent): Promise<TravelBook>;
   saveCollage(bookId: string, canvas: CollageCanvas): Promise<TravelBook>;
 }
 
@@ -138,7 +143,7 @@ export function createBookRepository(
       }
     },
 
-    async saveJournal(bookId, content) {
+    async saveJournal(bookId, content, precondition) {
       try {
         const id = normalizeBookId(bookId);
         assertJournalContent(content);
@@ -147,12 +152,49 @@ export function createBookRepository(
           if (!book) {
             throw new DataError('BOOK_NOT_FOUND', '手账不存在或已被删除', { bookId: id });
           }
+          // Check and write in the SAME readwrite transaction. A per-page queue or
+          // a separate preflight read cannot protect against two concurrent tabs.
+          if (precondition && !sameJournalContent(book.journal, precondition.expected)) {
+            if (sameJournalContent(book.journal, content)) return book;
+            throw new DataError(
+              'JOURNAL_CONFLICT',
+              '另一个标签页已更新正文，本页草稿已保留。请先另存本页正文，再打开副本继续编辑。',
+              { bookId: id },
+            );
+          }
           const updatedAt = now();
           await database.books.update(id, { journal: content, updatedAt });
           return { ...book, journal: content, updatedAt };
         });
       } catch (error) {
         throw toDataError(error, 'STORAGE_WRITE_FAILED', '保存 Journal 失败');
+      }
+    },
+
+    async copyJournalDraft(bookId, content) {
+      try {
+        const id = normalizeBookId(bookId);
+        assertJournalContent(content);
+        return await database.transaction('rw', database.books, async () => {
+          const source = await database.books.get(id);
+          if (!source) {
+            throw new DataError('BOOK_NOT_FOUND', '原手账不存在或已被删除', { bookId: id });
+          }
+          const suffix = '（正文副本）';
+          const timestamp = now();
+          const copy: TravelBook = {
+            id: createStableId(),
+            cityId: source.cityId,
+            title: `${(source.title.trim() || '未命名手账').slice(0, MAX_BOOK_TITLE_LENGTH - suffix.length)}${suffix}`,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+            journal: content,
+          };
+          await database.books.add(copy);
+          return copy;
+        });
+      } catch (error) {
+        throw toDataError(error, 'STORAGE_WRITE_FAILED', '正文副本未能保存，请重试');
       }
     },
 
@@ -184,4 +226,5 @@ export const createBook = defaultRepository.createBook;
 export const getBook = defaultRepository.getBook;
 export const renameBook = defaultRepository.renameBook;
 export const saveJournal = defaultRepository.saveJournal;
+export const copyJournalDraft = defaultRepository.copyJournalDraft;
 export const saveCollage = defaultRepository.saveCollage;

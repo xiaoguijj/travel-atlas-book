@@ -67,6 +67,11 @@ export interface JournalContent {
   doc: JournalDocument;
 }
 
+/** A supplied precondition also protects an initially empty (undefined) journal. */
+export interface JournalSavePrecondition {
+  expected: JournalContent | undefined;
+}
+
 export interface CollageTextStyle {
   fontSize?: number;
   fontFamily?: string;
@@ -294,6 +299,7 @@ export type DataErrorCode =
   | 'INVALID_PLAN'
   | 'INVALID_RELATION'
   | 'INVALID_JOURNAL'
+  | 'JOURNAL_CONFLICT'
   | 'INVALID_COLLAGE'
   | 'INVALID_PHOTO'
   | 'UNSUPPORTED_IMAGE_TYPE'

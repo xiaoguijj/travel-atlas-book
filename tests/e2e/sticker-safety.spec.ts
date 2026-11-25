@@ -271,6 +271,61 @@ test('closing a tab while its save waits for a lock leaves a recoverable draft',
   expect((await readStickers(holder))?.pages[0].map((item) => item.assetId)).toEqual(['common-train']);
 });
 
+test('multiple closed-tab drafts remain visible and stable until individually restored or discarded', async ({ page, context }) => {
+  await openBook(page);
+  const second = await context.newPage();
+  await second.goto(`/#/book/${BOOK_A}?mode=journal`);
+  const holder = await context.newPage();
+  await holder.goto('/#/section/inspiration');
+  await holdStickerLock(holder);
+  for (const [tab, label] of [[page, '绿皮火车'], [second, '胶片相机']] as const) {
+    await tab.getByRole('button', { name: '插入贴纸', exact: true }).click();
+    await tab.getByRole('button', { name: label, exact: true }).click();
+    await tab.getByRole('button', { name: '贴好了', exact: true }).click();
+    await expect(tab.locator('[data-state="saving"]')).toBeVisible();
+  }
+  // Real pagehide events create both records through the production hook while
+  // neither source tab can acquire its write lock. No recovery JSON is seeded.
+  for (const tab of [page, second]) {
+    tab.on('dialog', (dialog) => { void dialog.accept(); });
+    await tab.goto('about:blank');
+    await tab.close();
+  }
+  const pending = await holder.evaluate((key) => Object.entries(localStorage)
+    .filter(([name]) => name.startsWith(key + '.pending.'))
+    .map(([name, raw]) => ({ key: name, raw, draft: (JSON.parse(raw) as { draft: StickerDocument }).draft })), keyFor(BOOK_A));
+  expect(pending).toHaveLength(2);
+  expect(await readStickers(holder)).toBeNull();
+  const camera = pending.find((item) => item.draft.pages[0][0].assetId === 'common-camera')!;
+
+  await holder.evaluate(() => window.dispatchEvent(new Event('release-test-lock')));
+  await holder.goto(`/#/book/${BOOK_A}?mode=journal`);
+  const notice = holder.getByRole('region', { name: '待恢复的贴纸草稿' });
+  await expect(notice.getByRole('heading')).toHaveText('还有 2 份贴纸草稿待处理');
+  await expect(holder.locator('[data-sticker]')).toHaveCount(0);
+  await holder.reload();
+  await expect(notice.getByRole('heading')).toHaveText('还有 2 份贴纸草稿待处理');
+  expect(await readStickers(holder)).toBeNull();
+
+  const trainCandidate = notice.locator('li').filter({ has: holder.getByRole('img', { name: '绿皮火车', exact: true }) });
+  await trainCandidate.getByRole('button', { name: '用这份替换当前贴纸', exact: true }).click();
+  await trainCandidate.getByRole('button', { name: '确认替换当前贴纸', exact: true }).click();
+  await expect(notice.getByRole('heading')).toHaveText('还有 1 份贴纸草稿待处理');
+  await expect(holder.locator('[data-sticker] img')).toHaveAttribute('alt', '绿皮火车');
+  expect(await holder.evaluate((key) => localStorage.getItem(key), camera.key)).toBe(camera.raw);
+  await holder.reload();
+  await expect(notice.getByRole('heading')).toHaveText('还有 1 份贴纸草稿待处理');
+  await expect(holder.locator('[data-sticker] img')).toHaveAttribute('alt', '绿皮火车');
+  expect((await readStickers(holder))?.pages[0].map((item) => item.assetId)).toEqual(['common-train']);
+  expect(await holder.evaluate((key) => localStorage.getItem(key), camera.key)).toBe(camera.raw);
+
+  await notice.getByRole('button', { name: '放弃这份草稿', exact: true }).click();
+  await notice.getByRole('button', { name: '确认放弃这份草稿', exact: true }).click();
+  await expect(notice).toBeHidden();
+  expect(await holder.evaluate((key) => localStorage.getItem(key), camera.key)).toBeNull();
+  expect((await readStickers(holder))?.pages[0].map((item) => item.assetId)).toEqual(['common-train']);
+});
+
 test('an idle second tab picks up saved stickers before editing the same journal', async ({ page, context }) => {
   await openBook(page);
   const second = await context.newPage();

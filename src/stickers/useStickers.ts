@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { createStickerSaveController } from './saveController';
+import { createStickerSaveController, type StickerRecoveryCandidate } from './saveController';
 import { MAX_SCALE, MIN_SCALE, createInstanceId, stickerKey, stickerRepository } from './storage';
 import type { StickerDocument, StickerInstance, StickerScope, StickerStatus } from './types';
 
@@ -28,7 +28,12 @@ export interface StickerApi {
   flush: () => boolean | Promise<boolean>;
   /** 读取失败时只重新读取原档；写入失败时重新保存最新草稿。 */
   retry: () => boolean | Promise<boolean>;
-  discardPending: () => void;
+  discardPending: () => void | Promise<void>;
+  recoveries: readonly StickerRecoveryCandidate[];
+  recoveryCount: number;
+  recoveryError?: string;
+  restoreRecovery: (key: string) => Promise<boolean>;
+  discardRecovery: (key: string) => Promise<boolean>;
   selectedId: string | null;
   select: (instanceId: string | null) => void;
   /** 贴一张，返回新实例编号；原档尚未读出时返回 null，不允许修改。 */
@@ -45,7 +50,7 @@ export function useStickers(scope: StickerScope, pageIndex: number): StickerApi 
     () => createStickerSaveController({ cityId, mode, journalId }, stickerRepository),
     [cityId, mode, journalId],
   );
-  const { doc, status, dirty, lastSavedAt, readBlocked, conflict } = useSyncExternalStore(
+  const { doc, status, dirty, lastSavedAt, readBlocked, conflict, recoveries, recoveryCount, recoveryError } = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot,
     controller.getSnapshot,
@@ -66,7 +71,7 @@ export function useStickers(scope: StickerScope, pageIndex: number): StickerApi 
       flush();
     };
     const onStorage = (event: StorageEvent) => {
-      if (event.key === key || event.key === null) controller.refresh();
+      if (event.key === null || event.key === key || event.key.startsWith(key + '.pending')) controller.refresh();
     };
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') flush();
@@ -74,8 +79,8 @@ export function useStickers(scope: StickerScope, pageIndex: number): StickerApi 
     window.addEventListener('pagehide', onPageHide);
     window.addEventListener('storage', onStorage);
     document.addEventListener('visibilitychange', onVisibilityChange);
-    if (controller.isDirty()) flush();
-    else controller.refresh();
+    controller.refresh();
+    flush();
     return () => {
       window.removeEventListener('pagehide', onPageHide);
       window.removeEventListener('storage', onStorage);
@@ -191,6 +196,11 @@ export function useStickers(scope: StickerScope, pageIndex: number): StickerApi 
     lastSavedAt,
     readBlocked,
     conflict,
+    recoveries,
+    recoveryCount,
+    recoveryError,
+    restoreRecovery: controller.restoreRecovery,
+    discardRecovery: controller.discardRecovery,
     dirty,
     isDirty: controller.isDirty,
     flush: controller.flush,

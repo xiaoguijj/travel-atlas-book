@@ -62,25 +62,69 @@ export interface StickerCheckpoint {
   draft: StickerDocument;
 }
 
+export interface StickerCheckpointEntry {
+  key: string;
+  /** Unreadable records stay intact until the user explicitly discards them. */
+  checkpoint?: StickerCheckpoint;
+}
+
+export interface StickerCheckpointList {
+  entries: StickerCheckpointEntry[];
+  selectionRequired: boolean;
+}
+
+function recoveryChoiceKey(scope: StickerScope): string {
+  return stickerKey(scope) + '.pending-review';
+}
+
 // pagehide cannot wait for a lock. Give each departing editor a separate durable
 // slot so that closing tabs can never overwrite another editor's pending draft.
-function readStickerCheckpoint(scope: StickerScope): StickerCheckpoint | undefined {
-  const prefix = stickerKey(scope) + '.pending.';
-  const storage = window.localStorage;
-  for (let i = 0; i < storage.length; i++) {
-    const key = storage.key(i);
-    if (!key?.startsWith(prefix)) continue;
-    const raw = storage.getItem(key);
-    if (raw === null) continue;
-    const { base, draft } = JSON.parse(raw);
-    assertDocument(base);
-    assertDocument(draft);
-    return { key, base, draft };
+function readStickerCheckpoint(scope: StickerScope, key: string): StickerCheckpointEntry | undefined {
+  if (!key.startsWith(stickerKey(scope) + '.pending.')) return undefined;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (raw === null) return undefined;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed)) throw new Error('Invalid checkpoint');
+    assertDocument(parsed.base);
+    assertDocument(parsed.draft);
+    return { key, checkpoint: { key, base: parsed.base, draft: parsed.draft } };
+  } catch {
+    return { key };
   }
 }
 
-function saveStickerCheckpoint(checkpoint: StickerCheckpoint): void {
+function readStickerCheckpoints(scope: StickerScope): StickerCheckpointList {
+  const prefix = stickerKey(scope) + '.pending.';
+  const storage = window.localStorage;
+  const keys = new Set<string>();
+  for (let i = 0; i < storage.length; i++) {
+    const key = storage.key(i);
+    if (key?.startsWith(prefix)) keys.add(key);
+  }
+  const entries = [...keys].sort().flatMap((key) => {
+    const entry = readStickerCheckpoint(scope, key);
+    return entry ? [entry] : [];
+  });
+  return { entries, selectionRequired: entries.length > 1 || storage.getItem(recoveryChoiceKey(scope)) === '1' };
+}
+
+function requireRecoveryChoice(scope: StickerScope): void {
+  window.localStorage.setItem(recoveryChoiceKey(scope), '1');
+}
+
+function saveStickerCheckpoint(scope: StickerScope, checkpoint: StickerCheckpoint): void {
+  if (!checkpoint.key.startsWith(stickerKey(scope) + '.pending.')) throw new Error('Invalid checkpoint scope');
+  assertDocument(checkpoint.base);
+  assertDocument(checkpoint.draft);
   window.localStorage.setItem(checkpoint.key, JSON.stringify({ base: checkpoint.base, draft: checkpoint.draft }));
+  if (readStickerCheckpoints(scope).entries.length > 1) requireRecoveryChoice(scope);
+}
+
+function removeStickerCheckpoint(scope: StickerScope, key: string): void {
+  if (!key.startsWith(stickerKey(scope) + '.pending.')) throw new Error('Invalid checkpoint scope');
+  window.localStorage.removeItem(key);
+  if (readStickerCheckpoints(scope).entries.length === 0) window.localStorage.removeItem(recoveryChoiceKey(scope));
 }
 
 export const stickerRepository = {
@@ -88,10 +132,12 @@ export const stickerRepository = {
   write: writeStickerDocument,
   exclusive: withStickerWriteLock,
   checkpoints: {
+    list: readStickerCheckpoints,
     read: readStickerCheckpoint,
+    requireSelection: requireRecoveryChoice,
     createKey: (scope: StickerScope) => stickerKey(scope) + '.pending.' + createInstanceId(),
     write: saveStickerCheckpoint,
-    remove: (key: string) => window.localStorage.removeItem(key),
+    remove: removeStickerCheckpoint,
   },
 };
 

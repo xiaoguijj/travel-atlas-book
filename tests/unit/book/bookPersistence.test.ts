@@ -93,7 +93,7 @@ describe('whole-book persistence', () => {
     const persistence = coordinateBookSaves(queue, stickers);
     queue.updateTitle('放弃的标题');
     stickers.update(stickersAt(0.9));
-    persistence.discardPending();
+    await persistence.discardPending();
 
     await expect(persistence.flush()).resolves.toBe(true);
     await vi.advanceTimersByTimeAsync(1000);
@@ -133,5 +133,79 @@ describe('whole-book persistence', () => {
     }, { status: 'unavailable', dirty: false, readBlocked: true }, true);
     expect(multipleFailures.message).toBe('标题保存失败、贴纸读取失败，正文保护中');
     expect(multipleFailures.state.error?.message).toContain('标题不能为空');
+  });
+
+  it('pauses body writes until an asynchronous sticker discard finishes', async () => {
+    let finish!: () => void;
+    const books = repository();
+    const queue = createBookSaveQueue({ bookId: book.id, repository: books });
+    const stickers = {
+      flush: () => false,
+      isDirty: () => true,
+      discardPending: () => new Promise<void>((resolve) => { finish = resolve; }),
+    };
+    queue.updateTitle('明确放弃的标题');
+    const persistence = coordinateBookSaves(queue, stickers);
+    const discarding = persistence.discardPending();
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(books.renameBook).not.toHaveBeenCalled();
+    expect(queue.hasPending()).toBe(true);
+    finish();
+    await discarding;
+    await queue.flush();
+    expect(queue.hasPending()).toBe(false);
+    expect(books.renameBook).not.toHaveBeenCalled();
+  });
+
+  it('keeps a failed body draft when sticker checkpoint deletion fails', async () => {
+    const books = repository();
+    books.renameBook = vi.fn(async () => { throw new DataError('INVALID_TITLE', '标题不能为空'); });
+    const queue = createBookSaveQueue({ bookId: book.id, repository: books });
+    queue.updateTitle('');
+    await expect(queue.flush()).resolves.toBe(false);
+    const persistence = coordinateBookSaves(queue, {
+      flush: () => false,
+      isDirty: () => true,
+      discardPending: async () => { throw new Error('checkpoint could not be removed'); },
+    });
+    await expect(persistence.discardPending()).rejects.toThrow('checkpoint could not be removed');
+    expect(queue.hasPending()).toBe(true);
+    expect(queue.isDirty()).toBe(true);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(books.renameBook).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports durable unresolved recoveries even when all current edits are saved', () => {
+    const saved: SaveQueueState = { status: 'saved', pending: [], error: null };
+    const feedback = bookSaveFeedback(saved, { status: 'saved', dirty: false, recoveryCount: 2 });
+    expect(feedback.state.status).toBe('ready');
+    expect(feedback.message).toBe('还有 2 份贴纸草稿待处理');
+    const failed = bookSaveFeedback({ ...saved, status: 'error', error: new DataError('INVALID_TITLE', '标题不能为空') }, {
+      status: 'saved', dirty: false, recoveryCount: 1,
+    });
+    expect(failed.state.status).toBe('error');
+    expect(failed.state.error?.message).toContain('标题不能为空');
+    expect(failed.message).toContain('保存失败');
+    expect(failed.message).toContain('还有 1 份贴纸草稿待处理');
+    const unknownInventory = bookSaveFeedback(saved, {
+      status: 'saved', dirty: false, recoveryCount: 0, recoveryError: '暂时无法读取待恢复的贴纸草稿',
+    });
+    expect(unknownInventory.state.status).toBe('error');
+    expect(unknownInventory.message).toBe('贴纸草稿处理未完成');
+    expect(unknownInventory.state.error?.message).toContain('暂时无法读取');
+    const blocked = bookSaveFeedback(saved, {
+      status: 'saved', dirty: false, recoveryError: '暂时无法读取待恢复的贴纸草稿',
+    }, true);
+    expect(blocked.message).toBe('贴纸草稿处理未完成，正文保护中');
+    expect(blocked.message).not.toContain('标题保存失败');
+  });
+
+  it('keeps a journal conflict visible while newer edits are waiting to retry', () => {
+    const conflict = bookSaveFeedback({ status: 'saving', error: null, pending: ['journal'], journalConflict: true }, {
+      status: 'saved', dirty: false,
+    });
+    expect(conflict.state.status).toBe('error');
+    expect(conflict.message).toBe('正文保存冲突，草稿已保留');
+    expect(conflict.state.error?.code).toBe('JOURNAL_CONFLICT');
   });
 });

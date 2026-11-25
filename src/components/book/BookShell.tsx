@@ -22,6 +22,8 @@ import { StickerPicker, useStickers, type StickerApi } from '../../stickers';
 import { AssetPanel } from '../assets/AssetPanel';
 import { InnerPageLayout } from '../layout/InnerPageLayout';
 import { LeaveGuard } from './LeaveGuard';
+import { JournalConflictNotice } from './JournalConflictNotice';
+import { StickerRecoveryNotice } from './StickerRecoveryNotice';
 import { SaveStatus } from './SaveStatus';
 import styles from './BookShell.module.css';
 import { useBookSaveQueue } from './useBookSaveQueue';
@@ -66,7 +68,7 @@ function BookEditorShell({ book, city, mode, onBookSaved, stickers }: BookShellP
     },
     [onBookSaved],
   );
-  const { queue, state } = useBookSaveQueue(book.id, handleSaved);
+  const { queue, state } = useBookSaveQueue(book.id, handleSaved, book.journal);
 
   const [title, setTitle] = useState(book.title);
   const lastQueuedTitle = useRef(book.title);
@@ -127,9 +129,12 @@ function BookEditorShell({ book, city, mode, onBookSaved, stickers }: BookShellP
     void queue.flush().then(() => { retry?.(); });
   }, [queue, retry]);
 
-  const reloadJournal = useCallback(async () => {
+  const reloadJournal = useCallback(async (): Promise<boolean> => {
     // Preserve pending titles and sticker gestures before rereading the journal.
-    if (await persistence.flush() && !persistence.isDirty()) window.location.reload();
+    const saved = await persistence.flush();
+    if (!saved || persistence.isDirty()) return false;
+    window.location.reload();
+    return true;
   }, [persistence]);
 
   const uploadPhoto = useCallback((file: File) => importPhoto(city.id, file), [city.id]);
@@ -177,6 +182,9 @@ function BookEditorShell({ book, city, mode, onBookSaved, stickers }: BookShellP
             </button>
           </div>
         </header>
+
+        {mode === 'journal' && state.journalConflict ? <JournalConflictNotice bookId={book.id} queue={queue} /> : null}
+        {stickers ? <StickerRecoveryNotice stickers={stickers} /> : null}
 
         <div className={styles.editor}>
           <Suspense
