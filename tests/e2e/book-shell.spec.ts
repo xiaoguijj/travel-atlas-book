@@ -29,18 +29,23 @@ test('mode selection page, mode URLs, refresh, back and invalid IDs', async ({ p
   await seedBooks(page, [seedBook(BOOK_A, TITLE_A)]);
 
   await page.goto(`/#/book/${BOOK_A}`);
-  await expect(page.getByRole('heading', { level: 1, name: TITLE_A })).toBeVisible();
-  await expect(page.getByText('创作模式 · Nanjing')).toBeVisible();
-  await expect(page.getByRole('link', { name: /返回城市手账/ })).toHaveAttribute(
+  await expect(page.getByRole('heading', { level: 1, name: '南京 · Nanjing — 选择你的创作方式' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Journal 横线日记本，开始写南京这一页' })).toHaveAttribute(
     'href',
-    /#\/city\/nanjing/,
+    `#/book/${BOOK_A}?mode=journal`,
+  );
+  await expect(page.getByRole('link', { name: '返回邮票收藏册', exact: true })).toHaveAttribute(
+    'href',
+    '#/section/journals?cityId=nanjing',
   );
 
   await page.reload();
-  await expect(page.getByRole('heading', { level: 1, name: TITLE_A })).toBeVisible();
-  await page.getByRole('link', { name: /返回城市手账/ }).click();
-  await page.waitForURL(/city\/nanjing/);
-  await expect(page.getByRole('heading', { level: 1, name: /南京/ })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: '南京 · Nanjing — 选择你的创作方式' })).toBeVisible();
+  await page.getByRole('link', { name: '返回邮票收藏册', exact: true }).click();
+  await page.waitForURL(/section\/journals\?cityId=nanjing/);
+  await expect(page.getByRole('heading', { level: 1, name: '中国城市手账 · China Travel Stamps' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /南京 Nanjing 邮票/ })).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('button', { name: new RegExp(TITLE_A) })).toBeVisible();
 
   await page.goto(`/#/book/${BOOK_A}?mode=journal`);
   await expect(page.getByLabel('正文草稿')).toBeVisible();
@@ -50,7 +55,7 @@ test('mode selection page, mode URLs, refresh, back and invalid IDs', async ({ p
   await expect(page.getByRole('heading', { name: '拼贴画布正在裱糊' })).toBeVisible();
 
   await page.goto(`/#/book/${BOOK_A}?mode=unknown`);
-  await expect(page.getByRole('heading', { level: 1, name: TITLE_A })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: '南京 · Nanjing — 选择你的创作方式' })).toBeVisible();
   await expect(page.locator('a[href*="mode=journal"]')).toBeVisible();
 
   await page.goto('/#/book/missing-book');
@@ -62,12 +67,15 @@ test('mode selection page, mode URLs, refresh, back and invalid IDs', async ({ p
 
   await page.goto('/#/stamps?cityId=nanjing');
   await page.waitForURL(/section\/journals\?cityId=nanjing/);
-  await expect(page.getByRole('heading', { name: '六城邮票册正在装帧' })).toBeVisible();
-  await expect(page.getByText('已定位到')).toContainText('南京');
+  await expect(page.getByRole('heading', { level: 1, name: '中国城市手账 · China Travel Stamps' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /南京 Nanjing 邮票/ })).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('button', { name: new RegExp(TITLE_A) })).toBeVisible();
 
   await page.goto('/#/stamps?cityId=atlantis');
   await page.waitForURL(/section\/journals$/);
-  await expect(page.getByRole('heading', { name: '六城邮票册正在装帧' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: '中国城市手账 · China Travel Stamps' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /邮票，.*翻开这一城的手账书架/ })).toHaveCount(6);
+  await expect(page.getByRole('button', { name: /南京 Nanjing 邮票/ })).toHaveAttribute('aria-expanded', 'false');
 
   expect(errors).toEqual([]);
 });
