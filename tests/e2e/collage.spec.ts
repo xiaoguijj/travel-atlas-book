@@ -62,8 +62,10 @@ test('collage assets, text, geometry and layer order survive reload and stay sco
   await insertSticker(page, '绿皮火车');
   await page.getByRole('button', { name: '添加文字', exact: true }).click();
   await page.getByLabel('文字内容').fill('南京散步');
-  await page.getByLabel('字号').fill('56');
-  await page.getByLabel('字号').press('Enter');
+  const fontSize = page.getByLabel('字号');
+  await fontSize.fill('56');
+  expect((await savedItems(page)).at(-1)).toMatchObject({ style: { fontSize: 56 } });
+  await expect(fontSize).toBeFocused();
   await page.getByLabel('文字颜色').fill('#a02040');
   await page.getByRole('combobox', { name: '对齐', exact: true }).selectOption('center');
   await page.getByLabel('粗体').check();
@@ -152,6 +154,23 @@ test('collage assets, text, geometry and layer order survive reload and stay sco
   expect(await savedItems(page, OTHER)).toMatchObject([{ kind: 'text', text: '新文字' }]);
   expect(await readBook(page, BOOK)).toEqual(savedAfterDeletion);
   expect(errors).toEqual([]);
+});
+
+test('an item dropped past the canvas edge remains editable after reload', async ({ page }) => {
+  await seedBooks(page, [seedBook(BOOK, '画布边缘')]);
+  await page.goto(COLLAGE_URL);
+  await page.getByRole('button', { name: '添加文字', exact: true }).click();
+  const [item] = await savedItems(page);
+  const { x, y, w, h } = await itemScreenBox(page, item);
+  await mouseDrag(page, x + w / 2, y + h / 2, 5, y + h / 2);
+  const [moved] = await savedItems(page);
+  expect(moved.x).toBeLessThan(item.x);
+  expect(moved.x + moved.width / 2).toBeGreaterThan(0);
+
+  await page.reload();
+  const restored = await itemScreenBox(page, moved);
+  await page.mouse.click(restored.x + restored.w / 2, restored.y + restored.h / 2);
+  await expect(layerMenu(page)).toHaveValue(item.id);
 });
 
 test('a failed collage write stays pending, blocks leaving and can be retried', async ({ page }) => {

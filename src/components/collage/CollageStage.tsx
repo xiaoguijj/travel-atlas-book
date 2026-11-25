@@ -21,6 +21,18 @@ interface CollageStageProps {
 
 const MIN_ITEM_SIZE = 16;
 
+function keepItemReachable(node: Konva.Node) {
+  const bounds = node.getClientRect({ relativeTo: node.getLayer()! });
+  const centerX = bounds.x + bounds.width / 2;
+  const centerY = bounds.y + bounds.height / 2;
+  // Items may overlap the page edge, but their center must stay reachable.
+  const x = Math.max(MIN_ITEM_SIZE, Math.min(centerX, COLLAGE_CANVAS_WIDTH - MIN_ITEM_SIZE));
+  const y = Math.max(MIN_ITEM_SIZE, Math.min(centerY, COLLAGE_CANVAS_HEIGHT - MIN_ITEM_SIZE));
+  const position = { x: node.x() + (x - centerX), y: node.y() + (y - centerY) };
+  node.position(position);
+  return position;
+}
+
 function CanvasAsset({ item, assets }: { item: Exclude<CollageItem, { kind: 'text' }>; assets: AssetQuery }) {
   const { status, src } = useAssetPreview(item.assetId, assets);
   const [loaded, setLoaded] = useState<{ src: string; image: HTMLImageElement }>();
@@ -72,10 +84,11 @@ function CanvasItem({ item, assets, onSelect, onChange }: {
   function commitTransform(node: Konva.Node) {
     const scaleX = node.scaleX();
     const scaleY = node.scaleY();
+    const position = keepItemReachable(node);
     // Read only local transforms. The Stage scale is for display.
     node.scale({ x: 1, y: 1 });
     const bounds = {
-      x: node.x(), y: node.y(), rotation: node.rotation(),
+      ...position, rotation: node.rotation(),
       width: width * scaleX, height: height * scaleY,
     };
     if (item.kind === 'text' && scaleX !== 1) {
@@ -89,7 +102,7 @@ function CanvasItem({ item, assets, onSelect, onChange }: {
   return (
     <Group id={id} x={x} y={y} rotation={rotation} draggable
       onMouseDown={select} onTouchStart={select}
-      onDragEnd={({ target }) => onChange({ ...item, x: target.x(), y: target.y() })}
+      onDragEnd={({ target }) => onChange({ ...item, ...keepItemReachable(target) })}
       onTransformEnd={({ target }) => commitTransform(target)}>
       <Rect width={width} height={height} fill="transparent" />
       {item.kind === 'text' ? (

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { CollageEditorProps, CollageTextItem } from '../../data/contracts';
 import { CollageStage } from './CollageStage';
 import styles from './CollageView.module.css';
@@ -7,6 +8,7 @@ function TextFields({ item, onChange }: { item: CollageTextItem; onChange: (item
   const { style } = item;
   const fontSize = style?.fontSize ?? DEFAULT_TEXT_SIZE;
   const shownFontSize = Number(fontSize.toFixed(2));
+  const [fontSizeDraft, setFontSizeDraft] = useState<string | null>(null);
 
   return (
     <fieldset className={styles.fields}>
@@ -15,15 +17,15 @@ function TextFields({ item, onChange }: { item: CollageTextItem; onChange: (item
         <textarea rows={2} value={item.text} onChange={(event) => onChange({ ...item, text: event.target.value })} />
       </label>
       <label>字号
-        <input key={shownFontSize} type="number" min={1} step="any" defaultValue={shownFontSize}
-          onBlur={(event) => {
-            const size = event.currentTarget.valueAsNumber;
-            if (size >= 1 && Number.isFinite(size)) {
-              if (size !== shownFontSize) onChange({ ...item, style: { ...style, fontSize: size } });
-            } else {
-              event.currentTarget.value = String(shownFontSize);
+        <input type="number" min={1} step="any" value={fontSizeDraft ?? shownFontSize}
+          onChange={(event) => {
+            const { value, valueAsNumber: size } = event.currentTarget;
+            setFontSizeDraft(value);
+            if (size >= 1 && Number.isFinite(size) && size !== fontSize) {
+              onChange({ ...item, style: { ...style, fontSize: size } });
             }
           }}
+          onBlur={() => setFontSizeDraft(null)}
           onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur(); }} />
       </label>
       <label>文字颜色
