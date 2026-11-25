@@ -4,7 +4,7 @@ import type { BookSaveQueue } from '../../data/saving';
 import styles from './LeaveGuard.module.css';
 
 interface LeaveGuardProps {
-  queue: BookSaveQueue;
+  queue: Pick<BookSaveQueue, 'flush' | 'discardPending' | 'isDirty'>;
   dirty: boolean;
   errorMessage: string | null;
 }
@@ -18,20 +18,25 @@ interface LeaveGuardProps {
 export function LeaveGuard({ queue, dirty, errorMessage }: LeaveGuardProps) {
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      dirty &&
+      queue.isDirty() &&
       (currentLocation.pathname !== nextLocation.pathname ||
         currentLocation.search !== nextLocation.search),
   );
   const [phase, setPhase] = useState<'idle' | 'saving' | 'failed'>('idle');
-  const cancelled = useRef(false);
+  const attempt = useRef(0);
   const proceedRef = useRef<(() => void) | undefined>(undefined);
   proceedRef.current = blocker.state === 'blocked' ? blocker.proceed : undefined;
 
   const saveThenLeave = async () => {
-    cancelled.current = false;
+    const currentAttempt = ++attempt.current;
     setPhase('saving');
-    const saved = await queue.flush();
-    if (cancelled.current) return;
+    let saved = false;
+    try {
+      saved = await queue.flush();
+    } catch {
+      // A failed save must keep navigation blocked, including unexpected storage errors.
+    }
+    if (currentAttempt !== attempt.current) return;
     if (saved) proceedRef.current?.();
     else setPhase('failed');
   };
@@ -39,7 +44,7 @@ export function LeaveGuard({ queue, dirty, errorMessage }: LeaveGuardProps) {
   useEffect(() => {
     if (blocker.state !== 'blocked') {
       setPhase('idle');
-      cancelled.current = false;
+      attempt.current += 1;
       return;
     }
     void saveThenLeave();
@@ -48,20 +53,23 @@ export function LeaveGuard({ queue, dirty, errorMessage }: LeaveGuardProps) {
   }, [blocker.state]);
 
   useEffect(() => {
-    if (!dirty) return;
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      // Re-check the live queue: a completed flush may precede effect cleanup.
+      if (!queue.isDirty()) return;
       event.preventDefault();
       event.returnValue = '';
     };
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
-  }, [dirty]);
+  }, [queue, dirty]);
+
+  useEffect(() => () => { attempt.current += 1; }, []);
 
   useEffect(() => {
     if (blocker.state !== 'blocked') return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      cancelled.current = true;
+      attempt.current += 1;
       blocker.reset();
       setPhase('idle');
     };
@@ -81,7 +89,7 @@ export function LeaveGuard({ queue, dirty, errorMessage }: LeaveGuardProps) {
         <p className={styles.body}>
           {failed
             ? errorMessage || '内容还留在本页草稿里。可以重试一次，或明确放弃这次修改再离开。'
-            : '把还没写进本子的标题和正文补存一下，通常只要一小会儿。'}
+            : '把还没写进本子的标题、正文和贴纸补存一下，通常只要一小会儿。'}
         </p>
 
         <div className={styles.actions}>
@@ -94,7 +102,7 @@ export function LeaveGuard({ queue, dirty, errorMessage }: LeaveGuardProps) {
                 type="button"
                 className={styles.danger}
                 onClick={() => {
-                  cancelled.current = true;
+                  attempt.current += 1;
                   queue.discardPending();
                   blocker.proceed();
                 }}
@@ -107,7 +115,7 @@ export function LeaveGuard({ queue, dirty, errorMessage }: LeaveGuardProps) {
             type="button"
             className={styles.secondary}
             onClick={() => {
-              cancelled.current = true;
+              attempt.current += 1;
               blocker.reset();
               setPhase('idle');
             }}

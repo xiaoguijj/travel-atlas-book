@@ -1,0 +1,198 @@
+/* ------------------------------------------------------------------ 横线区正文
+ * 牛皮纸、横线、Title / Date 两行都在画上（由手账壳画），这一层只贴两块真控件：
+ * 能打字滚动的正文，和摆在纸下沿空白上的工具条。坐标全来自 src/config/journal.ts。
+ */
+
+.paper {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  /* 写到头不把滚动交给页面，整页跟着抖一下很难写 */
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(176 141 87 / 0.75) transparent;
+}
+
+/*
+ * 整块横线区都要能点：外层给确定高度，EditorContent 的这层壳跟着填满，
+ * 正文再用 min-height:100% 撑到满页——只有一行高的正文框会让纸的下半张点不动。
+ */
+.surface {
+  flex: 1 0 auto;
+  min-height: 100%;
+}
+
+/*
+ * 行高 = 印好的线距，字号 = 画上手写体的那一款，段落不留任何外边距，
+ * 这样第一行坐在第一条线上，往后每换一行正好落到下一条。
+ */
+.prose {
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--tab-ink);
+  font-family: var(--tab-font-display);
+  font-size: var(--body-size, 1.796cqw);
+  line-height: var(--rule-step, 3.287cqw);
+  letter-spacing: 0.01em;
+  outline: none;
+  white-space: pre-wrap;
+}
+
+.prose > * {
+  margin: 0;
+  padding: 0;
+  line-height: var(--rule-step, 3.287cqw);
+}
+
+.prose:focus-visible {
+  outline: 2px dashed rgb(176 141 87 / 0.9);
+  outline-offset: 4px;
+}
+
+/* ------------------------------------------------------------------ 工具条 */
+
+.toolbarWrap {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.2cqw;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.4cqw;
+  padding: 0.4cqw 0.9cqw;
+  border: 1px solid rgb(176 141 87 / 0.7);
+  border-radius: 999px;
+  background: rgb(247 240 227 / 0.52);
+}
+
+.tool {
+  display: grid;
+  place-items: center;
+  flex: none;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--tab-ink);
+  font-family: var(--tab-font-ui);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.tool:hover:not(:disabled),
+.tool:focus-visible {
+  border-color: rgb(176 141 87 / 0.9);
+  background: rgb(247 240 227 / 0.7);
+}
+
+.tool:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.toolActive {
+  border-color: transparent;
+  background: rgb(38 63 75 / 0.88);
+  color: var(--tab-cream);
+}
+
+.boldMark {
+  font-weight: 700;
+}
+
+.italicMark {
+  font-style: italic;
+}
+
+.underMark {
+  text-decoration: underline;
+}
+
+.divider {
+  width: 1px;
+  height: 22px;
+  background: rgb(176 141 87 / 0.55);
+}
+
+/* ------------------------------------------------------------------ 读取保护 */
+
+.recovery {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  box-sizing: border-box;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 12px;
+  overflow-y: auto;
+  padding: 20px;
+  border: 1px dashed rgb(140 47 34 / 0.5);
+  border-radius: 4px;
+  background: rgb(247 240 227 / 0.95);
+  color: var(--tab-ink);
+  font-family: var(--tab-font-ui);
+  font-size: clamp(13px, 1.55cqw, 17px);
+  line-height: 1.65;
+}
+
+.recovery p {
+  margin: 0;
+}
+
+.recoveryTitle {
+  font-weight: 700;
+  color: #8c2f22;
+}
+
+.reload {
+  flex: none;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid rgb(140 47 34 / 0.6);
+  border-radius: 999px;
+  background: transparent;
+  color: #8c2f22;
+  font-family: var(--tab-font-ui);
+  font-size: 12.5px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.reload:hover,
+.reload:focus-visible {
+  border-color: #8c2f22;
+  background: rgb(140 47 34 / 0.1);
+}
+
+.insertionError {
+  margin: 0;
+  color: #8c2f22;
+  font-family: var(--tab-font-ui);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* 窄屏上 1cqw 会小到读不清，这几处改回固定下限，工具条改贴在正文下面一行 */
+@media (max-width: 720px) {
+  .toolbar {
+    gap: 2px;
+    padding: 4px 6px;
+  }
+}

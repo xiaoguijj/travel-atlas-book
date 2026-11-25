@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import createModeArtwork from '../../assets/create-mode.jpg';
+import { isJournalBlank } from '../journal/journalDoc';
 import { PageTurn } from '../layout/PageTurn';
 import { albumBack } from '../../config/innerLayout';
 import { journalBookPath } from '../../config/routes';
@@ -22,12 +23,12 @@ const collageWipNote =
  * 要跟着打开的书变，左上角返回胶囊要和其它页面一样大（画上的那颗会跟着画面一起缩）。
  *
  * 书本记录由 BookPage 读好后传进来（V1-05 壳），本页不碰数据库：
- * 「继续写 / 开始写」看的是这本书记录里有没有 journal 内容，不是本机另存的一份草稿。
+ * 「继续写 / 开始写」看的是这本书记录里有没有真的写过（只剩一个空段落算没动笔），不是本机另存的一份草稿。
  */
 export function ModeSelect({ book, city }: { book: TravelBook; city: City }) {
   const [notice, setNotice] = useState<string | null>(null);
   const back = albumBack(city.id);
-  const resumed = book.journal !== undefined;
+  const resumed = !isJournalBlank(book.journal);
 
   return (
     <div className={styles.page}>

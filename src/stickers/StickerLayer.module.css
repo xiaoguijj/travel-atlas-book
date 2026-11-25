@@ -1,0 +1,124 @@
+/* ------------------------------------------------------------------ 贴纸层
+ * 层本身不吃事件，只有贴纸像素可点：这样贴纸之间的空白照样能选正文的字。
+ * 尺寸全部按画布百分比给，屏幕怎么缩放都不会跑位。
+ */
+
+.layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.sticker {
+  position: absolute;
+  pointer-events: auto;
+  touch-action: none;
+  cursor: grab;
+  border: 0;
+  padding: 0;
+  background: none;
+}
+
+.sticker:active {
+  cursor: grabbing;
+}
+
+.sticker img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  /* 贴纸是抠好轮廓的，投影要贴着轮廓走，方方正正的 box-shadow 会露出原来的矩形 */
+  filter: drop-shadow(0 6px 10px rgb(31 46 54 / 0.28));
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.selected img {
+  filter: drop-shadow(0 8px 14px rgb(31 46 54 / 0.34));
+}
+
+.selected {
+  cursor: grabbing;
+}
+
+/* 选中框：虚线走黄铜色，和正文输入框聚焦时是同一套语言 */
+.selected::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border: 1.5px dashed rgb(176 141 87 / 0.95);
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+.sticker:focus-visible {
+  outline: 2px dashed rgb(176 141 87 / 0.9);
+  outline-offset: 4px;
+}
+
+/* 把手浮在最上面一层：贴纸有 z-index，把手压在别人身下就根本拖不到。
+ * 容器不吃事件，只有圆点可点，贴纸之间的空白照样能选正文的字。 */
+.controls {
+  position: absolute;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+/* 四个圆点各管一件事，外观同一套：白底、黑图、黄铜描边。
+ * 位置由层按贴纸的旋转矩阵算，所以转过的贴纸也能在真正的角上抓到。 */
+.scale,
+.rotate,
+.duplicate,
+.remove {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--tab-brass);
+  border-radius: 50%;
+  background: var(--tab-cream);
+  color: var(--tab-ink);
+  font-size: 12px;
+  line-height: 1;
+  /* 别让符号掉进 emoji 字形：颜色只由 color 决定 */
+  font-variant-emoji: text;
+  pointer-events: auto;
+  touch-action: none;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.scale {
+  cursor: nwse-resize;
+}
+
+.rotate {
+  cursor: grab;
+}
+
+.duplicate,
+.remove {
+  cursor: pointer;
+}
+
+.scale:hover,
+.scale:active,
+.rotate:hover,
+.rotate:active,
+.duplicate:hover,
+.duplicate:active {
+  background: var(--tab-old-paper);
+}
+
+.rotate:active {
+  cursor: grabbing;
+}
+
+/* 撕掉是破坏性动作，留一点陶土红当提醒 */
+.remove:hover,
+.remove:active {
+  border-color: var(--tab-terracotta);
+  background: rgb(169 108 80 / 0.22);
+}

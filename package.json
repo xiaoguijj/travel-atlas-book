@@ -15,7 +15,8 @@
     "data:world": "node scripts/build-world-data.mjs",
     "data:hero": "node scripts/build-hero-assets.mjs",
     "data:inner": "node scripts/build-inner-assets.mjs",
-    "data:paper": "node scripts/build-paper-assets.mjs"
+    "data:paper": "node scripts/build-paper-assets.mjs",
+    "data:stickers": "node scripts/build-sticker-assets.mjs"
   },
   "engines": {
     "node": ">=22.0.0"

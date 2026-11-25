@@ -20,6 +20,21 @@ async function waitSaved(page: Page): Promise<void> {
   await expect(page.locator('[data-state="saved"]')).toContainText('已保存', { timeout: 10_000 });
 }
 
+/** Exercise the real contenteditable, including Enter-created paragraphs. */
+async function fillJournal(page: Page, text: string): Promise<void> {
+  const editor = page.getByLabel('手账正文', { exact: true });
+  const [first, ...rest] = text.split('\n');
+  await editor.fill(first);
+  for (const line of rest) {
+    await editor.press('Enter');
+    await page.keyboard.insertText(line);
+  }
+}
+
+async function expectJournal(page: Page, text: string): Promise<void> {
+  await expect(page.getByLabel('手账正文', { exact: true }).locator(':scope > p')).toHaveText(text.split('\n'));
+}
+
 function journalHasText(book: { journal?: { doc: { content?: unknown[] } } } | undefined, text: string): boolean {
   return JSON.stringify(book?.journal ?? null).includes(text);
 }
@@ -48,7 +63,7 @@ test('mode selection page, mode URLs, refresh, back and invalid IDs', async ({ p
   await expect(page.getByRole('button', { name: new RegExp(TITLE_A) })).toBeVisible();
 
   await page.goto(`/#/book/${BOOK_A}?mode=journal`);
-  await expect(page.getByLabel('正文草稿')).toBeVisible();
+  await expect(page.getByLabel('手账正文', { exact: true })).toBeVisible();
   await page.waitForURL(/mode=journal/);
 
   await page.goto(`/#/book/${BOOK_A}?mode=collage`);
@@ -87,7 +102,7 @@ test('journal title and body save, refresh and stay isolated between two books',
   await page.goto(`/#/book/${BOOK_A}?mode=journal`);
   await expect(page.getByLabel('手账标题')).toHaveValue(TITLE_A);
   await page.getByLabel('手账标题').fill('梧桐手账 · 补记');
-  await page.getByLabel('正文草稿').fill('梧桐落在窗台。\n傍晚去玄武湖。');
+  await fillJournal(page, '梧桐落在窗台。\n傍晚去玄武湖。');
   await waitSaved(page);
 
   const storedA = await readBook(page, BOOK_A);
@@ -96,12 +111,12 @@ test('journal title and body save, refresh and stay isolated between two books',
 
   await page.reload();
   await expect(page.getByLabel('手账标题')).toHaveValue('梧桐手账 · 补记');
-  await expect(page.getByLabel('正文草稿')).toHaveValue('梧桐落在窗台。\n傍晚去玄武湖。');
+  await expectJournal(page, '梧桐落在窗台。\n傍晚去玄武湖。');
 
   await page.goto(`/#/book/${BOOK_B}?mode=journal`);
   await expect(page.getByLabel('手账标题')).toHaveValue(TITLE_B);
-  await expect(page.getByLabel('正文草稿')).toHaveValue('');
-  await page.getByLabel('正文草稿').fill('玄武湖的风从桥洞里穿过去。');
+  await expectJournal(page, '');
+  await fillJournal(page, '玄武湖的风从桥洞里穿过去。');
   await waitSaved(page);
 
   const storedB = await readBook(page, BOOK_B);
@@ -110,7 +125,7 @@ test('journal title and body save, refresh and stay isolated between two books',
   expect(journalHasText(storedB, '梧桐落在窗台')).toBe(false);
 
   await page.goto(`/#/book/${BOOK_A}?mode=journal`);
-  await expect(page.getByLabel('正文草稿')).toHaveValue('梧桐落在窗台。\n傍晚去玄武湖。');
+  await expectJournal(page, '梧桐落在窗台。\n傍晚去玄武湖。');
   const reloadedA = await readBook(page, BOOK_A);
   expect(reloadedA?.title).toBe('梧桐手账 · 补记');
   expect(journalHasText(reloadedA, '玄武湖的风')).toBe(false);
@@ -138,20 +153,27 @@ test('shared asset panel uploads a photo, inserts it and restores the same asset
 
   await page.getByRole('button', { name: '使用这张素材' }).click();
   await expect(dialog).toBeHidden();
-  const assetCode = page.locator('code').filter({ hasText: /^photo:/ });
-  await expect(assetCode).toBeVisible();
-  const assetId = (await assetCode.textContent())?.trim();
-  expect(assetId?.startsWith('photo:')).toBe(true);
+  const media = page.getByLabel('手账正文', { exact: true }).locator('[data-type="atlasMedia"]');
+  await expect(media).toHaveCount(1);
+  const assetLabel = media.getByText(/^photo:[^\s]+$/);
+  await expect(assetLabel).toBeVisible();
+  const assetId = (await assetLabel.innerText()).trim();
+  expect(assetId).toMatch(/^photo:/);
+  const photo = media.getByRole('img', { name: 'atlas-sample.png', exact: true });
+  await expect(photo).toBeVisible();
+  await expect.poll(() => photo.evaluate((element) => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   await waitSaved(page);
 
   expect(await readPhotoCount(page)).toBe(1);
   const stored = await readBook(page, BOOK_A);
-  expect(JSON.stringify(stored?.journal)).toContain(assetId ?? '');
+  expect(JSON.stringify(stored?.journal)).toContain(assetId);
 
   await page.reload();
-  await expect(page.getByLabel('正文草稿')).toBeVisible();
-  await expect(page.locator('img[alt="已引用素材 1"]')).toBeVisible();
-  await expect(page.locator('code').filter({ hasText: /^photo:/ })).toHaveText(assetId ?? '');
+  await expect(page.getByLabel('手账正文', { exact: true })).toBeVisible();
+  await expect(media).toHaveCount(1);
+  await expect(photo).toBeVisible();
+  await expect.poll(() => photo.evaluate((element) => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  await expect(assetLabel).toHaveText(assetId);
 
   expect(errors).toEqual([]);
 });
@@ -174,7 +196,9 @@ test('missing referenced assets show a placeholder instead of breaking the page'
 
   await page.goto(`/#/book/${BOOK_A}?mode=journal`);
   await expect(page.getByText('这页引用了不存在的照片。')).toBeVisible();
-  await expect(page.getByRole('img', { name: '素材缺失' })).toBeVisible();
+  const missingMedia = page.getByLabel('手账正文', { exact: true }).locator('[data-type="atlasMedia"]');
+  await expect(missingMedia.getByText('本机素材库里没有「photo:missing-asset」，先占位，素材回来就自动补上。')).toBeVisible();
+  await expect(missingMedia.getByRole('button', { name: '取走这一格' })).toBeVisible();
 
   expect(errors).toEqual([]);
 });
@@ -185,7 +209,7 @@ test('a pending draft is flushed before switching modes', async ({ page }) => {
 
   await page.goto(`/#/book/${BOOK_A}?mode=journal`);
   await page.getByLabel('手账标题').fill('离开前保存的标题');
-  await page.getByLabel('正文草稿').fill('写到一半就切去拼贴。');
+  await fillJournal(page, '写到一半就切去拼贴。');
   await page.locator('a[href*="mode=collage"]').click();
   await page.waitForURL(/mode=collage/);
   await expect(page.getByRole('heading', { name: '拼贴画布正在裱糊' })).toBeVisible();
@@ -195,7 +219,7 @@ test('a pending draft is flushed before switching modes', async ({ page }) => {
   expect(journalHasText(stored, '写到一半就切去拼贴')).toBe(true);
 
   await page.goto(`/#/book/${BOOK_A}?mode=journal`);
-  await expect(page.getByLabel('正文草稿')).toHaveValue('写到一半就切去拼贴。');
+  await expectJournal(page, '写到一半就切去拼贴。');
 
   expect(errors).toEqual([]);
 });
@@ -235,7 +259,10 @@ test('save failure is reported, retry works and leaving can be cancelled', async
   await page.goto(`/#/book/${BOOK_A}?mode=journal`);
   await page.getByLabel('手账标题').fill('');
   await expect(page.locator('[data-state="error"]')).toContainText('保存失败', { timeout: 10_000 });
-  await expect(page.getByRole('button', { name: '重试', exact: true })).toBeVisible();
+  const retry = page.getByRole('button', { name: '重试', exact: true });
+  await expect(retry).toHaveCount(1);
+  await retry.click();
+  await expect(page.locator('[data-state="error"]')).toContainText('保存失败');
 
   await page.locator('a[href*="mode=collage"]').click();
   const dialog = page.getByRole('dialog', { name: /保存失败，暂时不能离开/ });

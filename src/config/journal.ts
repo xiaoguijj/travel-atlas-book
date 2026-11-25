@@ -60,6 +60,70 @@ export const createModeZones = {
 /** 胶囊周围那块深蓝底色，DOM 重画时用它垫底 */
 export const createModePillBg = '#173132';
 
+/**
+ * 横线日记本（assets-source/journal-lines.png 1448×1086）的版面。
+ *
+ * 正文区不做分页：任务卡要的是「长文滚动」，而 V1-02 冻结的 `JournalContent` 是
+ * 一本书一份 Tiptap 文档，没有「第几页」这个概念，所以超出可写行数就在区内滚动。
+ */
+export const journalArt = { width: 1448, height: 1086 } as const;
+
+/**
+ * 画在纸上的 "Title :" 与 "Date :" 两条填空，真控件盖在横线上。
+ * 两条印刷下划线都在 y≈98（逐行亮度取极值），控件按单行居中反推基线，让字正好落在线上方。
+ */
+export const journalTitleBox: ArtBox = { x: 786, y: 66, w: 288, h: 40 };
+export const journalDateBox: ArtBox = { x: 1236, y: 66, w: 168, h: 40 };
+
+/**
+ * 横线区：画上一共 17 条线，第一条在 y=178，间距 47.6px（逐行亮度取极值得到）。
+ * 正文行高必须等于这个间距，字才正好坐在印好的线上。
+ *
+ * nudge 是行盒顶到基线之间的半 leading 加字体 ascent，得按浏览器的 font box
+ * （ascent 0.879em + descent 0.176em）算：补 7 时首行基线落在 170.3、比第一条线高 7.7，
+ * 补 12 落在 175.3，字就坐在线上。
+ *
+ * writable 是能写的行数，比画上的 17 条少 3：左下角的邮票和右下角的罗盘从 y≈843 就开始
+ * （x 114..290 与 1240..1420），第 15 条线 843.7 已经压在邮票上，所以写作区只到第 14 条线。
+ */
+export const journalRules = {
+  first: 178,
+  step: 47.6,
+  writable: 14,
+  left: 142,
+  right: 1362,
+  nudge: 12,
+} as const;
+
+/** 正文容器从第一条线往上推一个行高，再补上基线差；高度正好是能写的那几行 */
+export const journalWritingBox: ArtBox = {
+  x: journalRules.left,
+  y: journalRules.first - journalRules.step + journalRules.nudge,
+  w: journalRules.right - journalRules.left,
+  h: journalRules.step * journalRules.writable,
+};
+
+/** 正文字号：约等于行高的 55%，写满一行不会挤到下一根线 */
+export const journalBodyFontPx = 26;
+
+/**
+ * 工具条与保存状态那一条：摆在最后一条印刷横线（y≈939.6）以下的空白纸边上，
+ * 不去压任何一行字。左右让开画上的邮票（x 114..290）和罗盘（x 1240..1420）。
+ */
+export const journalToolbarBox: ArtBox = { x: 330, y: 958, w: 790, h: 56 };
+
+/**
+ * 手账页要看起来和邮票册是同一本笔记，所以本子得一样大、一样斜。
+ *
+ * 邮票册画框（1536×1024）里的纸面占画框宽 0.8556，顶边斜率 −0.0315（往右上翘 1.8°）；
+ * 手账照片（1448×1086）的纸面占自己画框 0.8806，本身几乎是正的（0.07°）。
+ * 于是手账舞台宽 = 邮票册舞台宽 × 0.8556 / 0.8806，再转同样的角度，两页的本子才对得上。
+ */
+export const journalFrame = {
+  albumStageRatio: 0.9716,
+  tiltDeg: -1.8,
+} as const;
+
 /** 源图坐标 → 舞台内的百分比定位 */
 export function artBoxStyle(art: { width: number; height: number }, box: ArtBox) {
   return {

@@ -25,9 +25,12 @@ npm run dev        # 开发预览，默认 http://localhost:5173
 npm run build      # 类型检查 + 产物构建，输出到 dist/
 npm run preview    # 本地起静态服务预览 dist/，默认 http://localhost:4173
 npm run typecheck  # 只做 tsc --noEmit
+npm test           # 单元测试（vitest，纯 node 环境，不需要浏览器）
 
 npm run data:world # 重新生成陆地轮廓 src/data/world.ts（需要联网）
 npm run data:hero  # 重新压缩首页背景画 src/assets/hero-bg.jpg
+npm run data:inner # 由 assets-source/ 生成内页纯地图背景
+npm run data:paper # 由 assets-source/*.png 生成收藏册 / 选择页 / 横线本整画
 ```
 
 > 本机 Node 没有装到系统 PATH，实际用的是 `C:\Users\huangju\.workbuddy\binaries\node\versions\22.22.2`。
