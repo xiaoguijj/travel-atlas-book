@@ -18,7 +18,9 @@ import Jimp from 'jimp';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sourceDir = path.join(root, 'assets-source');
 const outDir = path.join(root, 'src/assets');
+const stickerOutDir = path.join(outDir, 'collage-stickers');
 fs.mkdirSync(outDir, { recursive: true });
+fs.mkdirSync(stickerOutDir, { recursive: true });
 
 async function buildDesk() {
   const image = await Jimp.read(path.join(sourceDir, 'collage-desk.jpg'));
@@ -32,8 +34,22 @@ async function buildPaper() {
   const image = await Jimp.read(path.join(sourceDir, 'collage-paper.jpg'));
   // Force exact 3:4 aspect ratio (900x1200) for clean 1200x1600 stage alignment.
   image.cover(900, 1200);
+  // 减轻重度污渍与泛黄，保留细腻棉纸纤维，呈现精致旅行纪念手账纸感。
+  const { data } = image.bitmap;
+  const targetR = 250;
+  const targetG = 242;
+  const targetB = 224;
+  const liftBlend = 0.56;
+  for (let i = 0; i < data.length; i += 4) {
+    const r = Math.max(168, data[i]);
+    const g = Math.max(152, data[i + 1]);
+    const b = Math.max(126, data[i + 2]);
+    data[i] = Math.round(r + (targetR - r) * liftBlend);
+    data[i + 1] = Math.round(g + (targetG - g) * liftBlend);
+    data[i + 2] = Math.round(b + (targetB - b) * liftBlend);
+  }
   const out = path.join(outDir, 'collage-paper.jpg');
-  await image.quality(84).writeAsync(out, Jimp.MIME_JPEG);
+  await image.quality(86).writeAsync(out, Jimp.MIME_JPEG);
   logResult('collage-paper.jpg', image, out);
 }
 
@@ -255,8 +271,33 @@ function logResult(name, image, outPath) {
   console.log(`${name}：${image.bitmap.width}×${image.bitmap.height}，${(fs.statSync(outPath).size / 1024).toFixed(0)} KB`);
 }
 
+async function buildDecorativeStickers() {
+  const items = [
+    { src: 'collage-sticker-washi-tape.jpg', out: 'collage-washi-tape.png', minLum: 234, maxSpread: 22 },
+    { src: 'collage-sticker-torn-note.jpg', out: 'collage-torn-note.png', minLum: 238, maxSpread: 18 },
+    { src: 'collage-sticker-ginkgo-leaf.jpg', out: 'collage-ginkgo-leaf.png', minLum: 230, maxSpread: 22 },
+  ];
+  for (const item of items) {
+    const from = path.join(sourceDir, item.src);
+    if (!fs.existsSync(from)) continue;
+    const image = await Jimp.read(from);
+    const box = cutOutNeutralBackground(image, { minLum: item.minLum, maxSpread: item.maxSpread, interiorMinPixels: 0 });
+    image.crop(box.x, box.y, box.w, box.h);
+    if (Math.max(image.bitmap.width, image.bitmap.height) > 384) {
+      image.resize(
+        image.bitmap.width >= image.bitmap.height ? 384 : Jimp.AUTO,
+        image.bitmap.height > image.bitmap.width ? 384 : Jimp.AUTO,
+      );
+    }
+    const out = path.join(stickerOutDir, item.out);
+    await image.deflateLevel(9).writeAsync(out);
+    logResult(`collage-stickers/${item.out}`, image, out);
+  }
+}
+
 await buildDesk();
 await buildPaper();
 await buildCover();
 await buildClip();
 await buildPaperMask();
+await buildDecorativeStickers();

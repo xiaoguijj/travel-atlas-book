@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom';
 import { createModeBack } from '../../config/innerLayout';
 import { bookModePath } from '../../config/routes';
 import { assetQuery } from '../../data/assets';
+import { collageStickerAssets } from '../../data/catalog/collageStickers';
 import {
   BOOK_MODES,
   MAX_BOOK_TITLE_LENGTH,
   type AssetInsertionRequest,
   type AssetKind,
+  type AssetQuery,
   type BookMode,
   type CollageCanvas,
   type EditorSaveState,
@@ -140,6 +142,14 @@ function BookEditorShell({ book, city, mode, onBookSaved, stickers }: BookShellP
 
   const uploadPhoto = useCallback((file: File) => importPhoto(city.id, file), [city.id]);
 
+  const collageAssets = useMemo<AssetQuery>(
+    () => ({
+      listAssets: async (cityId) => [...(await assetQuery.listAssets(cityId)), ...collageStickerAssets],
+      getAsset: assetQuery.getAsset,
+    }),
+    [],
+  );
+
   const isCollage = mode === 'collage';
 
   return (
@@ -240,7 +250,7 @@ function BookEditorShell({ book, city, mode, onBookSaved, stickers }: BookShellP
               <CollageView
                 bookId={book.id}
                 content={collageContent}
-                assets={assetQuery}
+                assets={collageAssets}
                 saveState={saveState}
                 onChange={(canvas) => queue.updateCollage(canvas)}
                 onRetrySave={retrySave}
@@ -267,7 +277,7 @@ function BookEditorShell({ book, city, mode, onBookSaved, stickers }: BookShellP
               cityId={city.id}
               cityName={city.name}
               mode={mode}
-              assets={assetQuery}
+              assets={isCollage ? collageAssets : assetQuery}
               initialKind={panel.kind}
               uploadPhoto={uploadPhoto}
               onSelect={selectAsset}

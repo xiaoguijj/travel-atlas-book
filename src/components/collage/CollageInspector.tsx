@@ -411,6 +411,7 @@ export function CollageInspector({
                         <span className={styles.layerKind}>
                           {item.kind === 'text' ? '文字' : item.kind === 'photo' ? '照片' : '贴纸'}
                         </span>
+                        <span className={styles.layerGrip} aria-hidden="true">⋮⋮</span>
                       </li>
                     );
                   })}

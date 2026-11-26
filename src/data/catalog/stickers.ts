@@ -1,4 +1,5 @@
 import type { StickerDefinition } from '../contracts';
+import { collageStickerDefinitions } from './collageStickers';
 import { stickerArtwork, stickerArtworkUrl } from './stickerArtwork';
 
 /**
@@ -21,5 +22,6 @@ export function listStickerDefinitions(cityId?: string): StickerDefinition[] {
 }
 
 export function getStickerDefinition(stickerId: string): StickerDefinition | undefined {
-  return stickerDefinitions.find((sticker) => sticker.id === stickerId);
+  return stickerDefinitions.find((sticker) => sticker.id === stickerId)
+    ?? collageStickerDefinitions.find((sticker) => sticker.id === stickerId);
 }

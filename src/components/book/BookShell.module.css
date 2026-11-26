@@ -210,12 +210,12 @@
   gap: 8px 14px;
   padding: 6px clamp(14px, 2.4vw, 28px);
   border: 0;
-  border-bottom: 1px dashed rgb(146 106 62 / 0.42);
+  border-bottom: 1px dashed rgb(154 116 70 / 0.36);
   border-radius: 0;
-  background: linear-gradient(180deg, rgb(249 241 225 / 0.92), rgb(241 227 200 / 0.86));
+  background: linear-gradient(180deg, rgb(251 245 232 / 0.94), rgb(245 234 211 / 0.88));
   box-shadow:
-    inset 0 1px 0 rgb(255 253 247 / 0.75),
-    0 5px 14px -10px rgb(68 42 16 / 0.25);
+    inset 0 1px 0 rgb(255 253 248 / 0.8),
+    0 5px 14px -10px rgb(68 42 16 / 0.18);
 }
 
 .shell[data-mode='collage'] .identity {
@@ -305,9 +305,9 @@
 .shell[data-mode='collage'] .modes {
   gap: 4px;
   padding: 3px;
-  border-color: rgb(146 106 62 / 0.38);
-  background: rgb(235 220 193 / 0.78);
-  box-shadow: inset 0 1px 2px rgb(92 60 28 / 0.1);
+  border-color: rgb(154 116 70 / 0.34);
+  background: rgb(241 228 202 / 0.72);
+  box-shadow: inset 0 1px 2px rgb(92 60 28 / 0.08);
 }
 
 .shell[data-mode='collage'] .modeLink {
@@ -319,15 +319,16 @@
 
 .shell[data-mode='collage'] .modeLink:hover {
   color: #2f2014;
-  background: rgb(176 141 87 / 0.18);
+  background: rgb(176 141 87 / 0.16);
 }
 
 .shell[data-mode='collage'] .modeActive {
   background: linear-gradient(180deg, #8b5e3b 0%, #6f482a 100%);
   color: #fbf3e3;
   box-shadow:
-    inset 0 1px 0 rgb(255 242 216 / 0.3),
-    0 2px 6px rgb(58 34 12 / 0.25);
+    inset 0 1px 0 rgb(255 242 216 / 0.32),
+    inset 0 0 0 1px rgb(255 236 204 / 0.16),
+    0 2px 6px rgb(58 34 12 / 0.22);
 }
 
 .shell[data-mode='collage'] .modeActive:hover {
