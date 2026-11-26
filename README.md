@@ -1,204 +1,316 @@
-# Travel Atlas Book
+<p align="center">
+  <img src="docs/assets/readme/banner.jpg" alt="Travel Atlas Book — 把世界装进一本旅行手账" width="100%" />
+</p>
 
-一本会转的旅行手账。转动地球、翻开城市明信片，从邮票册打开城市书架。你可以写日记、做自由拼贴，也可以在愿望地图安排旅行，再把手账关联到具体行程。
+<p align="center">
+  <strong>一本会转的复古旅行手账</strong><br />
+  <sub>Voyage Vintage · 3D 交互地球 · 六城邮票收藏 · 横线图文日记 · 宽幅自由拼贴 · 中国愿望行程联动</sub>
+</p>
 
-- 视觉主题：Voyage Vintage（午夜蓝 + 旧纸黄 + 陶土红 + 鼠尾草绿）
-- 首页就是那张画：油灯、罗盘、帆船、缎带导航、三张明信片原样保留，只有画面中间的地球换成了真的 3D 地球
-- 邮票册与旅行计划覆盖南京、上海、西安、北京、杭州、成都。伦敦仍可从地球、明信片和城市页进入手账书架。
+<p align="center">
+  <a href="#项目介绍">项目介绍</a> ·
+  <a href="#核心功能与实拍展示">核心功能与实拍</a> ·
+  <a href="#技术架构">技术架构</a> ·
+  <a href="#快速开始">快速开始</a> ·
+  <a href="#团队介绍">团队介绍</a> ·
+  <a href="#项目文档与版权说明">文档索引</a>
+</p>
 
-V1 的 11 项开发任务已完成代码与自动化验收，当前分支是比赛演示候选；Qoder Sites、真机触屏与主持机彩排尚未执行，**站点未公开发布**。完整的构建、部署、演示和限制说明见 [V1-11 发布与演示说明](docs/v1/release.md)。
+<p align="center">
+  <img src="docs/assets/readme/divider.svg" alt="" width="100%" />
+</p>
 
-## V1 开发文档
+## 项目介绍
 
-[![V1 开发进度（GitHub Pages）](https://xiaoguijj.github.io/travel-atlas-book/v1/progress.svg)](https://xiaoguijj.github.io/travel-atlas-book/v1/)
+**Travel Atlas Book** 是一款以「**3D 交互地球**」为起点、以复古手绘旅行手账为视觉载体的纯前端创意记录应用。它把传统纸质手账的翻阅仪式感与数字交互结合，在浏览器本地构建起一条完整的旅行记忆工作流：
 
-- [V1 开发看板](https://xiaoguijj.github.io/travel-atlas-book/v1/)查看 11 项任务的实时快照、依赖、认领状态和 PR。
-- [双人协作说明](docs/v1/collaboration.md)介绍任务认领、开发、互审和合并。
-- [V1 正式开发规划](docs/Travel-Atlas-Book-V1-Development-Plan.md)涵盖分支任务、路由契约与验收标准。
-- [V1 技术方案](docs/Travel-Atlas-Book-V1.md)记录技术选型、数据模型与调研来源。
-- [V1-11 发布与演示说明](docs/v1/release.md)记录运行、Qoder Sites 部署、现场演示、素材来源、验收结果和已知限制。
+> 转动桌案上的地球 → 翻开城市复古明信片 → 在邮票册盖章建本 → 用横线日记本写下见闻，或切换到宽幅画布自由拼贴 → 在中国愿望地图上规划行程，并把手账直接关联到每一趟旅途。
 
-V1 手账流程为邮票收藏册 → 城市手账列表 → 创建或打开手账 → 模式选择页 → Journal 横线日记本或 Collage 自由拼贴。三种页面共用同一本手账的 `bookId`。在 Hash 路由下，模式选择页示例为 `/#/book/abc`，编辑器分别为 `/#/book/abc?mode=journal` 和 `/#/book/abc?mode=collage`。两个模式都已接入正式界面。
+### 设计理念
+
+- **Voyage Vintage 复古视觉系统**：全站色板由午夜蓝（`#263F4B`）、深海青（`#182B36`）、旧纸黄（`#E8D9B8`）、奶油纸（`#F7F0E3`）、陶土红（`#A96C50`）、鼠尾草绿（`#84917A`）与黄铜色（`#B08D57`）统一驱动，CSS Modules 与 Three.js 球体材质共用同一份 Theme Token。
+- **整画实景与像素级热区对位**：首页桌案、邮票收藏册、创作模式选择页与横线日记本均采用整幅插画背景，所有按钮、邮票、输入框与行距通过源图像素坐标换算为百分比及容器查询单位（`cqw`）精准叠合，保留手绘光影与纸张肌理。
+- **Local-First 离线可用**：地球油画贴图、中国地图底图、39 枚本地贴纸以及基于 IndexedDB（Dexie 4）的手账与行程仓储全部闭环于浏览器端，断网环境下依然可完整创作与本地演示。
+
+> 当前版本处于 **V1 比赛演示候选阶段**：已完成核心业务开发、类型检查、Vitest 单元测试与 Playwright 端到端回归，**尚未公开发布线上站点**，支持通过生产构建产物一键启动本地静态演示。
+
+<p align="center">
+  <img src="docs/assets/readme/divider.svg" alt="" width="100%" />
+</p>
+
+## 核心功能与实拍展示
+
+以下页面均由当前仓库最新 `main` 生产构建在本地 Chromium 环境下运行并真实截取。
+
+### 1. 3D 交互地球与城市明信片
+
+首页桌案将一尊由 **Three.js** 渲染的 3D 地球通过 **5 层 `z-index` 分层与 CSS `mask-image` 挖孔遮罩**嵌入复古插画之中：帆船桅杆、云层与暖光轮廓保持原有前景遮挡关系，球体在孔内真实可转、可缩放。
+
+- **程序化油画地球贴图**：不依赖外部卫星瓦片请求，基于 Natural Earth 陆地轮廓与固定随机种子在 Canvas 2D 现场绘制等距圆柱投影洋流笔触、经纬网格、极地冰盖与复古海洋标注。
+- **物理阻尼与图钉消歧**：支持拖拽惯性、松手 `1.2s` 恢复自转、四元数飞向城市（`1.15s`），针对南京与上海等邻近图钉按按下原点距离精准拾取（鼠标 `18px` / 触屏 `28px`）。
+- **无 WebGL 降级退路**：当硬件加速或 WebGL 不可用时自动切换为可点击的城市入口列表，核心链路不中断。
+
+<p align="center">
+  <img src="docs/assets/readme/showcase-home-globe.jpg" alt="首页 3D 交互地球实景舞台" width="100%" />
+  <br />
+  <sub>首页桌面端实景舞台：3D 地球嵌入桌案圆孔，保留帆船前景、油灯暖光、缎带导航与三张明信片热区</sub>
+</p>
+
+点击地球图钉、右侧明信片或左下「开始探索」按钮，镜头平滑飞向对应城市并从图钉原点弹开双栏复古明信片，展示城市手绘剪影、邮戳、经纬度坐标与城市手记，一键直达该城市的手账书架。
+
+<p align="center">
+  <img src="docs/assets/readme/showcase-home-postcard.jpg" alt="南京城市复古明信片弹层" width="100%" />
+  <br />
+  <sub>南京城市明信片弹层：手绘明城墙剪影、POSTED ON THE GLOBE 邮戳与直达书架入口</sub>
+</p>
+
+---
+
+### 2. 六座城市探索
+
+系统围绕同一份静态城市目录（`src/data/cities.ts`）构建六座核心业务城市，从地球图钉、明信片、邮票收藏册、专属文化贴纸到愿望地图全面打通；同时在地球与明信片保留 **伦敦（London）** 探索与建本入口。每座城市拥有独立的档案门户页（`/#/city/:cityId`），双向串联手账书架与城市旅行计划。
+
+<p align="center">
+  <img src="src/assets/stickers/stamp-nanjing.jpg" alt="南京城市邮票" width="142" />
+  <img src="src/assets/stickers/stamp-shanghai.jpg" alt="上海城市邮票" width="142" />
+  <img src="src/assets/stickers/stamp-xian.jpg" alt="西安城市邮票" width="142" />
+  <img src="src/assets/stickers/stamp-beijing.jpg" alt="北京城市邮票" width="142" />
+  <img src="src/assets/stickers/stamp-hangzhou.jpg" alt="杭州城市邮票" width="142" />
+  <img src="src/assets/stickers/stamp-chengdu.jpg" alt="成都城市邮票" width="142" />
+</p>
+
+| 城市 | 地标与城市印象 | 专属贴纸与风物（部分复用展示） |
+| --- | --- | --- |
+| **南京** `Nanjing` | 明城墙与玄武湖入画，「梧桐落满六朝的窗台」 | <img src="src/assets/stickers/nanjing-jimingsi-temple.png" width="38" alt="鸡鸣寺" /> <img src="src/assets/stickers/nanjing-plum-blossom.png" width="38" alt="梅花" /> 鸡鸣寺 · 鸭血粉丝汤 · 梅花 · 南京云锦 |
+| **上海** `Shanghai` | 苏州河晨雾与外滩天际线，「江风把旧外滩吹得很亮」 | <img src="src/assets/stickers/shanghai-wukang-mansion.png" width="38" alt="武康大楼" /> <img src="src/assets/stickers/shanghai-magnolia.png" width="38" alt="白玉兰" /> 武康大楼 · 海派旗袍 · 生煎包 · 白玉兰 |
+| **西安** `Xi'an` | 方正城墙与晨钟暮鼓，「钟声落在城墙里面」 | <img src="src/assets/stickers/xian-wild-goose-pagoda.png" width="38" alt="大雁塔" /> <img src="src/assets/stickers/xian-terracotta-warrior.png" width="38" alt="兵马俑" /> 大雁塔 · 兵马俑 · 羊肉泡馍 · 石榴花 |
+| **北京** `Beijing` | 中轴线屋脊与天坛圆廓，「中轴线上的鸽哨与砖灰」 | <img src="src/assets/stickers/beijing-ditan-park.png" width="38" alt="地坛" /> <img src="src/assets/stickers/beijing-jingju-opera.png" width="38" alt="京剧" /> 地坛 · 京剧 · 北京烤鸭 · 菊花 |
+| **杭州** `Hangzhou` | 断桥柳色与龙井茶香，「断桥的雪还没化完」 | <img src="src/assets/stickers/hangzhou-leifeng-pagoda.png" width="38" alt="雷峰塔" /> <img src="src/assets/stickers/hangzhou-osmanthus.png" width="38" alt="桂花" /> 雷峰塔 · 西湖绸伞 · 东坡肉 · 桂花 |
+| **成都** `Chengdu` | 青石板巷与竹椅茶馆，「巷子深处挂着红灯笼」 | <img src="src/assets/stickers/chengdu-wuhou-shrine.png" width="38" alt="武侯祠" /> <img src="src/assets/stickers/chengdu-sichuan-opera.png" width="38" alt="川剧" /> 武侯祠 · 川剧 · 担担面 · 蜀绣 |
+
+---
+
+### 3. 城市邮票收藏与创作模式选择
+
+牛皮纸装订册《中国城市手账》陈列六城邮票（齿孔内侧精准热区）。点开任意邮票可展开该城手账书架，支持新建多本手账、查看创作进度，并由用户显式执行「**盖下这枚收藏章**」——数据库以 `stampId` 为主键永久留存首次收藏日期，重复盖章不会篡改初遇时间。
+
+<p align="center">
+  <img src="docs/assets/readme/showcase-stamp-album.jpg" alt="六城邮票收藏册与南京手账书架" width="100%" />
+  <br />
+  <sub>六城邮票收藏册：南京邮票已盖上 `2026-11-26` 收藏日期章，下方展开南京手账书架与城市联动入口</sub>
+</p>
+
+每一本手账（共享同一个 `bookId`）均可在「创作方式选择页」自由切换 **Journal 横线日记本** 与 **Collage 自由拼贴**，两套内容独立存档、共用标题与城市素材库。
+
+<p align="center">
+  <img src="docs/assets/readme/showcase-mode-select.jpg" alt="创作方式选择页" width="100%" />
+  <br />
+  <sub>创作方式选择页：实时替换当前城市胶囊，提供横线日记本与自由拼贴双入口</sub>
+</p>
+
+---
+
+### 4. Journal 横线日记本
+
+Journal 模式基于 **Tiptap 3** 定制，围绕纸面实景图片（`1448×1086`）测量 17 条印刷横线位置，以 `47.6px` 基准行高换算 `cqw` 单位锁定正文排版，使中文字符稳稳落在纸线上。
+
+- **图文混排与资产隔离**：内置 `atlasMedia` 块节点，正文中仅保存 `assetId` 与可选图注；本地照片经前端解码缩放（单图源文件上限 `10 MB`、最长边 `1600 px`）存入 IndexedDB 并按生命周期自动创建/释放 Object URL。
+- **独立贴纸层与恢复保护**：支持在横线纸页上自由粘贴、拖拽、旋转与缩放 34 张共享贴纸（全域小集、六城邮票与 24 张城市文化贴纸），并通过跨标签页写锁及 `pagehide` 关页草稿恢复机制防止数据丢失。
+
+<p align="center">
+  <img src="docs/assets/readme/showcase-journal.jpg" alt="Journal 横线日记本实拍" width="100%" />
+  <br />
+  <sub>Journal 横线日记本：自动回填标题与本地日期，正文贴合纸线，支持行内照片、自由贴纸、格式工具栏与行程关联</sub>
+</p>
+
+---
+
+### 5. Collage 宽幅自由拼贴
+
+Collage 模式基于 **React Konva 18 + Konva 10** 打造，提供固定的 `1800×1600` 宽幅逻辑画布（自动居中兼容迁移早期的 `1200×1600` 作品），避免不同分辨率屏幕下元素坐标跑偏。
+
+- **素材与纸品工坊**：除共享本城照片与 34 张通用/城市贴纸外，额外集成 **5 张拼贴专属装饰贴纸**（格子纸胶带、手账撕纸便签、复古旅行票根、手绘地图碎片、银杏叶）以及可自定义字号、颜色、对齐与粗斜体的楷体文字元素。
+- **画布缩放与图层检查器**：桌面端配备底部缩放控制条（`50%–200%` 步进缩放、`Ctrl/Cmd + 滚轮` 缩放与一键「适应屏幕」），选中元素弹出浮动操作条并联动右侧图层列表，支持置顶、上移、下移、置底与角度/比例精细微调。
+
+<p align="center">
+  <img src="docs/assets/readme/showcase-collage.jpg" alt="Collage 宽幅自由拼贴实拍" width="100%" />
+  <br />
+  <sub>Collage 宽幅自由拼贴：1800×1600 逻辑画布、照片拍立得边框、多类型贴纸叠加、左侧工具轨与右下角缩放控制</sub>
+</p>
+
+---
+
+### 6. 旅行愿望地图与行程规划
+
+「旅行计划」栏目提供基于本地矢量底图（`china-outline.svg`）的**中国愿望地图**：底层与地球采用统一等距圆柱投影边界，并在窄屏视口对密集的南京、上海、杭州点位进行互让偏移处理，确保桌面与手机端都能精准点选。
+
+- **愿望星标与备忘**：在任意城市计划页保存愿望与备注即可点亮地图星标（★），愿望可先于具体日期单独存在，移除愿望不会影响已有行程或手账。
+- **多城日程与影响预览**：支持新建单城或多城行程（最长 30 天）、按自然日分组编排每日景点/时间/备注及同日上下调序；缩短日期或移除城市前先展示受影响日程与手账清单，用户确认后在同一事务内原子更新。
+
+<p align="center">
+  <img src="docs/assets/readme/showcase-wish-map.jpg" alt="中国愿望地图与城市愿望清单" width="100%" />
+  <br />
+  <sub>中国愿望地图：点亮南京、西安、杭州三城愿望星标，下方卡片同步汇总各地旅行备忘</sub>
+</p>
+
+---
+
+### 7. 手账与旅行计划联动
+
+手账与行程在仓储层通过 `planId` 建立双向可信关联，跨实体变更统一运行于 Dexie 读写事务之中：
+
+- **书壳内绑定行程**：在 Journal 或 Collage 顶部工具栏直接选择同城行程（仓储自动拦截跨城无效绑定），点击「打开关联行程」即可跳转至对应计划详情页。
+- **行程详情实时回看**：行程详情页通过 Dexie `liveQuery` 实时列出所有关联手账并直达该书的模式选择页；若行程删除或移除了某座城市，事务自动解除相关 `planId` 并完整保留手账正文与拼贴内容。
+
+<p align="center">
+  <img src="docs/assets/readme/showcase-plan-detail.jpg" alt="多城行程详情与关联手账联动页面" width="100%" />
+  <br />
+  <sub>多城行程详情页：上方「关联手账」实时列出两本关联的南京手账，下方按天编排宁陕三日行程</sub>
+</p>
+
+---
+
+### 8. 桌面与移动端自适应实拍
+
+首页在窄屏（`< 760×430`）或不支持容器查询单位 `cqw` 遮罩时自动退回竖版布局；内页、自由拼贴工作区与愿望地图均在 `390×844` 移动端视口下完成自适应排布（Collage 提供底部贴靠工具栏与图层浮层）。
+
+<p align="center">
+  <img src="docs/assets/readme/showcase-mobile.jpg" alt="移动端 390×844 真实视口实拍拼图" width="100%" />
+  <br />
+  <sub>390×844 真实移动端实拍：竖版 3D 地球首页、移动端自由拼贴画布、移动端中国愿望地图</sub>
+</p>
+
+<p align="center">
+  <img src="docs/assets/readme/divider.svg" alt="" width="100%" />
+</p>
+
+## 技术架构
+
+### 核心技术栈
+
+| 层面 | 技术选型 | 版本 | 在项目中的职责 |
+| --- | --- | --- | --- |
+| 应用底座 | React + TypeScript + Vite | `18.3.1` / `5.6.3` / `5.4.11` | 模块化单页应用构建，`base: './'` 支持根路径与子路径静态托管 |
+| 路由系统 | React Router DOM | `6.28.0` | `createHashRouter` 管理深链（如 `/#/book/:bookId?mode=collage`），无需服务端 rewrite |
+| 3D 地球 | Three.js | `0.169.0` | 球体渲染、`OrbitControls`、`CanvasTexture` 程序化油画地球、独立分包 |
+| 日记编辑器 | Tiptap 3（Core / React / PM / StarterKit） | `3.35.0` | 横线日记富文本编辑、自定义 `atlasMedia` 节点与 JSON 持久化 |
+| 拼贴画布 | React Konva + Konva | `18.2.14` / `10.10.0` | `1800×1600` 矢量/位图拼贴舞台、`Transformer` 变换与图层顺序管理 |
+| 本地存储 | Dexie | `4.4.7` | IndexedDB 五表模型（`books`/`photos`/`stamps`/`wishes`/`plans`）与跨表事务 |
+| 工程测试 | Vitest + fake-indexeddb + Playwright | `3.2.4` / `6.2.8` / `1.65.1` | 仓储与模型单测、Chromium 全链路 E2E 回归（另含构建期脚本工具 `Jimp 0.22.12`） |
+
+### 系统分层架构
+
+```mermaid
+flowchart TD
+  User["Hash 路由入口 · src/App.tsx"] --> Home["首页舞台 HomePage · 1671:941 挖孔画作 / 竖版"]
+  User --> Stamps["邮票册 StampBookPage · 六城邮票与书架"]
+  User --> Plans["愿望地图与行程 src/pages/plans/"]
+  User --> Book["手账入口 BookPage · ModeSelect 模式选择页"]
+
+  Home --> Globe["3D 地球场景 src/three/ · OrbitControls 与投影"]
+  Home --> Postcard["城市明信片 CityPostcard · 剪影与直达书架"]
+
+  Book --> Shell["公共手账壳 BookShell · 保存队列 / 离开守卫 / 关联"]
+  Shell -->|按模式懒加载| Journal["Journal 横线日记本 · Tiptap 3 + StickerLayer"]
+  Shell -->|按模式懒加载| Collage["Collage 自由拼贴 · React Konva 1800x1600"]
+  Shell --> Assets["共用素材面板 AssetPanel · 照片与 34+5 贴纸"]
+
+  Stamps --> Repo["领域仓储层 src/data/ · Books / Photos / Stamps / Wishes / Plans"]
+  Plans --> Repo
+  Shell --> Repo
+  Repo --> IDB[("IndexedDB · Dexie 4 · travel-atlas-book v1")]
+  Journal -.-> LS[("LocalStorage + Web Locks · 贴纸层与草稿恢复")]
+```
+
+### 工程亮点与设计边界
+
+- **按模式懒加载与独立分包**：首页首屏不加载 Tiptap 与 Konva 代码；`Three.js`、`JournalView`、`CollageView` 均拆分为独立 Chunk，首屏主包 gzip 约 `193.75 kB`。
+- **并发写保护与零静默丢失**：手账壳采用防抖保存队列与前置条件校验，若其他标签页并发修改正文或拼贴，当前页保留草稿并支持「另存为副本」；贴纸系统通过跨标签页写锁与 `.pending` 草稿恢复确保断电或误关页可人工裁决恢复。
+- **严谨边界**：更多像素坐标量测算法、地球相机反算公式、构建产物体积与扩展接入点，已完整迁移整理至 [技术实现与扩展指南](docs/technical-architecture.md)。
+
+<p align="center">
+  <img src="docs/assets/readme/divider.svg" alt="" width="100%" />
+</p>
 
 ## 快速开始
 
-```bash
-npm ci             # 或 npm install
-npm run dev        # 开发预览，默认 http://localhost:5173
-npm run build      # 类型检查 + 产物构建，输出到 dist/
-npm run preview    # 本地预览 dist/，默认 http://localhost:4173
-npm run typecheck  # 只做 tsc --noEmit
-npm test           # 单元测试（vitest，纯 node 环境，不需要浏览器）
+### 环境要求
 
-npm run test:e2e    # 生产构建 + Playwright，自动拉起 4173/4174/4175
-npm run test:static # 只跑根路径与 /atlas 子路径静态部署用例
-npm run demo:backup # 构建并复制到 demo/current/，上一份留在 demo/previous/
-npm run demo:local -- --dist demo/current  # http://127.0.0.1:4173/
+- **Node.js `>= 22.0.0`**（已在 Node 22 PR CI 与本地 Node 24 环境下验证）
 
-npm run data:world # 重新生成陆地轮廓 src/data/world.ts（需要联网）
-npm run data:hero  # 重新压缩首页背景画 src/assets/hero-bg.jpg
-npm run data:inner # 由 assets-source/ 生成内页纯地图背景
-npm run data:paper # 由 assets-source/*.png 生成收藏册 / 选择页 / 横线本整画
-```
-
-> 运行要求 Node `>=22`。本机实际验证环境是 Node 24.14.1 / npm 11.11.0；**PR CI 已在 Node 22 上完成 `npm ci`、类型检查、单测、构建和 E2E**，本机未再单独执行 Node 22 清洁安装。
-> `npm run preview` 只用于本地验收，不是生产服务器。E2E 会复用已在运行的 4173 服务，并额外启动 4174（根路径静态）和 4175（`/atlas` 子路径静态）。
-
-## 技术选型
-
-| 依赖 | 版本 | 用途 | 为什么用它 |
-| --- | --- | --- | --- |
-| Vite | 5.4 | 开发服务器 + 打包 | 启动快，产物是纯静态文件，能直接扔到任何静态托管（含 Qoder Sites） |
-| React | 18.3 | 页面与组件 | 组件拆分和状态管理心智负担最小，后续加编辑器也够用 |
-| TypeScript | 5.6 | 类型 | 城市数据、主题 token、路由参数都靠它约束，长期维护不留字符串坑 |
-| three.js | 0.169 | 地球渲染 | 成熟方案，自带球体几何、相机、灯光、`OrbitControls`；不自己写渲染引擎 |
-| react-router-dom | 6.28 | 页面路由 | 用 hash 路由（`/#/city/nanjing`），静态托管不需要服务端 rewrite |
-
-开发期脚本另有一个 `jimp`（devDependency，MIT）：只在 `scripts/` 里用来读图、量图、把参考图压成站点用的 JPG，
-不进任何运行时产物。
-
-地球贴图、海岸线、插画、字体都不需要联网：**没有任何图片/字体资源来自版权不明的第三方**。
-
-## 目录结构
-
-```
-assets-source/      需求方提供的原图，只在素材脚本里使用，不参与打包
-docs/               技术方案、V1 规划、契约、发布说明与看板数据
-scripts/            素材生成、世界地图数据、静态演示服务、离线备份
-src/
-  assets/           打包用图片：首页背景、邮票册、编辑纸面、贴纸、地图轮廓
-  components/       globe/ postcard/ city/ stamps/ book/ journal/ collage/ plans/ layout/
-  config/           主题、地球、首页版面、内页版面、路由、日记纸张参数
-  data/             城市、世界轮廓，以及 books/photos/stamps/plans/wishes 的 Dexie 数据层
-  pages/            首页、邮票册、城市页、手账壳、愿望地图与行程页
-  three/            地球场景、油画贴图、经纬度投影
-  styles/           全局样式与主题变量
-tests/
-  unit/             Vitest 单元测试
-  e2e/              Playwright 端到端测试与测试辅助
-  fixtures/         测试图片
-```
-
-## 首页：一张画 + 一个真地球
-
-参考图里已经有地球、导航、按钮和三张明信片。要把它们变成真交互，同时画面一个像素都不重画，
-用的是**分层**而不是抠图：
-
-| 层（z-index） | 内容 | 说明 |
-| --- | --- | --- |
-| 0 | 纸色圆盘 | 垫在圆孔底下，地球缩小后孔里露出的是纸，不是页面底色 |
-| 1 | WebGL 画布 | 3D 地球，`pointer-events` 归它，拖得动 |
-| 2 | 背景画 | 原图，中间被 CSS `mask-image` 挖成一个透明圆孔，`pointer-events: none` |
-| 3 | 城市图钉 | 同一个圆孔再裁一次，放大地球时图钉不会飘到纸上 |
-| 4 | 热区 | 缎带导航、开始探索、三张明信片：透明按钮，位置和画上的元素一一对应 |
-
-几个要点：
-
-- **不会出现两个地球**：画里的静态地球是被 mask 挖空的（挖掉半径 292px，球体屏幕半径 300px），
-  挖孔位置与球心严格重合，多出来的 8px 藏在画的边缘下面。
-- **前景仍然是前景**：地球在画的下面，所以压在地球上头的帆船桅杆、云、光晕自动留在正确的前后关系里。
-- **坐标是量出来的，不是估的**：圆心 (993.5, 461.5)、半径 282.5/292 是沿 360 条射线找金色高光带、
-  取每条射线内外缘中点再做最小二乘圆拟合得到的（中位残差 2.6px）；导航、铭牌、明信片按列像素统计 + 带网格的裁图核对。
-  全部写在 `src/config/hero.ts`，舞台按 1671:941 等比缩放，所以任何尺寸下热区都和画面对齐。
-- **假按钮为零**：缎带五个入口分别指向首页与 `/section/*` 四个真实路由；「开始探索」会让相机转到一座城市并翻开它的明信片；
-  三张明信片分别打开南京/上海/北京的弹层。图上烘焙的文字旁边都有一份 `srOnly` 的真实 DOM 文案（标题、副标题、按钮名），
-  读屏与 SEO 读到的是文字，不是空元素。
-- **窄屏不硬塞**：画需要足够宽才能同时放下地球和右侧明信片，`useMediaQuery` 在放不下时换用竖版首页
-  （标题 + 地球 + 城市列表），两套布局共用同一个 `Globe`；浏览器不支持容器查询单位参与 mask 时同样走这条退路。
-
-## 地球是怎么转起来的
-
-1. `createGlobeScene.ts` 建一个 `THREE.SphereGeometry` + `MeshStandardMaterial`，材质贴图不是图片文件，而是
-   `paintEarthTexture.ts` 用 Canvas 2D 现画的等距圆柱投影图（洋流笔触、陆地堆色、冰盖、经纬网、大洋名字、纸纹），
-   随机数用固定种子，所以每次刷新画面一致。
-2. 交互全部交给 `OrbitControls`：`enablePan = false` 只许转和缩放，`minDistance / maxDistance` 限制缩放范围，
-   `minPolarAngle / maxPolarAngle` 防止翻到南北极断面，`autoRotate` 负责慢速自转，`enableDamping` 负责惯性。
-   机位不写死距离，只写「球体直径占容器短边的比例」，由 `cameraDistanceForFill()` 反算距离，
-   所以同一份场景既能铺满竖版布局，也能正好嵌进首页画上的那个圆孔。
-3. pointer 按下时 `autoRotate` 关掉，松手后延时 `resumeDelayMs`（1.2s）再恢复，所以拖动和缩放不会被自转干扰。
-   明信片打开期间也保持暂停。
-4. `flyToCity()` 用一个四元数把相机当前朝向插值到目标城市的法线（1.15s，easeInOutQuad），
-   首页的「开始探索」和明信片入口都走这条路径；`prefers-reduced-motion` 下直接落位，不做动画。
-5. 页面切到后台时 `setAnimationLoop(null)` 停帧，回来再开；`ResizeObserver` 负责跟随容器尺寸。
-   系统开了「减少动效」（`prefers-reduced-motion`）时不自转。
-
-## 城市点是怎么点到的
-
-1. 城市经纬度先按 `SphereGeometry` 的 UV 约定换算成球面上的点（`coordinates.ts`），
-   这个换算和贴图绘制用的是同一套投影公式，所以图钉不会漂出海岸线。
-2. 每帧把这个点用 `camera` 投影成屏幕像素，直接写进 DOM 按钮的 `transform`/`opacity`/`z-index`。
-   标记的显示内容归 React，位置归场景命令式写 DOM，避免 60fps 触发重渲染。
-3. 点 `dot(球面法线, 点到相机向量)` 判断朝向：转到背面时透明度归零并 `pointer-events: none`，
-   所以地球另一边的城市点不到，符合球面遮挡的直觉。
-4. 南京、上海、杭州等邻近城市的图钉会随视角和缩放重叠。点击时，`pickCity` 优先使用按下时记录的坐标，
-   避免触屏浏览器调整合成 `click` 的坐标后选到邻城。悬停高亮和点击都在命中半径内取最近的可见图钉
-   （鼠标 18px、触屏 28px）。拖动超过 8px 会拦截随后产生的点击，键盘仍可直接激活已聚焦的图钉。
-5. WebGL 不可用时不会留一个转不动的空白方块，`Globe.tsx` 会退化成一组真实可用的城市按钮。
-
-## 数据与版权
-
-- 陆地轮廓：[Natural Earth](https://www.naturalearthdata.com/) 1:110m Cultural，公有领域（public domain）。
-  打包文件取自 `world-atlas@2.0.2`（ISC 许可）的 `land-110m.json`，由 `scripts/build-world-data.mjs`
-  解码 TopoJSON 后写成 `src/data/world.ts`（坐标保留 1 位小数，约 64KB，随 JS 一起 gzip 压缩）。
-  重新生成：`npm run data:world`（缓存文件在 `.tmp/`，不会进版本库）。
-- 城市插画、邮票、邮戳、罗盘、胶卷等装饰：全部是仓库内手写的内联 SVG。
-- 字体：系统字体栈（Georgia / Times New Roman / serif 与系统 UI 字体），未引入 web font。
-- **首页背景画**：`assets-source/home-hero.png` 由需求方提供，随项目一起提交；仓库里只做等比压缩与 JPEG 编码
-  （`scripts/build-hero-assets.mjs`），没有裁剪、重绘或替换画面内容。这张图的著作财产权归属提供方，
-  对外公开发布前需要再确认一次使用范围。
-
-## 构建产物
-
-以 V1-11 发布候选的 `npm run build` 为例（gzip 为构建输出）：
-
-```
-dist/index.html                    1.32 kB
-dist/assets/index-*.css           88.02 kB │ gzip  17.87 kB
-dist/assets/index-*.js           565.24 kB │ gzip 193.73 kB  应用主包
-dist/assets/three-*.js           468.09 kB │ gzip 118.09 kB  three 单独分包
-dist/assets/JournalView-*.js     438.04 kB │ gzip 141.65 kB  Journal 懒加载
-dist/assets/CollageView-*.js     328.02 kB │ gzip 103.94 kB  Collage 懒加载
-```
-
-`dist/` 共 57 个文件、约 11.94 MB，包含首页背景、邮票册、编辑纸面和全部贴纸等本地素材。Journal 与 Collage 只在进入对应编辑器时加载，首页不加载编辑器代码；地球贴图仍然是运行时用 Canvas 画的。`index.html` 内联了背景色和 favicon，避免白屏与 favicon 404。
-
-当前 `dist/index.html` 的 SHA-256 为 `055e7afd8c0375bce47069210bb1e9382222bc36dbd686ef0d7e78b57d2eac7e`，可在 `demo/current/BUILD.txt` 中核对。
-
-## 后续阶段的接入点
-
-- **本地存档**　V1 用 IndexedDB 和 Dexie 保存业务数据。静态城市资料继续由 `src/data/cities.ts` 提供，`City` 字段定义在 `src/data/types.ts`。
-- **加城市**：往 `cities` 数组里加一条真实经纬度即可，图钉、明信片、导航、图例自动跟上。
-  `labelSide` 字段用来避让挤在一起的城市标签。
-- **手账编辑器**　邮票册的城市书架负责创建/打开手账，模式选择页统一进入 Journal 或 Collage。两种编辑器共用同一 `bookId`、素材和保存队列，但各自保存内容；手账可关联到具体行程，行程页会反查关联手账。
-- **多套艺术主题**：颜色只集中在 `src/config/theme.ts`，`applyThemeToDocument()` 写 CSS 变量，
-  地球贴图颜色读同一个 token 对象；换主题就是换一个 `AtlasTheme`，必要时重画贴图。
-- **换一张首页画**：`assets-source/` 放原图 → `npm run data:hero` 重新压缩 → 把新量到的圆孔与热区坐标写进
-  `src/config/hero.ts`。页面代码不含任何硬编码像素，只消费这个文件。
-- **栏目变成真功能**：`src/data/sections.ts` 是缎带导航与 `/section/*` 的唯一出处，加字段、把 `ready` 打开即可。
-
-## 部署与离线演示
-
-`vite.config.ts` 使用 `base: './'`，路由是 hash 形式，`dist/` 可放在任意静态托管的根路径或子路径，**不需要服务端 rewrite**。同一份 `dist/` 已验证根路径和 `/atlas/` 子路径。
-
-Qoder Sites 通过会话内的 Sites Skills 或 `qoder sites` CLI 发布，静态站点的 web 目录指定为 `dist`。步骤、预览检查项和回退方式写在 [docs/v1/release.md](docs/v1/release.md)；仓库不新增平台私有配置文件。**站点目前尚未发布。**
-
-本地离线备份：
+### 安装、开发与构建
 
 ```bash
-npm run demo:backup                        # 构建并生成 demo/current，旧版移到 demo/previous
-npm run demo:local -- --dist demo/current  # 固定 http://127.0.0.1:4173/
+# 1. 安装锁定依赖
+npm ci
+
+# 2. 启动本地开发服务器（默认 http://localhost:5173）
+npm run dev
+
+# 3. 类型检查与生产构建（输出至 dist/）
+npm run typecheck
+npm run build
+
+# 4. 本地预览生产构建（默认 http://localhost:4173）
+npm run preview
 ```
 
-备份目录只有静态产物和 `BUILD.txt`，已加入 `.gitignore`。演示必须使用固定端口：IndexedDB 按 origin 隔离，换端口会看不到之前准备的数据。
+### 本地离线演示（推荐评委或断网环境使用）
 
-## 已知边界
+应用采用 `base: './'` 与 Hash 路由，可零配置运行于任意本地静态服务或子路径：
 
-- 「旅行手账」打开邮票册，「旅行计划」打开中国愿望地图。城市门户提供对应书架和城市计划的入口。「灵感发现」与「我的」暂为栏目说明，手账和计划保存在当前浏览器。
-- 数据只存在当前浏览器的 IndexedDB：换浏览器、换端口、清理站点数据都会回到空档案；没有账号、云同步或跨设备。
-- 首页舞台需要至少 760×430 的视口，再小换成竖版首页；两套布局共用同一份地球场景配置。WebGL 不可用时退化为城市按钮列表，仍能打开明信片和书架。
-- Journal 在窄屏按设计横向滚动，不是重排；Collage 画布是固定 1200×1600 的编辑坐标。
-- 自动化验证使用 Playwright 1.65.1 / Chromium 1255：V1-11 共 80 个 E2E 用例，覆盖六城、地球、邮票册、模式选择、两种编辑器、计划联动、失败保护、窄屏和静态部署。
-- **真机触屏、双指缩放、手机安全区、中文输入法、Safari/Firefox 未验证**；现有窄屏用例是 Chromium 视口模拟，不能替代真机验收。
-- **本机未单独执行 Node 22 清洁安装**：本机验证环境是 Node 24.14.1；PR CI 已在 Node 22 上通过 `npm ci`、类型检查、单测、构建和完整 E2E，本机无需重复补证。
-- 首页背景画由需求方提供，著作财产权归提供方；公开发布前需确认使用范围，其余图片、字体、地图数据均在本地且来源记录在发布说明中。
-- 没有导出 PDF、分享链接、后端或多人协作；这些不属于 V1 范围。
+```bash
+# 构建并生成离线备份目录 demo/current/（上一版本保留于 demo/previous/）
+npm run demo:backup
+
+# 启动固定端口离线演示服务（固定 127.0.0.1:4173 以保留本机 IndexedDB 存档）
+npm run demo:local -- --dist demo/current
+
+# 如需模拟 /atlas/ 子路径静态部署：
+node scripts/serve-dist.mjs --dist demo/current --base-path /atlas --port 4175
+```
+
+### 测试与素材构建脚本速查
+
+| 命令 | 说明 |
+| --- | --- |
+| `npm test` | 运行 Vitest 单元测试（纯 Node 环境，无需浏览器） |
+| `npm run test:e2e` | 执行生产构建并运行完整 Playwright Chromium 端到端测试 |
+| `npm run test:static` | 运行根路径与 `/atlas` 子路径静态部署专项回归 |
+| `npm run data:world` | 联网重新从 `world-atlas` 解码生成 `src/data/world.ts` 陆地轮廓 |
+| `npm run data:hero` / `data:inner` / `data:paper` / `data:collage` / `data:stickers` | 从 `assets-source/`（或贴纸源包）重新生成优化后的运行时图片资源 |
+
+<p align="center">
+  <img src="docs/assets/readme/divider.svg" alt="" width="100%" />
+</p>
+
+## 团队介绍
+
+成员信息严格依据本仓库实际 Git 提交记录与 GitHub 贡献者历史整理：
+
+| GitHub 账号 | 在项目中负责的核心模块与交付 |
+| --- | --- |
+| [@xiaoguijj](https://github.com/xiaoguijj) | 项目初始化与 *Voyage Vintage* 视觉基线、内页深海地图背景与公共顶栏（V1-03）、六城邮票与 34 张文化贴纸目录（V1-04）、城市邮票收藏册与书架（V1-06）、Journal 横线日记本（V1-07）及通用贴纸系统（PR #13 / #16） |
+| [@goodluck55k](https://github.com/goodluck55k) | 首页 3D 地球主链路与惯性修复（V1-01 / PR #15）、公共数据契约与 Dexie 持久化底座（V1-02）、V1 进度看板与协作规范、手账壳与模式选择页（V1-05）、Collage 自由拼贴与宽幅缩放优化（V1-08A / V1-08B / PR #22）、中国愿望地图与行程规划（V1-09）、跨模块联动（V1-10）及集成发布验收（V1-11） |
+| [@hvemil9](https://github.com/hvemil9) | 首页地球点击飞往城市与复古明信片展开转场基线实现（PR #1） |
+
+<p align="center">
+  <img src="docs/assets/readme/divider.svg" alt="" width="100%" />
+</p>
+
+## 项目文档与版权说明
+
+### 相关文档索引
+
+- [技术实现与扩展指南](docs/technical-architecture.md)：首页 5 层遮罩坐标、Three.js 相机控制、构建产物明细与后续扩展接入点
+- [V1 正式开发规划](docs/Travel-Atlas-Book-V1-Development-Plan.md)：11 项 V1 分支任务、依赖拓扑、路由契约与验收矩阵
+- [V1 技术调研与方案](docs/Travel-Atlas-Book-V1.md)：技术选型依据、开源调研对比与数据模型设计
+- [V1 公共数据与路由契约](docs/v1/contracts.md)：Dexie Schema、Error Code、ID 规则与编辑器接口冻结文档
+- [V1-11 发布与演示说明](docs/v1/release.md)：静态部署流程、现场演示主路径、已知限制与发布检查清单
+- [V1-04 素材与来源登记](docs/v1/design/assets.md) & [贴纸系统说明](src/stickers/README.md) & [双人协作说明](docs/v1/collaboration.md)
+
+### 数据来源与授权声明
+
+- **世界陆地轮廓**：取自 [Natural Earth](https://www.naturalearthdata.com/) 1:110m Cultural（Public Domain），经 `world-atlas@2.0.2`（ISC 许可）解码生成本地静态坐标。
+- **内联矢量与字体**：城市地标剪影、邮戳、中国轮廓底图与装饰线均由仓库内自行绘制；字体采用系统内置衬线与无衬线字体栈，不加载任何第三方网络字体。
+- **背景原图授权提示**：`assets-source/home-hero.png` 等手账底图由需求方提供，其中首页背景画著作财产权归原提供方所有，对外公开发布前需再次确认授权使用范围；当前未发现其他版权不明的第三方资源。
