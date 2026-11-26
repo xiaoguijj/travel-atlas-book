@@ -15,6 +15,7 @@ interface CollageStageProps {
   items: CollageItem[];
   selected: CollageItem | undefined;
   assets: AssetQuery;
+  displayWidthHint?: number;
   onSelect: (id: string | null) => void;
   onChange: (item: CollageItem) => void;
 }
@@ -162,19 +163,29 @@ function SelectionHandles({ selected, scale }: { selected: CollageItem | undefin
   );
 }
 
-export function CollageStage({ items, selected, assets, onSelect, onChange }: CollageStageProps) {
+export function CollageStage({ items, selected, assets, displayWidthHint, onSelect, onChange }: CollageStageProps) {
   const container = useRef<HTMLDivElement>(null);
   const [displayWidth, setDisplayWidth] = useState(0);
   const scale = displayWidth / COLLAGE_CANVAS_WIDTH;
 
   useLayoutEffect(() => {
     const element = container.current!;
-    const measure = () => setDisplayWidth(element.clientWidth);
+    const measure = () => {
+      const next = element.clientWidth;
+      setDisplayWidth((current) => (current === next ? current : next));
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
+
+  useLayoutEffect(() => {
+    const element = container.current;
+    if (!element) return;
+    const next = element.clientWidth;
+    setDisplayWidth((current) => (current === next ? current : next));
+  }, [displayWidthHint]);
 
   function deselectOnBackground(event: Konva.KonvaEventObject<MouseEvent | TouchEvent>) {
     if (event.target === event.target.getStage()) onSelect(null);

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   COLLAGE_CANVAS_HEIGHT,
   COLLAGE_CANVAS_WIDTH,
+  type CollageCanvas,
   type CollageEditorProps,
   type CollageItem,
 } from '../../data/contracts';
@@ -12,9 +13,29 @@ export type LayerMove = 'up' | 'down' | 'top' | 'bottom';
 export const DEFAULT_TEXT_SIZE = 48;
 export const DEFAULT_TEXT_COLOR = '#202020';
 
+/**
+ * 将既有画布（如早期 1200×1600）元素无变形地居中迁移到当前宽幅画布（1800×1600）。
+ * 只平移坐标，不拉伸图片、贴纸或字号，保证已有作品完整恢复。
+ */
+export function normalizeCollageItems(content: CollageCanvas | undefined): CollageItem[] {
+  if (!content?.items) return [];
+  const offsetX = content.width !== COLLAGE_CANVAS_WIDTH
+    ? (COLLAGE_CANVAS_WIDTH - content.width) / 2
+    : 0;
+  const offsetY = content.height !== COLLAGE_CANVAS_HEIGHT
+    ? (COLLAGE_CANVAS_HEIGHT - content.height) / 2
+    : 0;
+  if (offsetX === 0 && offsetY === 0) return content.items;
+  return content.items.map((item) => ({
+    ...item,
+    x: item.x + offsetX,
+    y: item.y + offsetY,
+  }));
+}
+
 function newItemBounds(count: number, width: number, height: number) {
   const offset = (count % 8) * 24;
-  return { id: createStableId(), x: 120 + offset, y: 140 + offset, width, height, rotation: 0 };
+  return { id: createStableId(), x: 240 + offset, y: 140 + offset, width, height, rotation: 0 };
 }
 
 export function fitItemToCanvas(item: CollageItem): CollageItem | undefined {
@@ -51,7 +72,7 @@ export function fitItemToCanvas(item: CollageItem): CollageItem | undefined {
 }
 
 export function useCollageEditor({ content, onChange, insertionRequest, onInsertionHandled }: CollageEditorProps) {
-  const [items, setItems] = useState(() => content?.items ?? []);
+  const [items, setItems] = useState(() => normalizeCollageItems(content));
   // Event handlers and the insertion effect both commit to the latest draft.
   // Enqueue outside a React state updater, which can run twice in Strict Mode.
   const draft = useRef(items);

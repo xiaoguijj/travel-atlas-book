@@ -5,10 +5,10 @@
  *
  * 从 assets-source/ 读取生成原图并输出至 src/assets/：
  * - collage-desk.jpg：温润牛皮纸与亚麻旅途书桌底纹（1600 宽）
- * - collage-paper.jpg：空白手工复古棉纸/牛皮纸纹理（900×1200，精确 3:4）
- * - collage-cover.png：做旧牛皮手账封皮（外缘去白底透明抠图，保留缝线与黄铜包角）
+ * - collage-paper.jpg：空白手工复古棉纸/牛皮纸纹理（1350×1200，精确 9:8 宽幅，无拉伸扩展）
+ * - collage-cover.png：做旧牛皮手账封皮（外缘去白底透明抠图，等比拼宽保留缝线与黄铜包角）
  * - collage-clip.png：做旧黄铜长尾夹（外缘及金属丝环内孔去白底透明抠图）
- * - collage-paper-mask.png：手撕毛边纸张不规则轮廓遮罩（900×1200）
+ * - collage-paper-mask.png：手撕毛边纸张不规则轮廓遮罩（1350×1200，精确 9:8）
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -30,10 +30,82 @@ async function buildDesk() {
   logResult('collage-desk.jpg', image, out);
 }
 
+function cosineBlend(a, b, t) {
+  const w = 0.5 - 0.5 * Math.cos(Math.PI * t);
+  return Math.round(a * (1 - w) + b * w);
+}
+
+function copyBand(src, dst, dstX, srcX, width, height) {
+  const srcData = src.bitmap.data;
+  const dstData = dst.bitmap.data;
+  const srcW = src.bitmap.width;
+  const dstW = dst.bitmap.width;
+  for (let y = 0; y < height; y += 1) {
+    for (let dx = 0; dx < width; dx += 1) {
+      const si = (y * srcW + (srcX + dx)) * 4;
+      const di = (y * dstW + (dstX + dx)) * 4;
+      dstData[di] = srcData[si];
+      dstData[di + 1] = srcData[si + 1];
+      dstData[di + 2] = srcData[si + 2];
+      dstData[di + 3] = srcData[si + 3];
+    }
+  }
+}
+
 async function buildPaper() {
-  const image = await Jimp.read(path.join(sourceDir, 'collage-paper.jpg'));
-  // Force exact 3:4 aspect ratio (900x1200) for clean 1200x1600 stage alignment.
-  image.cover(900, 1200);
+  const source = await Jimp.read(path.join(sourceDir, 'collage-paper.jpg'));
+  // Keep 1:1 vertical fiber scale at 1200px height and expand horizontally to 1350×1200 (exact 9:8).
+  if (source.bitmap.height !== 1200) source.resize(Jimp.AUTO, 1200);
+  const srcW = source.bitmap.width;
+  const targetW = 1350;
+  const targetH = 1200;
+  const image = new Jimp(targetW, targetH, 0xffffffff);
+
+  const srcData = source.bitmap.data;
+  const dstData = image.bitmap.data;
+  const shiftRight = targetW - srcW;
+  const fade1Start = 400;
+  const fade1End = 560;
+  const fade2Start = 790;
+  const fade2End = 950;
+  const clampX = (x) => Math.max(0, Math.min(srcW - 1, x));
+
+  for (let y = 0; y < targetH; y += 1) {
+    for (let x = 0; x < targetW; x += 1) {
+      const di = (y * targetW + x) * 4;
+      const sxLeft = clampX(x);
+      const sxRight = clampX(x - shiftRight);
+      const sxMid = clampX(Math.round(srcW - 1 - (x - shiftRight / 2)));
+
+      let wLeft = 0;
+      let wMid = 0;
+      let wRight = 0;
+      if (x < fade1Start) {
+        wLeft = 1;
+      } else if (x < fade1End) {
+        const t = (x - fade1Start + 0.5) / (fade1End - fade1Start);
+        wMid = 0.5 - 0.5 * Math.cos(Math.PI * t);
+        wLeft = 1 - wMid;
+      } else if (x < fade2Start) {
+        wMid = 1;
+      } else if (x < fade2End) {
+        const t = (x - fade2Start + 0.5) / (fade2End - fade2Start);
+        wRight = 0.5 - 0.5 * Math.cos(Math.PI * t);
+        wMid = 1 - wRight;
+      } else {
+        wRight = 1;
+      }
+
+      const li = (y * srcW + sxLeft) * 4;
+      const mi = (y * srcW + sxMid) * 4;
+      const ri = (y * srcW + sxRight) * 4;
+      for (let c = 0; c < 3; c += 1) {
+        dstData[di + c] = Math.round(srcData[li + c] * wLeft + srcData[mi + c] * wMid + srcData[ri + c] * wRight);
+      }
+      dstData[di + 3] = 255;
+    }
+  }
+
   // 减轻重度污渍与泛黄，保留细腻棉纸纤维，呈现精致旅行纪念手账纸感。
   const { data } = image.bitmap;
   const targetR = 250;
@@ -53,11 +125,72 @@ async function buildPaper() {
   logResult('collage-paper.jpg', image, out);
 }
 
+function findBestCoverSeam(img, targetWidth) {
+  const w = img.bitmap.width;
+  const h = img.bitmap.height;
+  const extra = targetWidth - w;
+  const { data } = img.bitmap;
+  let best = { leftCut: 500, rightResume: 500 - extra, score: Infinity };
+
+  for (let leftCut = 440; leftCut <= 512; leftCut += 1) {
+    const rightResume = leftCut - extra;
+    if (rightResume < 145 || rightResume > 220) continue;
+    let score = 0;
+    for (let dx = -4; dx <= 4; dx += 1) {
+      const x1 = leftCut + dx;
+      const x2 = rightResume + dx;
+      for (let y = 0; y < h; y += 1) {
+        if (y >= 55 && y <= h - 55) continue;
+        const i1 = (y * w + x1) * 4;
+        const i2 = (y * w + x2) * 4;
+        score += Math.abs(data[i1] - data[i2])
+          + Math.abs(data[i1 + 1] - data[i2 + 1])
+          + Math.abs(data[i1 + 2] - data[i2 + 2])
+          + Math.abs(data[i1 + 3] - data[i2 + 3]) * 2;
+      }
+    }
+    if (score < best.score) best = { leftCut, rightResume, score };
+  }
+  return best;
+}
+
 async function buildCover() {
-  const image = await Jimp.read(path.join(sourceDir, 'collage-cover.jpg'));
-  const box = cutOutNeutralBackground(image, { minLum: 230, maxSpread: 26, interiorMinPixels: 0 });
-  image.crop(box.x, box.y, box.w, box.h);
-  image.resize(680, Jimp.AUTO);
+  const source = await Jimp.read(path.join(sourceDir, 'collage-cover.jpg'));
+  const box = cutOutNeutralBackground(source, { minLum: 230, maxSpread: 26, interiorMinPixels: 0 });
+  source.crop(box.x, box.y, box.w, box.h);
+  source.resize(680, Jimp.AUTO);
+
+  // Widen the leather cover to match the 9:8 wide canvas (~1036×914) without stretching spine, stitching, or brass corners.
+  const srcW = source.bitmap.width;
+  const h = source.bitmap.height;
+  const targetW = 1036;
+  const { leftCut, rightResume } = findBestCoverSeam(source, targetW);
+  const image = new Jimp(targetW, h, 0x00000000);
+
+  copyBand(source, image, 0, 0, leftCut, h);
+  copyBand(source, image, leftCut, rightResume, srcW - rightResume, h);
+
+  const srcData = source.bitmap.data;
+  const dstData = image.bitmap.data;
+  for (let y = 0; y < h; y += 1) {
+    const isBorder = y < 55 || y > h - 55;
+    const half = isBorder ? 6 : 36;
+    for (let dx = -half; dx < half; dx += 1) {
+      const dstX = leftCut + dx;
+      const sxLeft = leftCut + dx;
+      const sxRight = rightResume + dx;
+      if (dstX < 0 || dstX >= targetW || sxLeft < 0 || sxLeft >= srcW || sxRight < 0 || sxRight >= srcW) continue;
+      const t = (dx + half + 0.5) / (half * 2);
+      const il = (y * srcW + sxLeft) * 4;
+      const ir = (y * srcW + sxRight) * 4;
+      const di = (y * targetW + dstX) * 4;
+      dstData[di] = cosineBlend(srcData[il], srcData[ir], t);
+      dstData[di + 1] = cosineBlend(srcData[il + 1], srcData[ir + 1], t);
+      dstData[di + 2] = cosineBlend(srcData[il + 2], srcData[ir + 2], t);
+      dstData[di + 3] = cosineBlend(srcData[il + 3], srcData[ir + 3], t);
+    }
+  }
+
   const out = path.join(outDir, 'collage-cover.png');
   await image.deflateLevel(9).writeAsync(out);
   logResult('collage-cover.png', image, out);
@@ -74,7 +207,7 @@ async function buildClip() {
 }
 
 async function buildPaperMask() {
-  const w = 900;
+  const w = 1350;
   const h = 1200;
   const mask = new Jimp(w, h, 0x00000000);
   const { data } = mask.bitmap;

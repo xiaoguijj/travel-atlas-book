@@ -34,8 +34,10 @@ export const MAX_PHOTO_SOURCE_BYTES = 10 * 1024 * 1024;
 export const MAX_PHOTO_EDGE_PX = 1600;
 
 /** Collage 固定逻辑画布尺寸；视口变化只缩放显示，不修改这里。 */
-export const COLLAGE_CANVAS_WIDTH = 1200;
+export const COLLAGE_CANVAS_WIDTH = 1800;
 export const COLLAGE_CANVAS_HEIGHT = 1600;
+/** V1 初版 3:4 逻辑画布宽度，用于兼容恢复已有 1200×1600 作品。 */
+export const LEGACY_COLLAGE_CANVAS_WIDTH = 1200;
 
 /** Tiptap 中项目自定义媒体块的节点名，媒体属性只保存 `assetId` 和可选说明。 */
 export const JOURNAL_MEDIA_NODE_NAME = 'atlasMedia';

@@ -178,3 +178,23 @@ export function PlusIcon(props: IconProps) {
     </Icon>
   );
 }
+
+export function ZoomOutIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="M8.2 11h5.6" />
+      <path d="m16 16 4 4" />
+    </Icon>
+  );
+}
+
+export function ZoomInIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="M11 8.2v5.6M8.2 11h5.6" />
+      <path d="m16 16 4 4" />
+    </Icon>
+  );
+}
