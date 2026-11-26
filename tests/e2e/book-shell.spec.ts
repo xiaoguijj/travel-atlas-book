@@ -49,7 +49,10 @@ test('mode selection page, mode URLs, refresh, back and invalid IDs', async ({ p
     'href',
     `#/book/${BOOK_A}?mode=journal`,
   );
-  await expect(page.getByRole('button', { name: /Collage 自由拼贴，功能开发中/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Collage 自由拼贴，开始拼贴南京这一页' })).toHaveAttribute(
+    'href',
+    `#/book/${BOOK_A}?mode=collage`,
+  );
   await expect(page.getByRole('link', { name: '返回邮票收藏册', exact: true })).toHaveAttribute(
     'href',
     '#/section/journals?cityId=nanjing',

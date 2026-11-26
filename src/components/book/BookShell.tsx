@@ -226,6 +226,7 @@ function BookEditorShell({ book, city, mode, onBookSaved, stickers }: BookShellP
                 onOpenAssetPanel={openAssetPanel}
                 insertionRequest={insertionRequest}
                 onInsertionHandled={handleInsertionHandled}
+                city={city}
               />
             )}
           </Suspense>

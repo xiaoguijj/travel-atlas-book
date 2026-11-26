@@ -1,17 +1,13 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import createModeArtwork from '../../assets/create-mode.jpg';
 import { isJournalBlank } from '../journal/journalDoc';
 import { PageTurn } from '../layout/PageTurn';
 import { albumBack } from '../../config/innerLayout';
-import { journalBookPath } from '../../config/routes';
+import { collageBookPath, journalBookPath } from '../../config/routes';
 import { artBoxStyle, createModeArt, createModePillBg, createModeZones } from '../../config/journal';
 import type { TravelBook } from '../../data/contracts';
 import type { City } from '../../data/types';
 import styles from './ModeSelect.module.css';
-
-const collageWipNote =
-  '自由拼贴编辑器是 V1-08，还在独立开发，之后通过 PR 接入。' + '现在点它只会看到这条说明——不会跳进一个空的假编辑器。';
 
 /**
  * `/book/:bookId` 的创作模式选择页（参考图 assets-source/create-mode.png）。
@@ -26,9 +22,9 @@ const collageWipNote =
  * 「继续写 / 开始写」看的是这本书记录里有没有真的写过（只剩一个空段落算没动笔），不是本机另存的一份草稿。
  */
 export function ModeSelect({ book, city }: { book: TravelBook; city: City }) {
-  const [notice, setNotice] = useState<string | null>(null);
   const back = albumBack(city.id);
   const resumed = !isJournalBlank(book.journal);
+  const collageResumed = (book.collage?.items.length ?? 0) > 0;
 
   return (
     <div className={styles.page}>
@@ -78,28 +74,14 @@ export function ModeSelect({ book, city }: { book: TravelBook; city: City }) {
             <span className={styles.glow} aria-hidden="true" />
           </Link>
 
-          <button
-            type="button"
-            className={`${styles.zone} ${styles.zoneWip}`}
+          <Link
+            className={`${styles.zone} ${styles.zoneReady}`}
             style={artBoxStyle(createModeArt, createModeZones.collageCard)}
-            onClick={() => setNotice(collageWipNote)}
-            aria-label="Collage 自由拼贴，功能开发中，点击查看说明"
+            to={collageBookPath(book.id)}
+            aria-label={`Collage 自由拼贴，${collageResumed ? '继续拼贴' : '开始拼贴'}${city.name}这一页`}
           >
             <span className={styles.glow} aria-hidden="true" />
-          </button>
-        </div>
-
-        {/* 舞台占满屏幕，画下面没有位置，提示只能浮在画的下沿 */}
-        <div className={styles.noticeZone} role="status" aria-live="polite">
-          {notice ? (
-            <div className={styles.notice}>
-              <p className={styles.noticeTitle}>功能开发中</p>
-              <p className={styles.noticeBody}>{notice}</p>
-              <button type="button" className={styles.noticeClose} onClick={() => setNotice(null)}>
-                知道了
-              </button>
-            </div>
-          ) : null}
+          </Link>
         </div>
       </div>
     </div>
