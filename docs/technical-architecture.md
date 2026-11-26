@@ -73,9 +73,27 @@
 
 ---
 
-## 5. 构建产物与扩展接入点
+## 5. 技术栈、构建产物与扩展接入点
 
-### 5.1 最新构建产物概览
+### 5.1 核心技术栈
+
+| 层面 | 技术选型 | 版本 | 在项目中的职责 |
+| --- | --- | --- | --- |
+| 应用底座 | React + TypeScript + Vite | `18.3.1` / `5.6.3` / `5.4.11` | 模块化单页应用构建，`base: './'` 支持根路径与子路径静态托管 |
+| 路由系统 | React Router DOM | `6.28.0` | `createHashRouter` 管理深链（如 `/#/book/:bookId?mode=collage`），无需服务端 rewrite |
+| 3D 地球 | Three.js | `0.169.0` | 球体渲染、`OrbitControls`、`CanvasTexture` 程序化油画地球、独立分包 |
+| 日记编辑器 | Tiptap 3（Core / React / PM / StarterKit） | `3.35.0` | 横线日记富文本编辑、自定义 `atlasMedia` 节点与 JSON 持久化 |
+| 拼贴画布 | React Konva + Konva | `18.2.14` / `10.10.0` | `1800×1600` 矢量/位图拼贴舞台（自动兼容迁移 `1200×1600`）、`Transformer` 变换与图层检查器 |
+| 本地存储 | Dexie | `4.4.7` | IndexedDB 五表模型（`books` / `photos` / `stamps` / `wishes` / `plans`）与跨表事务 |
+| 工程测试 | Vitest + fake-indexeddb + Playwright | `3.2.4` / `6.2.8` / `1.65.1` | 仓储与模型单测、Chromium 全链路 E2E 回归（另含构建期脚本工具 `Jimp 0.22.12`） |
+
+### 5.2 核心工程机制与存储保护
+
+- **按模式懒加载与独立分包**：首页首屏不加载 Tiptap 与 Konva 代码；`Three.js`、`JournalView`、`CollageView` 均拆分为独立 Chunk。
+- **并发写保护与零静默丢失**：手账壳（`BookShell`）采用防抖保存队列与前置条件校验，若其他标签页并发修改正文或拼贴，当前页保留草稿并支持「另存为副本」；贴纸系统通过跨标签页写锁与 `.pending` 草稿恢复确保误关页可人工裁决恢复。
+- **照片解码与资产隔离**：本地照片限制单张源文件 `≤ 10 MB`、最长边缩放至 `1600 px` 存入 IndexedDB `photos` 表，正文中仅保存 `assetId`，按组件生命周期动态创建并释放 Object URL。
+
+### 5.3 最新构建产物概览
 
 以当前主线（含宽幅 1800×1600 Collage 与缩放控制更新）执行 `npm run build`（`tsc --noEmit && vite build`）为例：
 
@@ -93,7 +111,7 @@ dist/assets/CollageView-*.js      332.32 kB │ gzip: 105.42 kB  (Collage 懒加
 
 `JournalView` 与 `CollageView` 均按编辑模式延迟加载，首页首屏不加载富文本或拼贴引擎代码；`index.html` 内联背景色与 favicon，避免首屏闪烁及额外 404 请求。
 
-### 5.2 后续扩展接入点
+### 5.4 后续扩展接入点
 
 - **本地数据与后端适配**：V1 通过 Dexie 4 管理 IndexedDB（`books`、`photos`、`stamps`、`wishes`、`plans` 五张表），领域契约位于 `src/data/contracts.ts`，不直接耦合 Dexie 或编辑器包类型，便于后续扩展远端 API 适配层。
 - **扩充城市**：在 `src/data/cities.ts`、`src/data/contracts.ts`（`CITY_IDS`）及静态目录中新增城市经纬度、地标与 `labelSide` 避让方向即可联动地球图钉、明信片、邮票册与地图。
@@ -103,12 +121,33 @@ dist/assets/CollageView-*.js      332.32 kB │ gzip: 105.42 kB  (Collage 懒加
 
 ---
 
-## 6. 静态托管、离线演示与已知边界
+## 6. 常用命令、静态托管与已知边界
 
-- **静态托管与子路径**：`vite.config.ts` 配置 `base: './'` 并使用 React Router Hash 路由（`createHashRouter`），`dist/` 可部署于任意静态托管服务的根路径或子路径（如 `/atlas/`），无需服务端 rewrite。
-- **离线备份**：运行 `npm run demo:backup` 会执行构建并将产物复制至 `demo/current/`（上一版本保留于 `demo/previous/`），随后以固定端口 `http://127.0.0.1:4173/` 启动 `npm run demo:local -- --dist demo/current`。由于浏览器 IndexedDB 按 origin 隔离，演示时必须保持固定端口以保留本机数据。
+### 6.1 开发、测试与素材命令
+
+运行环境要求 **Node.js `>= 22.0.0`**（已在 Node 22 PR CI 与本地 Node 24 环境下验证）：
+
+| 命令 | 说明 |
+| --- | --- |
+| `npm ci` | 安装锁定依赖 |
+| `npm run dev` | 启动 Vite 开发服务器（`http://localhost:5173`） |
+| `npm run typecheck` | 执行 `tsc --noEmit` 类型检查 |
+| `npm run build` | 类型检查并输出生产构建产物至 `dist/` |
+| `npm run preview` | 本地预览 `dist/`（`http://localhost:4173`） |
+| `npm test` | 运行 Vitest 单元测试（纯 Node 环境） |
+| `npm run test:e2e` | 执行生产构建并运行完整 Playwright Chromium 端到端测试 |
+| `npm run test:static` | 运行根路径与 `/atlas` 子路径静态部署专项回归 |
+| `npm run demo:backup` | 构建并生成离线备份目录 `demo/current/`（上一版本保留于 `demo/previous/`） |
+| `npm run demo:local -- --dist demo/current` | 启动固定端口 `127.0.0.1:4173` 离线演示服务 |
+| `npm run data:world` | 联网重新从 `world-atlas` 解码生成 `src/data/world.ts` 陆地轮廓 |
+| `npm run data:hero` / `data:inner` / `data:paper` / `data:collage` / `data:stickers` | 从 `assets-source/`（或贴纸源包）重新生成优化后的运行时图片资源 |
+
+### 6.2 静态托管与已知边界
+
+- **静态托管与子路径**：`vite.config.ts` 配置 `base: './'` 并使用 React Router Hash 路由（`createHashRouter`），`dist/` 可部署于任意静态托管服务的根路径或子路径（如 `node scripts/serve-dist.mjs --dist demo/current --base-path /atlas --port 4175`），无需服务端 rewrite。
+- **固定端口离线运行**：由于浏览器 IndexedDB 按 origin 隔离，离线体验时需保持固定端口（默认 `127.0.0.1:4173`）以保留本机档案。
 - **已知边界**：
-  - 当前未公开发布线上站点（Qoder Sites 待团队确认授权后部署）；
+  - 当前尚未公开发布线上站点（Qoder Sites 待团队确认授权后部署）；
   - 数据仅存储在当前浏览器 IndexedDB（贴纸独立层同步受控于 localStorage 与跨标签页写锁），不支持账号、云同步、PDF 导出或跨设备共享；
   - 伦敦保留在地球、明信片与城市详情页入口，暂不在六城邮票册与愿望地图业务范围内；
   - 自动化测试（Vitest + Playwright Chromium）已覆盖核心链路、数据并发与静态部署，真机触屏、双指缩放、中文输入法与 Safari/Firefox 尚待在真实设备完成实机验收（详见 [V1-11 发布与演示说明](v1/release.md)）。
