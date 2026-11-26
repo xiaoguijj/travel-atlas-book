@@ -175,7 +175,8 @@ describe('plan repository', () => {
       }),
     );
     const nanjingBook = await books.createBook('nanjing', '南京手账', created.id);
-    const xianBook = await books.createBook('xian', '西安手账', created.id);
+    const xianBook = await books.createBook('xian', '西安手账');
+    await books.linkBookToPlan(xianBook.id, created.id);
     await books.saveJournal(xianBook.id, createJournal());
     await books.saveCollage(xianBook.id, { width: 1200, height: 1600, items: [] });
 
@@ -214,7 +215,8 @@ describe('plan repository', () => {
 
   it('deletes a plan while keeping linked books and their content', async () => {
     const created = await repository.savePlan(draft());
-    const book = await books.createBook('nanjing', '南京手账', created.id);
+    const book = await books.createBook('nanjing', '南京手账');
+    await books.linkBookToPlan(book.id, created.id);
     await books.saveJournal(book.id, createJournal());
 
     const deletePreview = await repository.previewPlanDelete(created.id);

@@ -4,10 +4,11 @@ import { BookShell } from '../components/book/BookShell';
 import { ModeSelect } from '../components/book/ModeSelect';
 import { InnerPageLayout } from '../components/layout/InnerPageLayout';
 import { albumBack } from '../config/innerLayout';
-import { readBookMode } from '../config/routes';
+import { readBookMode, STAMP_BOOK_PATH } from '../config/routes';
 import { getBook } from '../data/books';
 import { getCityById } from '../data/cities';
 import { isDataError, type BookMode, type TravelBook } from '../data/contracts';
+import type { SaveField } from '../data/saving';
 import styles from './BookPage.module.css';
 
 interface LoadedBook {
@@ -51,9 +52,21 @@ export function BookPage() {
     };
   }, [bookId, requestKey]);
 
-  const handleBookSaved = useCallback((saved: TravelBook) => {
-    setLoaded((current) => (current.book?.id === saved.id ? { ...current, book: saved } : current));
-  }, []);
+  const handleBookSaved = useCallback((field: SaveField | 'planId', saved: TravelBook) => {
+    setLoaded((current) => {
+      if (current.key !== requestKey || current.book?.id !== saved.id) return current;
+      // The edit queue and the explicit plan action can finish independently.
+      // Each result is authoritative only for the field it wrote.
+      return {
+        ...current,
+        book: {
+          ...current.book,
+          [field]: saved[field],
+          updatedAt: saved.updatedAt > current.book.updatedAt ? saved.updatedAt : current.book.updatedAt,
+        },
+      };
+    });
+  }, [requestKey]);
 
   if (loaded.key !== requestKey) {
     return (
@@ -118,7 +131,7 @@ function BookFallback({ title, detail, hint }: { title: string; detail: string; 
         <p>{detail}</p>
         {hint ? <p className={styles.hint}>{hint}</p> : null}
         <div className={styles.links}>
-          <Link to="/section/journals">返回邮票收藏册</Link>
+          <Link to={STAMP_BOOK_PATH}>返回邮票收藏册</Link>
           <Link to="/">回到地球探索</Link>
         </div>
       </section>

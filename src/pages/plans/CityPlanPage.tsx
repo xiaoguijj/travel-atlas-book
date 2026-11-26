@@ -5,13 +5,12 @@ import { WishEditor } from '../../components/plans/WishEditor';
 import { errorMessage } from '../../components/plans/errorMessage';
 import { backTargets } from '../../config/innerLayout';
 import { PLAN_MAP_PATH, planNewPath, planPath } from '../../config/planRoutes';
+import { stampBookPath } from '../../config/routes';
 import { getCityById } from '../../data/cities';
-import { CITY_IDS, type CityWish, type TravelPlan } from '../../data/contracts';
-import { listPlans } from '../../data/plans';
+import type { CityWish, TravelPlan } from '../../data/contracts';
+import { isPlanCity, listPlans } from '../../data/plans';
 import { getWish } from '../../data/wishes';
 import styles from './Plans.module.css';
-
-const sixCities = new Set<string>(CITY_IDS);
 
 /**
  * `/plan/city/:cityId` 城市计划页：愿望备注、已有行程与新建入口。
@@ -20,7 +19,7 @@ const sixCities = new Set<string>(CITY_IDS);
 export function CityPlanPage() {
   const { cityId } = useParams<{ cityId: string }>();
   const city = getCityById(cityId);
-  const inCatalog = Boolean(city && sixCities.has(city.id));
+  const inCatalog = Boolean(city && isPlanCity(city.id));
 
   const [wish, setWish] = useState<CityWish | undefined>(undefined);
   const [plans, setPlans] = useState<TravelPlan[]>([]);
@@ -83,8 +82,8 @@ export function CityPlanPage() {
           <Link className={styles.primary} to={planNewPath(city.id)}>
             新建一趟行程
           </Link>
-          <Link className={styles.secondary} to={`/city/${encodeURIComponent(city.id)}`}>
-            打开{city.name}城市手账
+          <Link className={styles.secondary} to={stampBookPath(city.id)}>
+            打开{city.name}手账书架
           </Link>
           <Link className={styles.secondary} to={PLAN_MAP_PATH}>
             返回愿望地图

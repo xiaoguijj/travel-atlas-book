@@ -48,7 +48,7 @@ const routes: RouteObject[] = [
     element: <Shell />,
     children: [
       { index: true, element: <HomePage /> },
-      // 邮票册与愿望地图先由占位页接住；栏目页排在动态栏目之前，避免被 section/:sectionId 吃掉。
+      // 邮票册与愿望地图使用各自的页面，动态栏目承接其余入口。
       { path: 'section/journals', element: <StampBookPage /> },
       { path: 'section/plans', element: <WishMapPage /> },
       { path: 'section/:sectionId', element: <SectionPage /> },

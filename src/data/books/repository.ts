@@ -32,6 +32,7 @@ export interface BookRepository {
   createBook(cityId: string, title: string, planId?: string): Promise<TravelBook>;
   getBook(bookId: string): Promise<TravelBook | undefined>;
   renameBook(bookId: string, title: string): Promise<TravelBook>;
+  linkBookToPlan(bookId: string, planId?: string): Promise<TravelBook>;
   saveJournal(bookId: string, content: JournalContent, precondition?: JournalSavePrecondition): Promise<TravelBook>;
   /** Preserve a conflicting editor draft in a new book, without replacing the source. */
   copyJournalDraft(bookId: string, content: JournalContent): Promise<TravelBook>;
@@ -55,6 +56,21 @@ export function createBookRepository(
   options: BookRepositoryOptions = {},
 ): BookRepository {
   const now = options.now ?? (() => new Date().toISOString());
+
+  // Call from a books + plans transaction so the target cannot change between validation and writing.
+  async function requirePlanForCity(planId: string, cityId: string): Promise<void> {
+    const plan = await database.plans.get(planId);
+    if (!plan) {
+      throw new DataError('INVALID_PLAN', '关联的旅行计划不存在', { planId });
+    }
+    if (!planIncludesCity(plan, cityId)) {
+      throw new DataError('INVALID_RELATION', '手账所属城市不在计划城市范围内', {
+        bookCityId: cityId,
+        planId,
+        planCityIds: plan.cityIds,
+      });
+    }
+  }
 
   async function copyDraft(bookId: string, draft: { journal: JournalContent } | { collage: CollageCanvas }) {
     const label = 'journal' in draft ? '正文' : '拼贴';
@@ -126,17 +142,7 @@ export function createBookRepository(
 
         const normalizedPlanId = normalizePlanId(planId);
         return await database.transaction('rw', database.books, database.plans, async () => {
-          const plan = await database.plans.get(normalizedPlanId);
-          if (!plan) {
-            throw new DataError('INVALID_PLAN', '关联的旅行计划不存在', { planId: normalizedPlanId });
-          }
-          if (!planIncludesCity(plan, cityId)) {
-            throw new DataError('INVALID_RELATION', '手账所属城市不在计划城市范围内', {
-              bookCityId: cityId,
-              planId: normalizedPlanId,
-              planCityIds: plan.cityIds,
-            });
-          }
+          await requirePlanForCity(normalizedPlanId, cityId);
           book.planId = normalizedPlanId;
           await database.books.add(book);
           return book;
@@ -171,6 +177,27 @@ export function createBookRepository(
         });
       } catch (error) {
         throw toDataError(error, 'STORAGE_WRITE_FAILED', '修改手账标题失败');
+      }
+    },
+
+    async linkBookToPlan(bookId, planId) {
+      try {
+        const id = normalizeBookId(bookId);
+        const nextPlanId = planId === undefined ? undefined : normalizePlanId(planId);
+        return await database.transaction('rw', database.books, database.plans, async () => {
+          const book = await database.books.get(id);
+          if (!book) {
+            throw new DataError('BOOK_NOT_FOUND', '手账不存在或已被删除', { bookId: id });
+          }
+          if (nextPlanId !== undefined) await requirePlanForCity(nextPlanId, book.cityId);
+          if (book.planId === nextPlanId) return book;
+
+          const patch = { planId: nextPlanId, updatedAt: now() };
+          await database.books.update(id, patch);
+          return { ...book, ...patch };
+        });
+      } catch (error) {
+        throw toDataError(error, 'TRANSACTION_FAILED', '更新手账的行程关联失败');
       }
     },
 
@@ -240,6 +267,7 @@ export const listBooksByPlan = defaultRepository.listBooksByPlan;
 export const createBook = defaultRepository.createBook;
 export const getBook = defaultRepository.getBook;
 export const renameBook = defaultRepository.renameBook;
+export const linkBookToPlan = defaultRepository.linkBookToPlan;
 export const saveJournal = defaultRepository.saveJournal;
 export const copyJournalDraft = defaultRepository.copyJournalDraft;
 export const saveCollage = defaultRepository.saveCollage;

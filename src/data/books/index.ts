@@ -4,6 +4,7 @@ export {
   copyCollageDraft,
   copyJournalDraft,
   getBook,
+  linkBookToPlan,
   listBooksByCity,
   listBooksByPlan,
   renameBook,

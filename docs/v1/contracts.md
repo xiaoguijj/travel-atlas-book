@@ -123,7 +123,7 @@ interface TravelBook {
 
 - 同一城市可有多本手账。
 - `journal` 与 `collage` 独立存在，可单独为空；进入模式选择页不会写入任何一种内容。
-- `planId` 只由创建手账或 V1-10 的 `linkBookToPlan` 维护；保存内容与改标题不得修改它。
+- 创建手账和 `linkBookToPlan` 可设置 `planId`。主动解除、删除关联计划或从计划移除书的城市时清除该字段。保存内容和改标题各写自己的字段。
 - `listBooksByCity` / `listBooksByPlan` 在内存按 `updatedAt` 降序排列（同时间按 ID 降序）。
 
 ### 4.2 JournalContent
@@ -215,6 +215,7 @@ listBooksByPlan(planId: string): Promise<TravelBook[]>
 createBook(cityId: string, title: string, planId?: string): Promise<TravelBook>
 getBook(bookId: string): Promise<TravelBook | undefined>
 renameBook(bookId: string, title: string): Promise<TravelBook>
+linkBookToPlan(bookId: string, planId?: string): Promise<TravelBook>
 saveJournal(bookId: string, content: JournalContent): Promise<TravelBook>
 saveCollage(bookId: string, canvas: CollageCanvas, precondition?: CollageSavePrecondition): Promise<TravelBook>
 copyCollageDraft(bookId: string, canvas: CollageCanvas): Promise<TravelBook>
@@ -229,6 +230,7 @@ copyCollageDraft(bookId: string, canvas: CollageCanvas): Promise<TravelBook>
 - `createBook`：去掉标题首尾空白并校验 1–80 字符；可选 `planId` 在 `books + plans` 事务中校验计划存在且包含该书城市，失败不留下记录。
 - `getBook`：空 ID 或未知 ID 返回 `undefined`，由手账壳提供退路。
 - `renameBook`：只写 `title`、`updatedAt`。
+- `linkBookToPlan`：关联、更换或解除计划，成功返回事务中的最新手账记录。变更时仅写 `planId` 和 `updatedAt`。
 - `saveJournal`：只写 `journal`、`updatedAt`。
 - `saveCollage`：只写 `collage`、`updatedAt`。编辑器传入 `{ expected: CollageCanvas | undefined }`，同一事务检测过期画布。冲突返回 `COLLAGE_CONFLICT`，由保存队列保留草稿。
 - `copyCollageDraft`：在同一城市新建一本手账并保存拼贴草稿，原手账保留已保存版本。
@@ -448,8 +450,10 @@ npm run test:e2e                  # 先构建再跑生产预览
 
 ### V1-10 · 关联联动
 
-- `linkBookToPlan(bookId, planId?)` 在 `books + plans` 事务中读取两表，校验书城市属于计划，再只更新 `books.planId`；省略表示解除。
-- 不要用旧整本书覆盖其他字段；关联变化不应影响 Journal / Collage 内容。
+- `linkBookToPlan(bookId, planId?)` 在 `books + plans` 事务中读取书和目标计划。缺失书抛 `BOOK_NOT_FOUND`，缺失计划抛 `INVALID_PLAN`，计划不包含书的城市则抛 `INVALID_RELATION`。省略 `planId` 表示解除，保持同一关联时无需写入。
+- 手账壳从同城行程列表选择计划。页面按关系操作和保存队列各自提交的字段合并结果，Journal 和 Collage 的保存基准仍由各自的保存成功结果推进。
+- 行程详情通过 `listBooksByPlan` 读关联手账，打开同一 `bookId` 的模式选择页。计划删除或移除城市继续在计划仓储事务内清理受影响的手账关系。
+- 邮票册查询参数 `cityId` 打开册内对应书架。城市门户、城市计划页都链接到同城书架，书架可返回门户或打开同城计划。明信片的主按钮也进入对应书架。
 
 ## 12. 已知问题与风险
 

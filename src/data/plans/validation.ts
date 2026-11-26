@@ -20,13 +20,17 @@ export const MAX_PLAN_ITEM_NOTE_LENGTH = 500;
 
 const sixCities = new Set<string>(CITY_IDS);
 
+export function isPlanCity(cityId: string): cityId is BusinessCityId {
+  return sixCities.has(cityId) && Boolean(getCityById(cityId));
+}
+
 /** 愿望与计划只覆盖六城目录；伦敦仍是地球上的额外城市，但不进入愿望地图。 */
 export function requirePlanCity(cityId: string): BusinessCityId {
   const id = typeof cityId === 'string' ? cityId.trim() : '';
-  if (!sixCities.has(id) || !getCityById(id)) {
+  if (!isPlanCity(id)) {
     throw new DataError('INVALID_CITY', `旅行计划只支持六城目录内的城市：${id || '(空)'}`, { cityId });
   }
-  return id as BusinessCityId;
+  return id;
 }
 
 export function normalizePlanTitle(title: string): string {

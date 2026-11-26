@@ -6,7 +6,8 @@
  * assets-source/inner-bg-map.png 上量出来的，改图时照着改数值即可。
  */
 import { matchPath } from 'react-router-dom';
-import { bookPath } from './routes';
+import { PLAN_MAP_PATH } from './planRoutes';
+import { bookPath, stampBookPath, STAMP_BOOK_PATH } from './routes';
 
 /** 返回按钮：label 说清"回到哪儿"，to 是真实存在的哈希路由。 */
 export interface BackTarget {
@@ -19,37 +20,27 @@ export interface BackTarget {
  *
  * | 页面 | 返回到 | label |
  * | --- | --- | --- |
- * | 城市页 / 栏目页 | 地球探索 | 返回地球探索 |
- * | 手账内页 | 所属栏目 | 返回旅行手账 / 返回旅行计划 |
+ * | 城市门户 | 定位该城市的邮票册 | 返回邮票收藏册 |
+ * | 栏目页 | 地球探索 | 返回地球探索 |
  * | 创作模式选择页 | 邮票收藏册 | 返回邮票收藏册 |
  * | Journal 横线日记本 / Collage 自由拼贴 | 创作模式选择页 | 返回创作模式 |
  *
- * 后两行的落点由下面的构造函数生成：收藏册可以带 cityId 复原城市书架位置，
- * 创作模式页必须带真实 bookId。城市页的返回目标以后要按进入来源在「地球探索」和
- * 「邮票收藏册」之间切换，判来源用 Link 的 state，不靠浏览器历史，这样直接输网址也有落点。
+ * 收藏册可以带 cityId 复原城市书架位置，创作模式页必须带真实 bookId。
  */
 export const backTargets: Record<'globe' | 'journals' | 'plans', BackTarget> = {
   globe: { label: '返回地球探索', to: '/' },
-  journals: { label: '返回旅行手账', to: '/section/journals' },
-  plans: { label: '返回旅行计划', to: '/section/plans' },
+  journals: { label: '返回旅行手账', to: STAMP_BOOK_PATH },
+  plans: { label: '返回旅行计划', to: PLAN_MAP_PATH },
 };
 
 /** 创作模式页、Journal、Collage 回到收藏册；带 cityId 时保留城市定位。 */
 export function albumBack(cityId?: string): BackTarget {
-  const to = cityId
-    ? `${backTargets.journals.to}?cityId=${encodeURIComponent(cityId)}`
-    : backTargets.journals.to;
-  return { label: '返回邮票收藏册', to };
+  return { label: '返回邮票收藏册', to: stampBookPath(cityId) };
 }
 
 /** 编辑器回到自己那本书的创作模式选择页；地址由 V1-02 冻结的路径助手拼。 */
 export function createModeBack(bookId: string): BackTarget {
   return { label: '返回创作模式', to: bookPath(bookId) };
-}
-
-/** 模式选择页回到所属城市的手账列表。 */
-export function cityBooksBack(cityId: string): BackTarget {
-  return { label: '返回城市手账', to: `/city/${encodeURIComponent(cityId)}` };
 }
 
 /**
@@ -61,8 +52,7 @@ export function cityBooksBack(cityId: string): BackTarget {
  * 逐页接入就加一行；没列出的页面完全维持原状，这样"统一背景"是一页一页验收出来的，不是一次性全站替换。
  * 首页 '/' 永远不在名单里：它用的是参考画本身的舞台，画上的缎带就是它的导航。
  *
- * /section/journals 现在由 V1-05 的邮票册占位页接住，后续收藏册替换同一路由时这条白名单不用改；
- * 手账、计划页与 /stamps 别名也套同一套背景和顶栏。
+ * 邮票册、手账、计划页与 /stamps 别名也套同一套背景和顶栏。
  */
 const innerLayoutRoutes: string[] = [
   '/section/journals',

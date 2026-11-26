@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { stampBookPath } from '../../config/routes';
 import type { City } from '../../data/types';
 import { CityMotif } from '../city/CityMotif';
 import styles from './CityPostcard.module.css';
@@ -10,7 +11,7 @@ export interface CityPostcardProps {
   onClose: () => void;
 }
 
-/** 点击城市标记后弹出的复古明信片。只做介绍与入口，编辑功能留给后续阶段。 */
+/** 点击城市标记后弹出的复古明信片。 */
 export function CityPostcard({ city, onClose, origin }: CityPostcardProps) {
   const navigate = useNavigate();
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -37,7 +38,7 @@ export function CityPostcard({ city, onClose, origin }: CityPostcardProps) {
   }, [onClose]);
 
   const openJournal = () => {
-    navigate(`/city/${city.id}`);
+    navigate(stampBookPath(city.id));
   };
 
   const coordinates = `${Math.abs(city.latitude).toFixed(2)}°${city.latitude >= 0 ? 'N' : 'S'} ${Math.abs(

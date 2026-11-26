@@ -1,6 +1,14 @@
 import { NavLink } from 'react-router-dom';
+import { heroNav } from '../../config/hero';
+import { cityPath } from '../../config/routes';
 import { cities } from '../../data/cities';
 import styles from './SiteHeader.module.css';
+
+const sections = heroNav.filter((item) => item.id !== 'home');
+
+function navLinkClass({ isActive }: { isActive: boolean }) {
+  return isActive ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink;
+}
 
 /** 顶部导航。城市链接指向真实存在的城市页，不做假入口。 */
 export function SiteHeader() {
@@ -18,21 +26,27 @@ export function SiteHeader() {
         </span>
       </NavLink>
 
-      <nav className={styles.nav} aria-label="已收录城市">
-        <span className={styles.navLabel}>已收录</span>
-        <ul className={styles.navList}>
-          {cities.map((city) => (
-            <li key={city.id}>
-              <NavLink
-                to={`/city/${city.id}`}
-                className={({ isActive }) => (isActive ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink)}
-              >
-                {city.name}
-              </NavLink>
-            </li>
-          ))}
-        </ul>
-      </nav>
+      <div className={styles.navigation}>
+        <nav className={styles.nav} aria-label="主导航">
+          <ul className={styles.navList}>
+            {sections.map((section) => (
+              <li key={section.id}>
+                <NavLink to={section.to} className={navLinkClass}>{section.label}</NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <nav className={styles.nav} aria-label="已收录城市">
+          <span className={styles.navLabel}>已收录</span>
+          <ul className={styles.navList}>
+            {cities.map((city) => (
+              <li key={city.id}>
+                <NavLink to={cityPath(city.id)} className={navLinkClass}>{city.name}</NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </div>
     </header>
   );
 }

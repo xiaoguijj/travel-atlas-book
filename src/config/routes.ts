@@ -1,6 +1,16 @@
 import type { BookMode } from '../data/contracts';
 import { normalizeBookId } from '../data/validation';
 
+export const STAMP_BOOK_PATH = '/section/journals';
+
+export function stampBookPath(cityId?: string): string {
+  return cityId ? `${STAMP_BOOK_PATH}?cityId=${encodeURIComponent(cityId)}` : STAMP_BOOK_PATH;
+}
+
+export function cityPath(cityId: string): string {
+  return `/city/${encodeURIComponent(cityId)}`;
+}
+
 /**
  * 手账路由契约。返回的是 HashRouter 内部路径（不含 `#`），
  * 例如 `bookJournalPath('abc')` 对应地址栏 `/#/book/abc?mode=journal`。

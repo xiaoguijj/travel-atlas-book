@@ -1,9 +1,7 @@
 /**
  * 首页缎带导航的四个栏目（「首页」本身不算栏目，它回到地球）。
  *
- * 第一阶段只有「旅行手账」有真内容：每座城市都有自己的手账页。
- * 另外三个栏目在画面上是可见的导航，所以必须给出诚实的落点，
- * 但不能出现点了没反应的按钮 —— 页面只讲"排上日程了什么"，并留一条回到地球的真链接。
+ * 手账和计划由各自的页面承接，灵感发现和我的保留栏目说明。
  */
 
 export type SectionId = 'journals' | 'inspiration' | 'plans' | 'account';
@@ -14,7 +12,7 @@ export interface SectionMeta {
   label: string;
   /** 页眉下面那行小字 */
   lede: string;
-  /** 第一阶段是否已经能用 */
+  /** 栏目的功能是否开放 */
   ready: boolean;
   /** 栏目说明条目；ready 的栏目由页面自己换成真实内容 */
   items: { title: string; note: string }[];
@@ -24,7 +22,7 @@ export const sections: SectionMeta[] = [
   {
     id: 'journals',
     label: '旅行手账',
-    lede: '每一页手账，都可以从地球上点进来。',
+    lede: '从邮票册打开一座城市的手账书架。',
     ready: true,
     items: [],
   },
@@ -42,13 +40,9 @@ export const sections: SectionMeta[] = [
   {
     id: 'plans',
     label: '旅行计划',
-    lede: '想把地球上的图钉连成行程，得再等一个阶段。',
-    ready: false,
-    items: [
-      { title: '行程草稿', note: '在地球上按顺序点图钉，自动生成一张航线草图。' },
-      { title: '季节提示', note: '按月份给建议：哪座城这时候人少、哪条线正在台风季。' },
-      { title: '同行清单', note: '证件、装备、需要预留的天数，出发前勾一遍。' },
-    ],
+    lede: '在中国愿望地图里记录想去的城市，安排每天的行程。',
+    ready: true,
+    items: [],
   },
   {
     id: 'account',

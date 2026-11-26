@@ -191,8 +191,8 @@ test.describe('桌面：选城、转场与焦点', () => {
     await page.mouse.click(nanjing.x, nanjing.y);
     await page.getByRole('button', { name: '进入旅行手账' }).click();
 
-    await expect(page).toHaveURL(/\/#\/city\/nanjing$/);
-    await expect(page.getByRole('heading', { name: /^南京/ })).toBeVisible();
+    await expect(page).toHaveURL(/\/#\/section\/journals\?cityId=nanjing$/);
+    await expect(page.getByRole('button', { name: /南京 Nanjing 邮票/ })).toHaveAttribute('aria-expanded', 'true');
     await expect(page.getByRole('link', { name: '返回地球探索' })).toBeVisible();
     // 内页用 InnerPageLayout 的顶栏，Shell 不再叠加旧导航
     await expect(page.getByRole('navigation', { name: '已收录城市' })).toHaveCount(0);
@@ -303,7 +303,7 @@ test.describe('桌面：选城、转场与焦点', () => {
     await page.goto('/');
     await openMarker(page, '南京');
     await page.getByRole('button', { name: '进入旅行手账' }).click();
-    await expect(page).toHaveURL(/\/#\/city\/nanjing$/);
+    await expect(page).toHaveURL(/\/#\/section\/journals\?cityId=nanjing$/);
     await page.getByRole('link', { name: '返回地球探索' }).click();
     await expect(page.getByLabel('Travel Atlas Book 首页')).toBeVisible();
 
