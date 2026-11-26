@@ -152,32 +152,6 @@
   letter-spacing: 0.22em;
 }
 
-/* 还没做的功能用虚线标签摆在这里，免得这一页看起来像已经写满了 */
-.roadmap {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.roadmapLabel {
-  color: rgb(232 217 184 / 0.5);
-  font-size: 12px;
-  letter-spacing: 0.18em;
-}
-
-.roadmap li:not(.roadmapLabel) {
-  padding: 3px 12px;
-  border: 1px dashed rgb(176 141 87 / 0.45);
-  border-radius: 999px;
-  color: rgb(232 217 184 / 0.7);
-  font-size: 12.5px;
-}
-
 /* ------------------------------------------------------------------ 收藏状态 */
 
 /*
@@ -214,11 +188,25 @@
 
 .shelfHead {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
   padding-bottom: 10px;
   border-bottom: 1px dashed rgb(176 141 87 / 0.45);
+}
+
+.shelfLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.shelfLinks a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  text-decoration: none;
 }
 
 .shelfTitle {

@@ -1,13 +1,3 @@
-/* 未接入公共布局的城市页：维持原来的内边距 */
-.page {
-  flex: 1;
-  display: grid;
-  align-content: start;
-  gap: clamp(14px, 3vh, 26px);
-  padding: clamp(16px, 4vh, 40px) clamp(16px, 4vw, 44px) clamp(24px, 5vh, 48px);
-  animation: rise-in 640ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
-}
-
 /* 已接入 InnerPageLayout 的城市页：背景和左右内边距归布局管，这里只管排布 */
 .pageInner {
   flex: 1;
@@ -165,50 +155,27 @@
   color: var(--tab-ink);
 }
 
-.subhead {
-  margin-top: 6px;
-  font-family: var(--tab-font-ui);
-  font-size: 0.66rem;
-  font-weight: 500;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  color: var(--tab-ink-soft);
-}
-
-.roadmap {
+.portalLinks {
   display: grid;
   gap: 7px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
 }
 
-.roadmap li {
-  display: grid;
-  gap: 1px;
+.portalLinks a {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
   padding: 8px 12px;
   border-left: 2px solid var(--tab-sage);
   background: rgb(132 145 122 / 0.12);
-}
-
-.roadmap strong {
+  color: var(--tab-ink);
   font-family: var(--tab-font-display);
   font-size: 0.98rem;
   font-weight: 600;
+  text-underline-offset: 3px;
 }
 
-.roadmap em {
-  font-size: 0.76rem;
-  font-style: normal;
-  color: var(--tab-ink-soft);
-}
-
-.honestNote {
-  padding-top: 10px;
-  border-top: 1px solid rgb(176 141 87 / 0.3);
-  font-size: 0.76rem !important;
-  letter-spacing: 0.04em;
-  color: var(--tab-ink-soft);
+.portalLinks a:hover {
+  background: rgb(132 145 122 / 0.24);
 }
 
 /* ------------------------------------------------------------------ 底部导航 */
@@ -222,24 +189,9 @@
   padding-top: 6px;
 }
 
-.backLink {
-  font-family: var(--tab-font-display);
-  font-size: 0.98rem;
-  letter-spacing: 0.08em;
-  color: var(--tab-old-paper);
-  text-decoration: none;
-  border-bottom: 1px solid rgb(232 217 184 / 0.3);
-  padding-bottom: 2px;
-  transition: color 200ms ease, border-color 200ms ease;
-}
-
-.backLink:hover {
-  color: var(--tab-cream);
-  border-color: var(--tab-brass);
-}
-
 .others {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
 }
@@ -252,6 +204,7 @@
 
 .others ul {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   margin: 0;
   padding: 0;

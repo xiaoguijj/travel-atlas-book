@@ -133,6 +133,58 @@
   background: rgb(176 141 87 / 0.22);
 }
 
+.planLink {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  min-width: 0;
+  font: 0.76rem var(--tab-font-ui);
+  color: var(--tab-cream);
+}
+
+.planLink label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.planLink label span {
+  flex: none;
+}
+
+.planLink select,
+.planLink button {
+  min-width: 0;
+  max-width: 16rem;
+  min-height: 32px;
+  padding: 3px 8px;
+  border: 1px solid rgb(176 141 87 / 0.65);
+  border-radius: 3px;
+  background: #153b3b;
+  color: inherit;
+  font: inherit;
+}
+
+.planLink a {
+  color: inherit;
+  text-underline-offset: 3px;
+}
+
+.planLink [role='alert'] {
+  flex-basis: 100%;
+}
+
+.shell[data-mode='collage'] .planLink {
+  color: #4b3622;
+}
+
+.shell[data-mode='collage'] .planLink select,
+.shell[data-mode='collage'] .planLink button {
+  background: #fbf5e8;
+}
+
 .editor {
   min-width: 0;
 }

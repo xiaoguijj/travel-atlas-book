@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   albumBack,
   backTargets,
-  cityBooksBack,
   createModeBack,
   usesInnerLayout,
 } from '../../../src/config/innerLayout';
@@ -43,7 +42,6 @@ describe('内页布局白名单', () => {
       to: '/section/journals?cityId=nanjing',
     });
     expect(createModeBack('abc')).toEqual({ label: '返回创作模式', to: '/book/abc' });
-    expect(cityBooksBack('nanjing')).toEqual({ label: '返回城市手账', to: '/city/nanjing' });
 
     for (const target of [
       backTargets.globe,
@@ -51,7 +49,6 @@ describe('内页布局白名单', () => {
       backTargets.plans,
       albumBack(),
       createModeBack('abc'),
-      cityBooksBack('nanjing'),
     ]) {
       if (target.to === '/') continue;
       expect(usesInnerLayout(target.to.split('?')[0])).toBe(true);

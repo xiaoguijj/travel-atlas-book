@@ -21,6 +21,7 @@ export {
   MAX_PLAN_DAYS,
   MAX_PLAN_ITEM_NOTE_LENGTH,
   MAX_PLAN_ITEM_TITLE_LENGTH,
+  isPlanCity,
   normalizePlanDraft,
   normalizePlanTitle,
   requirePlanCity,

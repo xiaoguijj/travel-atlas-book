@@ -1,3 +1,6 @@
+import { PLAN_MAP_PATH } from './planRoutes';
+import { STAMP_BOOK_PATH } from './routes';
+
 /**
  * 首页版面：参考图（assets-source/home-hero.png，1671×941）上各个区域的坐标。
  *
@@ -55,9 +58,9 @@ export interface HeroNavItem extends HeroBox {
 /** 顶部缎带上的五个入口，全部指向真实路由 */
 export const heroNav: HeroNavItem[] = [
   { id: 'home', label: '首页', to: '/', x: 890, y: 6, w: 110, h: 64 },
-  { id: 'journals', label: '旅行手账', to: '/section/journals', x: 1020, y: 6, w: 148, h: 64 },
+  { id: 'journals', label: '旅行手账', to: STAMP_BOOK_PATH, x: 1020, y: 6, w: 148, h: 64 },
   { id: 'inspiration', label: '灵感发现', to: '/section/inspiration', x: 1185, y: 6, w: 149, h: 64 },
-  { id: 'plans', label: '旅行计划', to: '/section/plans', x: 1348, y: 6, w: 148, h: 64 },
+  { id: 'plans', label: '旅行计划', to: PLAN_MAP_PATH, x: 1348, y: 6, w: 148, h: 64 },
   { id: 'account', label: '我的', to: '/section/account', x: 1515, y: 6, w: 107, h: 64 },
 ];
 

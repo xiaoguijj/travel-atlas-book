@@ -1,18 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import albumArtwork from '../assets/stamp-album.jpg';
 import { PageTurn } from '../components/layout/PageTurn';
 import { InnerPageLayout } from '../components/layout/InnerPageLayout';
 import { isJournalBlank } from '../components/journal/journalDoc';
 import { localDay } from '../config/dates';
-import { bookPath } from '../config/routes';
+import { planCityPath } from '../config/planRoutes';
+import { bookPath, cityPath, STAMP_BOOK_PATH } from '../config/routes';
 import { albumArt, albumStampBoxes, artBoxStyle } from '../config/journal';
 import { backTargets } from '../config/innerLayout';
 import { getStampByCity, stampDefinitions } from '../data/catalog';
 import { getCityById } from '../data/cities';
 import { createBook, listBooksByCity } from '../data/books';
 import { isDataError, type StampCollection, type TravelBook } from '../data/contracts';
+import { isPlanCity } from '../data/plans';
 import { listCollections, collectStamp } from '../data/stamps';
+import type { City } from '../data/types';
 import styles from './StampBookPage.module.css';
 
 /**
@@ -29,9 +32,18 @@ import styles from './StampBookPage.module.css';
 export function StampBookPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const selectedCityId = searchParams.get('cityId');
+  const requestedCityId = searchParams.get('cityId');
+  const selectedCity = getCityById(requestedCityId ?? undefined);
+  const selectedCityId = selectedCity?.id;
   const [collections, setCollections] = useState<StampCollection[]>([]);
   const [storageNotice, setStorageNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (requestedCityId === null || selectedCity) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete('cityId');
+    setSearchParams(next, { replace: true });
+  }, [requestedCityId, selectedCity, searchParams, setSearchParams]);
 
   useEffect(() => {
     let alive = true;
@@ -127,10 +139,10 @@ export function StampBookPage() {
           </p>
         ) : null}
 
-        {selectedCityId ? (
+        {selectedCity ? (
           <CityShelf
-            key={selectedCityId}
-            cityId={selectedCityId}
+            key={selectedCity.id}
+            city={selectedCity}
             collectedAt={selectedStamp ? collectedBy.get(selectedStamp.id) : undefined}
             onClose={() => {
               const next = new URLSearchParams(searchParams);
@@ -147,13 +159,6 @@ export function StampBookPage() {
           <p className={styles.closingSub}>更多城市邮票正在绘制中，下一段旅程，敬请期待。</p>
           <p className={styles.closingFoot}>TO BE CONTINUED · 持续更新中</p>
         </div>
-
-        <ul className={styles.roadmap} aria-label="还没上线的功能">
-          <li className={styles.roadmapLabel}>还没上线</li>
-          <li>自由拼贴</li>
-          <li>照片与贴纸</li>
-          <li>旅行计划</li>
-        </ul>
       </div>
     </InnerPageLayout>
   );
@@ -165,20 +170,19 @@ export function StampBookPage() {
  * 书本记录全部走 V1-02 冻结的手账仓储，页面不直接碰数据库。
  */
 function CityShelf({
-  cityId,
+  city,
   collectedAt,
   onClose,
   onCollect,
   onOpenBook,
 }: {
-  cityId: string;
+  city: City;
   collectedAt?: string;
   onClose: () => void;
   /** 不传表示这一城在册子上没有邮票，盖章按钮不出现。 */
   onCollect?: () => Promise<void>;
   onOpenBook: (book: TravelBook) => void;
 }) {
-  const city = getCityById(cityId);
   const [books, setBooks] = useState<TravelBook[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -187,7 +191,6 @@ function CityShelf({
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async () => {
-    if (!city) return;
     setError(null);
     setBooks(null);
     try {
@@ -204,19 +207,6 @@ function CityShelf({
   useEffect(() => {
     panelRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, []);
-
-  if (!city) {
-    return (
-      <div className={styles.shelf} ref={panelRef}>
-        <p className={styles.notice} role="alert">
-          地址里的城市编号「{cityId}」不在这本册子里，回到画上再点一枚邮票。
-        </p>
-        <button type="button" className={styles.shelfClose} onClick={onClose}>
-          收起
-        </button>
-      </div>
-    );
-  }
 
   const addBook = async () => {
     if (!books) return;
@@ -266,6 +256,13 @@ function CityShelf({
         </button>
       </header>
 
+      <nav className={styles.shelfLinks} aria-label={`${city.name}书架导航`}>
+        <Link className={styles.shelfClose} to={cityPath(city.id)}>{city.name}城市详情</Link>
+        {isPlanCity(city.id) ? (
+          <Link className={styles.shelfClose} to={planCityPath(city.id)}>{city.name}旅行计划</Link>
+        ) : null}
+      </nav>
+
       {stampError ? (
         <p className={styles.notice} role="alert">
           {stampError}
@@ -307,7 +304,7 @@ function CityShelf({
         </button>
       ) : null}
 
-      <p className={styles.shelfFoot}>邮票上的日期是第一次收藏它的那一天，重复盖章不会改时间。</p>
+      {onCollect ? <p className={styles.shelfFoot}>邮票上的日期是第一次收藏它的那一天，重复盖章不会改时间。</p> : null}
     </div>
   );
 }
@@ -321,7 +318,7 @@ export function StampsAliasPage() {
   const [searchParams] = useSearchParams();
   const next = new URLSearchParams(searchParams);
   const cityId = next.get('cityId');
-  if (cityId && !getCityById(cityId)) next.delete('cityId');
+  if (cityId !== null && !getCityById(cityId)) next.delete('cityId');
   const query = next.toString();
-  return <Navigate replace to={query ? `/section/journals?${query}` : '/section/journals'} />;
+  return <Navigate replace to={query ? `${STAMP_BOOK_PATH}?${query}` : STAMP_BOOK_PATH} />;
 }

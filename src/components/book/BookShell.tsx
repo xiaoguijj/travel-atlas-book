@@ -18,6 +18,7 @@ import {
 } from '../../data/contracts';
 import { createStableId } from '../../data/ids';
 import { importPhoto } from '../../data/photos';
+import { isPlanCity } from '../../data/plans';
 import type { SaveField } from '../../data/saving';
 import type { City } from '../../data/types';
 import { StickerPicker, useStickers, type StickerApi } from '../../stickers';
@@ -28,6 +29,7 @@ import { CollageConflictNotice } from './CollageConflictNotice';
 import { JournalConflictNotice } from './JournalConflictNotice';
 import { StickerRecoveryNotice } from './StickerRecoveryNotice';
 import { SaveStatus } from './SaveStatus';
+import { BookPlanLink } from './BookPlanLink';
 import styles from './BookShell.module.css';
 import { useBookSaveQueue } from './useBookSaveQueue';
 import { bookSaveFeedback, coordinateBookSaves } from './bookPersistence';
@@ -48,7 +50,7 @@ interface BookShellProps {
   book: TravelBook;
   city: City;
   mode: BookMode;
-  onBookSaved(book: TravelBook): void;
+  onBookSaved(field: SaveField | 'planId', book: TravelBook): void;
 }
 
 /**
@@ -65,13 +67,7 @@ function JournalBookShell(props: BookShellProps) {
 }
 
 function BookEditorShell({ book, city, mode, onBookSaved, stickers }: BookShellProps & { stickers?: StickerApi }) {
-  const handleSaved = useCallback(
-    (_field: SaveField, saved: TravelBook) => {
-      onBookSaved(saved);
-    },
-    [onBookSaved],
-  );
-  const { queue, state } = useBookSaveQueue(book.id, handleSaved, book.journal, book.collage);
+  const { queue, state } = useBookSaveQueue(book.id, onBookSaved, book.journal, book.collage);
 
   const [title, setTitle] = useState(book.title);
   const lastQueuedTitle = useRef(book.title);
@@ -215,6 +211,9 @@ function BookEditorShell({ book, city, mode, onBookSaved, stickers }: BookShellP
               素材
             </button>
           </div>
+          {isPlanCity(book.cityId) ? (
+            <BookPlanLink book={book} onSaved={(saved) => onBookSaved('planId', saved)} />
+          ) : null}
         </header>
 
         {mode === 'journal' && state.journalConflict ? <JournalConflictNotice bookId={book.id} queue={queue} /> : null}

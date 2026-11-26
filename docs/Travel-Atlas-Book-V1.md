@@ -76,12 +76,12 @@ V1 保留 React 18、Three.js、Vite 和 Hash 路由。Journal 用 Tiptap 3，Co
 
 | 模块 | 对外接口示例 | 依赖和跨模块联动 |
 | --- | --- | --- |
-| 城市与邮票册 | `getCityById(cityId)`、`listStampCards()`、`collectStamp(stampId)` | 城市由现有数据提供；邮票服务读静态定义与 `stamps`。城市页与收藏册调用同一收集接口，收藏册中已藏和未藏邮票均可返回对应城市。 |
+| 城市与邮票册 | `getCityById(cityId)`、`listStampCards()`、`collectStamp(stampId)` | 城市由现有数据提供，邮票服务读静态定义与 `stamps`。已藏和未藏邮票都可打开册内对应书架，收藏在书架中完成。城市门户连接书架和同城计划。 |
 | 手账壳与模式选择页 | `listBooksByCity(cityId)`、`createBook(cityId, title, planId?)`、`getBook(bookId)` | 点击邮票进入对应城市手账列表，新建成功或打开旧手账进入 `/book/:bookId`。省略或传入无效 `mode` 时显示模式选择页。手账壳按书记录确定所属城市，无效书 ID 可返回邮票册。 |
 | Journal / Collage | `saveJournal(bookId, doc)`、`saveCollage(bookId, canvas)`。视图接收各自的内容、素材、保存回调和状态。 | 通过 `/book/:bookId?mode=journal` 与 `/book/:bookId?mode=collage` 独立延迟加载。共同使用同一个 `bookId`、素材接口和保存队列，各自更新自己的内容。V1-08B 起 Collage 从模式选择页直接进入正式拼贴界面。 |
 | 素材 | `listAssets(cityId)`、`getAsset(assetId)`、`importPhoto(cityId, file)` | 合并同城照片、本城贴纸和通用贴纸。统一返回渲染需要的元数据；预览组件自行创建和释放 URL。用返回的 ID 插入编辑内容。 |
 | 愿望与计划 | `listWishes()`、`getWish(cityId)`、`saveWish(cityId, note)`、`removeWish(cityId)`；`listPlans(cityId?)`、`getPlan(planId)`、`savePlan(draft, confirmation?)`、`deletePlan(planId)` | V1 的 `/section/plans` 进入愿望地图，`/plan/city/:cityId` 显示城市愿望与行程，`/plan/new?cityId=nanjing` 预填城市，`/plan/:planId` 打开已有行程。计划详情可打开已关联手账的模式选择页。 |
-| 跨模块操作 | `linkBookToPlan(bookId, planId?)`；计划变更和删除复用关系校验与清理。 | 由页面调用独立的业务操作，统一进入数据层事务。书和计划的仓储无需互相导入。 |
+| 跨模块操作 | `linkBookToPlan(bookId, planId?)`、`listBooksByPlan(planId)` | 手账壳可关联、更换或解除本城行程。手账仓储以字段级事务更新关系，计划仓储在修改城市和删除时清理关联。行程详情列出已关联的手账及城市入口。 |
 | 页面转场 | `onSelectCity(cityId)`、`onCityArrival(cityId)`、`onOpenCity(cityId)` | Three.js 只报告相机抵达，首页控制卡片显隐，明信片交给路由导航。静态城市入口走同一交互，WebGL 失败或减少动效时直接进入卡片可操作状态。 |
 
 依赖方向为页面和路由 → 业务组件与数据接口 → 静态目录或 Dexie。跨实体命令放在数据事务入口，UI 不直接访问 Dexie 表。主题和素材目录供多个页面共享，Three.js 与场景资源仍独立于业务数据。
@@ -90,12 +90,12 @@ V1 保留 React 18、Three.js、Vite 和 Hash 路由。Journal 用 Tiptap 3，Co
 
 | 区域 | 可供评审的设计方案 |
 | --- | --- |
-| 城市邮票册 | 沿用现有纸色与城市剪影，统一齿孔、邮票尺寸和排版；已收集显示颜色和日期，未收集保留清晰标签。城市页提供收集按钮，成功后更新收藏册状态。参考 StampQuest 的互动顺序。[护照卡片](https://github.com/shrlak/stampquest/blob/bb853972594b3fa995854151997e541ead5edf8a/client/src/components/StampCard.tsx) |
+| 城市邮票册 | 沿用现有纸色与城市剪影，统一齿孔、邮票尺寸和排版；已收集显示颜色和日期，未收集保留清晰标签。册内城市书架提供收集按钮，成功后更新收藏册状态。参考 StampQuest 的互动顺序。[护照卡片](https://github.com/shrlak/stampquest/blob/bb853972594b3fa995854151997e541ead5edf8a/client/src/components/StampCard.tsx) |
 | 模式选择页 | 显示 Journal 横线日记本与 Collage 自由拼贴两个入口。两种视图可回到同一本书的选择页，选择页可回到所在城市的手账列表。选择页与 Journal 界面可先用本地样例开展视觉与基础交互开发，再接入公共路由、素材和保存框架。 |
 | Journal | 用现有城市封面打开横线纸页，保留标题、正文、简短格式工具栏、素材面板和保存反馈。照片与贴纸作为正文中的块，素材插入位置可预期。照片边框可参考拍立得的层次关系，造型使用项目自己的纸纹和色板。[照片样式参考](https://github.com/OarisaR/Scrapbook/blob/c893c0040b76d0551ea30ce97a6c6a1799617cd8/src/components/PolaroidElement.js) |
 | Collage | 同一素材面板配便于拖动的空白纸页。选中时显示变换把手和图层操作，手工控制照片、文字和贴纸的位置、大小、旋转与前后顺序。窄屏压缩工具栏空间，画布按比例缩放。 |
 | 计划 | 按天显示日期、城市、条目与可选时间，行程卡延续同一纸页风格。城市入口与关联手账放在内容附近，支持看完计划回到对应城市。[每日结构参考](https://github.com/andre-lmarinho/turistar/blob/b90b0de935d3b1253911e3d4c456daaeff6e9172/src/modules/planner/views/BoardView.tsx) |
-| 地球转场 | 复用地球镜头、图钉与明信片。确认选城后可直接打开定位该城市的邮票册，明信片保留独立预览。支持 ESC 取消、反复点选、返回及键盘焦点回到触发处。需要实测宽屏、窄屏和 WebGL 退路。[明信片焦点处理](https://github.com/xiaoguijj/travel-atlas-book/blob/ea457b3bca97c99f3cf0da6c558a78dc98ca91df/src/components/postcard/CityPostcard.tsx#L17-L39) |
+| 地球转场 | 复用地球镜头、图钉与明信片。首页选城打开明信片，主按钮进入定位该城市的邮票册。支持 ESC 取消、反复点选、返回及键盘焦点回到触发处。需要实测宽屏、窄屏和 WebGL 退路。[明信片焦点处理](https://github.com/xiaoguijj/travel-atlas-book/blob/ea457b3bca97c99f3cf0da6c558a78dc98ca91df/src/components/postcard/CityPostcard.tsx#L17-L39) |
 | 城市贴纸 | 六城各备一款地标与一款地方元素，并提供少量通用纸胶带或邮戳。统一视窗尺寸、描边粗细、纸色和阴影，用轮廓与局部城市色区分。可复用已有地标绘制思路，把同一部件输出为项目自有矢量资源供两种编辑器使用。资源按城市和通用分类归档，写明作者、来源、授权及 ID。[现有地标](https://github.com/xiaoguijj/travel-atlas-book/blob/ea457b3bca97c99f3cf0da6c558a78dc98ca91df/src/components/city/CityMotif.tsx) · [分类参考](https://github.com/liketrek/TREK/blob/2bcfc1bfcbbff0affd097c0f789c835396389572/shared/src/book/stickers/sticker-catalogue.ts) |
 
 ## 7. 许可证与技术风险

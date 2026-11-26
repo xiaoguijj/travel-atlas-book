@@ -92,6 +92,43 @@ describe('book repository', () => {
     await expect(database.books.count()).resolves.toBe(1);
   });
 
+  it('links, changes and clears a plan without overwriting concurrent book saves', async () => {
+    const first = createPlan({ cityIds: ['nanjing', 'xian'] });
+    const second = createPlan({ cityIds: ['nanjing'] });
+    const otherCity = createPlan({ cityIds: ['xian'] });
+    await database.plans.bulkAdd([first, second, otherCity]);
+    const book = await repository.createBook('nanjing', '原标题');
+    const journal = createJournal();
+    const collage = createCollage();
+
+    clock.advance();
+    const [linked] = await Promise.all([
+      repository.linkBookToPlan(book.id, first.id),
+      repository.saveJournal(book.id, journal),
+      repository.saveCollage(book.id, collage),
+      repository.renameBook(book.id, '最新标题'),
+    ]);
+    expect(linked.planId).toBe(first.id);
+    await expect(repository.listBooksByPlan(first.id)).resolves.toMatchObject([{ id: book.id }]);
+    await expect(repository.linkBookToPlan(book.id, 'missing-plan')).rejects.toMatchObject({ code: 'INVALID_PLAN' });
+    await expect(repository.linkBookToPlan(book.id, otherCity.id)).rejects.toMatchObject({ code: 'INVALID_RELATION' });
+    await expect(repository.linkBookToPlan('missing-book', first.id)).rejects.toMatchObject({ code: 'BOOK_NOT_FOUND' });
+    await expect(repository.linkBookToPlan(' ', first.id)).rejects.toMatchObject({ code: 'INVALID_BOOK_ID' });
+    await expect(repository.getBook(book.id)).resolves.toMatchObject({ planId: first.id });
+
+    clock.advance();
+    const changed = await repository.linkBookToPlan(book.id, second.id);
+    expect(changed).toMatchObject({ planId: second.id, title: '最新标题', journal, collage, updatedAt: clock.now() });
+    await expect(repository.listBooksByPlan(first.id)).resolves.toEqual([]);
+    clock.advance();
+    await expect(repository.linkBookToPlan(book.id, second.id)).resolves.toEqual(changed);
+
+    const cleared = await repository.linkBookToPlan(book.id);
+    expect(cleared).toEqual({ ...changed, planId: undefined, updatedAt: clock.now() });
+    expect((await repository.getBook(book.id))?.planId).toBeUndefined();
+    await expect(repository.listBooksByPlan(second.id)).resolves.toEqual([]);
+  });
+
   it('saves journal and collage independently without overwriting other fields', async () => {
     const plan = createPlan({ cityIds: ['nanjing'] });
     await database.plans.add(plan);

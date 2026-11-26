@@ -191,8 +191,8 @@ test.describe('桌面：选城、转场与焦点', () => {
     await page.mouse.click(nanjing.x, nanjing.y);
     await page.getByRole('button', { name: '进入旅行手账' }).click();
 
-    await expect(page).toHaveURL(/\/#\/city\/nanjing$/);
-    await expect(page.getByRole('heading', { name: /^南京/ })).toBeVisible();
+    await expect(page).toHaveURL(/\/#\/section\/journals\?cityId=nanjing$/);
+    await expect(page.getByRole('button', { name: /南京 Nanjing 邮票/ })).toHaveAttribute('aria-expanded', 'true');
     await expect(page.getByRole('link', { name: '返回地球探索' })).toBeVisible();
     // 内页用 InnerPageLayout 的顶栏，Shell 不再叠加旧导航
     await expect(page.getByRole('navigation', { name: '已收录城市' })).toHaveCount(0);
@@ -303,7 +303,7 @@ test.describe('桌面：选城、转场与焦点', () => {
     await page.goto('/');
     await openMarker(page, '南京');
     await page.getByRole('button', { name: '进入旅行手账' }).click();
-    await expect(page).toHaveURL(/\/#\/city\/nanjing$/);
+    await expect(page).toHaveURL(/\/#\/section\/journals\?cityId=nanjing$/);
     await page.getByRole('link', { name: '返回地球探索' }).click();
     await expect(page.getByLabel('Travel Atlas Book 首页')).toBeVisible();
 
@@ -332,8 +332,18 @@ test.describe('窄屏与触屏', () => {
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
 
+    await expect(marker(page, '上海')).toHaveAttribute('tabindex', '0');
+    await expect(marker(page, '杭州')).toHaveAttribute('tabindex', '0');
     const point = await markerPoint(page, '上海');
+    const hangzhou = await markerPoint(page, '杭州');
+    // 模拟浏览器把合成 click 的坐标挪到邻近图钉，真实触屏按下仍发生在上海。
+    await page.evaluate(({ x, y }) => {
+      document.addEventListener('click', (event) => {
+        Object.defineProperties(event, { clientX: { value: x }, clientY: { value: y } });
+      }, { capture: true, once: true });
+    }, hangzhou);
     await page.touchscreen.tap(point.x, point.y);
+    await expect(page.getByRole('dialog')).toHaveAccessibleName('上海 明信片');
     await expect(dialog(page, '上海')).toBeVisible();
     await page.getByRole('button', { name: '先留在地球' }).click();
 
@@ -347,8 +357,10 @@ test.describe('窄屏与触屏', () => {
     await page.goto('/');
     expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
 
+    await expect(marker(page, '上海')).toHaveAttribute('tabindex', '0');
     const shanghai = await markerPoint(page, '上海');
     await page.touchscreen.tap(shanghai.x + 18, shanghai.y - 14);
+    await expect(page.getByRole('dialog')).toHaveAccessibleName('上海 明信片');
     await expect(dialog(page, '上海')).toBeVisible();
   });
 
