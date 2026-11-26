@@ -1,6 +1,6 @@
 # Travel Atlas Book 技术实现与扩展指南
 
-本文档承接并保留原仓库首页的技术实现细节、扩展接入点与素材说明，便于评审及后续开发按源码核对核心工程设计。V1 完整契约、开发规划与发布验收另见：
+本文档承接并保留原仓库首页的技术实现细节、扩展接入点与素材说明，便于开发者按源码核对核心工程设计。V1 完整契约、开发规划与发布验收另见：
 
 - [V1 技术方案](Travel-Atlas-Book-V1.md)
 - [V1 正式开发规划](Travel-Atlas-Book-V1-Development-Plan.md)
@@ -111,4 +111,4 @@ dist/assets/CollageView-*.js      332.32 kB │ gzip: 105.42 kB  (Collage 懒加
   - 当前未公开发布线上站点（Qoder Sites 待团队确认授权后部署）；
   - 数据仅存储在当前浏览器 IndexedDB（贴纸独立层同步受控于 localStorage 与跨标签页写锁），不支持账号、云同步、PDF 导出或跨设备共享；
   - 伦敦保留在地球、明信片与城市详情页入口，暂不在六城邮票册与愿望地图业务范围内；
-  - 自动化测试（Vitest + Playwright Chromium）已覆盖核心链路、数据并发与静态部署，真机触屏、双指缩放、中文输入法与 Safari/Firefox 仍需在赛前完成实机验收（详见 [V1-11 发布与演示说明](v1/release.md)）。
+  - 自动化测试（Vitest + Playwright Chromium）已覆盖核心链路、数据并发与静态部署，真机触屏、双指缩放、中文输入法与 Safari/Firefox 尚待在真实设备完成实机验收（详见 [V1-11 发布与演示说明](v1/release.md)）。
