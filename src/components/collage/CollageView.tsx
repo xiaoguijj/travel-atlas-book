@@ -206,6 +206,7 @@ export function CollageView(props: CollageViewProps) {
       className={styles.page}
       data-save-state={saveState.status}
       data-selected={selected ? 'true' : undefined}
+      data-panel={tool ?? (inspectorOpen ? 'inspector' : undefined)}
       aria-labelledby="collage-heading"
     >
       <h2 id="collage-heading" className="srOnly">

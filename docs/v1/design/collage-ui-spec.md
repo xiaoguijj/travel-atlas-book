@@ -126,3 +126,22 @@ InnerPageLayout（现有深青地图底 + 顶部 header）
 - 数据库 Schema、`CollageCanvas` / `CollageItem` 数据契约变更；
 - 素材系统、保存队列、冲突保护、页面路由的重写；
 - 对 Journal 日记本及其他页面的视觉改动。
+
+## 9. 实现截图
+
+截图由 Playwright 在真实构建产物上以 1440×900 与 390×844 运行取景，示例内容由测试脚本临时创建，初始画布仍为空白纸面。
+
+| 截图 | 说明 |
+| --- | --- |
+| `screenshots/final-desktop.jpg` | 桌面端拼贴成品：亚麻桌面、装订夹活页纸、左侧工具轨、右侧属性把手、选中浮动条。 |
+| `screenshots/final-photo-panel.jpg` | 左侧照片面板展开，已上传照片以胶带相纸缩略图呈现，底部提供「打开素材册」入口。 |
+| `screenshots/final-inspector.jpg` | 选中文字后右侧「图层与属性」浮层：图层顺序、旋转与缩放、文字格式、删除与图层列表。 |
+| `screenshots/final-mobile.jpg` | 390×844 移动端：纸面铺满宽度，底部工具 dock 与选中浮动条。 |
+| `screenshots/final-mode-select.jpg` | 模式选择页的 Collage 入口已改为正式链接。 |
+
+实现阶段补充的细节（与概念图一致的方向）：
+
+1. 照片在画布内带白色相纸边框与投影（`CollageStage` 的 `CanvasAsset` 以 `frame = max(6, min(width, height) * 0.045)` 绘制），更接近贴上去的旅行照片。
+2. 新建文字默认使用楷体栈 `KaiTi, STKaiti, "Kaiti SC", serif`，贴近手账手写感；文字行高 1.3。
+3. 属性面板整体滚动，图层列表位于面板末尾；文字选中时优先露出文字格式，避免被列表遮住。
+4. 移动端底部浮层打开时收起工具 dock，避免两排浮层叠在一起。

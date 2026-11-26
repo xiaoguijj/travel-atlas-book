@@ -785,13 +785,9 @@
 }
 
 .layerSection {
-  position: sticky;
-  bottom: 0;
   margin-top: 2px;
   padding-top: 10px;
   border-top: 1px dashed rgba(176, 141, 87, 0.45);
-  background: var(--desk-paper);
-  box-shadow: 0 -16px 18px -16px rgba(46, 26, 8, 0.5);
 }
 
 .sectionHint {
@@ -1258,6 +1254,12 @@
   }
 
   .page[data-selected='true'] .rightDock {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* 底部浮层打开时收起工具 dock，避免和浮层叠成两排 */
+  .page[data-panel] .tools {
     opacity: 0;
     pointer-events: none;
   }
