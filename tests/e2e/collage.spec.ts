@@ -358,4 +358,38 @@ test.describe('narrow touch viewport', () => {
     await expect(selectionBar(page)).toBeVisible();
     expect((await readBook(page, BOOK))?.collage?.items).toEqual([rotated]);
   });
+
+  test('landscape touch viewports keep a usable canvas and allow touch interaction', async ({ page, context }) => {
+    const item: CollageItem = { id: 'landscape-item', kind: 'sticker', assetId: 'sticker:stamp-nanjing', x: 240, y: 240, width: 260, height: 220, rotation: 0 };
+    await seedBooks(page, [seedBook(BOOK, '横屏拼贴', 'nanjing', { collage: { width: 1200, height: 1600, items: [item] } })]);
+
+    await page.setViewportSize({ width: 667, height: 375 });
+    await page.goto(COLLAGE_URL);
+    await expect(canvas(page)).toBeVisible();
+    const box667 = (await canvas(page).boundingBox())!;
+    expect(box667.width).toBeGreaterThanOrEqual(280);
+    expect(box667.height / box667.width).toBeCloseTo(4 / 3, 2);
+
+    await page.setViewportSize({ width: 568, height: 320 });
+    await expect(canvas(page)).toBeVisible();
+    const box568 = (await canvas(page).boundingBox())!;
+    expect(box568.width).toBeGreaterThanOrEqual(280);
+    expect(box568.height / box568.width).toBeCloseTo(4 / 3, 2);
+
+    const { x, y, w, h, scale } = await itemScreenBox(page, item);
+    await page.touchscreen.tap(x + w / 2, y + h / 2);
+    await expect(selectionBar(page)).toBeVisible();
+
+    const session = await context.newCDPSession(page);
+    await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x + w / 2, y: y + h / 2 }] });
+    await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + w / 2 + 80 * scale, y: y + h / 2 + 40 * scale }] });
+    await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    const [moved] = await savedItems(page);
+    expect(Math.abs(moved.x - item.x - 80)).toBeLessThan(2 / scale);
+    expect(Math.abs(moved.y - item.y - 40)).toBeLessThan(2 / scale);
+
+    await openTool(page, '城市贴纸');
+    await expect(page.getByRole('button', { name: '收起素材面板', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '收起素材面板', exact: true }).click();
+  });
 });

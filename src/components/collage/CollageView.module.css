@@ -92,7 +92,7 @@
   --cover-left: -25px;
   position: relative;
   flex: 0 1 auto;
-  width: min(100%, calc((100dvh - 190px) * 0.75), 740px);
+  width: min(100%, max(320px, calc((100dvh - 190px) * 0.75)), 740px);
 }
 
 .journalCover {
@@ -1253,7 +1253,7 @@
     --cover-right: -9px;
     --cover-bottom: -10px;
     --cover-left: -16px;
-    width: min(calc(100% - 16px), calc((100dvh - 332px) * 0.75));
+    width: min(calc(100% - 16px), max(320px, calc((100dvh - 332px) * 0.75)));
   }
 
   .clip {
@@ -1314,16 +1314,12 @@
     left: 10px;
     right: 10px;
     top: auto;
-    bottom: calc(76px + env(safe-area-inset-bottom));
+    bottom: calc(12px + env(safe-area-inset-bottom));
     width: auto;
-    max-height: 58dvh;
-    border-radius: 14px 14px 6px 6px;
-    animation: sheet-in 0.2s ease both;
-  }
-
-  .inspector {
-    max-height: 62dvh;
+    max-height: min(68dvh, calc(100dvh - 24px));
+    border-radius: 14px;
     z-index: 46;
+    animation: sheet-in 0.2s ease both;
   }
 
   .rightDock {
@@ -1348,8 +1344,14 @@
     pointer-events: none;
   }
 
-  /* 底部浮层打开时收起工具 dock，避免和浮层叠成两排 */
+  /* 底部抽屉打开时收起底部工具轨、选中栏与入口钮，避免多层浮层重叠；仅隐藏 .rail 保持 .toolPanel 可见 */
   .page[data-panel] .tools {
+    z-index: 46;
+  }
+
+  .page[data-panel] .rail,
+  .page[data-panel] .selectionBar,
+  .page[data-panel] .rightDock {
     opacity: 0;
     pointer-events: none;
   }
@@ -1391,7 +1393,7 @@
     --cover-right: -7px;
     --cover-bottom: -8px;
     --cover-left: -13px;
-    width: min(calc(100% - 14px), calc((100dvh - 328px) * 0.75));
+    width: min(calc(100% - 14px), max(280px, calc((100dvh - 328px) * 0.75)));
   }
 
   .railButton {
@@ -1424,6 +1426,28 @@
 
   .sliderRow {
     grid-template-columns: 28px minmax(0, 1fr) 58px;
+  }
+}
+
+/* 短横屏手机（如 667×375、568×320）：收紧底部浮层边距，确保画布与抽屉均可操作且允许纵向滚动。 */
+@media (max-width: 900px) and (max-height: 500px) {
+  .workspace {
+    padding-bottom: 112px;
+  }
+
+  .tools {
+    bottom: calc(6px + env(safe-area-inset-bottom));
+  }
+
+  .selectionBar,
+  .rightDock {
+    bottom: calc(68px + env(safe-area-inset-bottom));
+  }
+
+  .toolPanel,
+  .inspector {
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    max-height: calc(100dvh - 16px);
   }
 }
 
