@@ -11,6 +11,7 @@
 | 代码基线 | `origin/main@7c09576`，已包含 V1-01 至 V1-10 |
 | 发布候选 | 本分支 PR 的 HEAD；生产构建与 E2E 均针对同一工作树完成 |
 | 自动化测试 | 类型检查、单测、生产构建、Playwright E2E 通过（结果见第 5 节） |
+| Node 22 CI | PR CI 在 Node 22 上 `npm ci`、类型检查、单测、构建、完整 E2E 通过 |
 | 静态部署 | 已准备根路径与 `/atlas` 子路径的本地静态服务；Qoder Sites **尚未发布** |
 | 本地离线备份 | `demo/current/`（gitignored），含 `BUILD.txt`；上一份保留在 `demo/previous/` |
 | 真机触屏 | **未执行**（没有真实触屏设备证据） |
@@ -25,7 +26,7 @@
 - 输出目录：`dist/`，共 57 个文件，约 11.94 MB
 - `dist/index.html`：1,320 B，SHA-256 `055e7afd8c0375bce47069210bb1e9382222bc36dbd686ef0d7e78b57d2eac7e`
 - 本地验证环境：Windows，Node v24.14.1，npm 11.11.0，Playwright 1.65.1 / Chromium 1255
-- 项目要求 Node `>=22`。本机没有 Node 22，**没有执行 Node 22 下的 `npm ci` 清洁安装**；正式发布前应在 Node 22 环境补做，或由 CI 结果确认。
+- 项目要求 Node `>=22`。本机没有 Node 22，未在本机执行 Node 22 下的 `npm ci`；**PR CI 已在 Node 22 上通过 `npm ci`、类型检查、单测、构建和完整 E2E**，Node 22 清洁安装一项以 CI 结果为准。
 
 构建分包（gzip 为构建输出）：
 
@@ -177,7 +178,7 @@ Qoder Sites 通过会话内 Sites Skills 或 `qoder sites` CLI 发布，静态�
 
 ## 8. 已知限制
 
-- Node 22 清洁安装未执行：本机 Node 24.14.1；`npm ci` 在 Node 22 下的结果需由 CI 或另一台机器补证。
+- 本机未单独执行 Node 22 清洁安装：本机 Node 24.14.1；PR CI 已在 Node 22 上通过 `npm ci`、类型检查、单测、构建和完整 E2E。
 - 真实触屏、双指缩放、手机浏览器地址栏/安全区、中文输入法均未在真机验证；现有窄屏用例是 Chromium 视口模拟。
 - 只在 Chromium 1255 验证；Safari、Firefox、微信内置浏览器未测。
 - Qoder Sites 尚未发布，没有线上地址、线上预览或公开访问策略记录。
@@ -191,7 +192,7 @@ Qoder Sites 通过会话内 Sites Skills 或 `qoder sites` CLI 发布，静态�
 
 ## 9. 发布检查清单
 
-- [ ] Node 22 环境 `npm ci`、`npm run typecheck`、`npm test`、`npm run build`、`npm run test:e2e` 全通过
+- [x] Node 22 环境 `npm ci`、`npm run typecheck`、`npm test`、`npm run build`、`npm run test:e2e` 全通过（PR CI）
 - [ ] 发布 commit 与 `dist/` 一一对应，记录 `index.html` SHA-256
 - [ ] Qoder Sites 预览地址在根路径或 `/atlas` 子路径可打开，深链刷新正常，无 404
 - [ ] 首页背景画授权已确认；未确认则不公开发布
