@@ -49,6 +49,7 @@ test('mode selection page, mode URLs, refresh, back and invalid IDs', async ({ p
     'href',
     `#/book/${BOOK_A}?mode=journal`,
   );
+  await expect(page.getByRole('button', { name: /Collage 自由拼贴，功能开发中/ })).toBeVisible();
   await expect(page.getByRole('link', { name: '返回邮票收藏册', exact: true })).toHaveAttribute(
     'href',
     '#/section/journals?cityId=nanjing',
@@ -67,7 +68,7 @@ test('mode selection page, mode URLs, refresh, back and invalid IDs', async ({ p
   await page.waitForURL(/mode=journal/);
 
   await page.goto(`/#/book/${BOOK_A}?mode=collage`);
-  await expect(page.getByRole('heading', { name: '拼贴画布正在裱糊' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '自由拼贴画布' })).toBeVisible();
 
   await page.goto(`/#/book/${BOOK_A}?mode=unknown`);
   await expect(page.getByRole('heading', { level: 1, name: '南京 · Nanjing — 选择你的创作方式' })).toBeVisible();
@@ -212,7 +213,7 @@ test('a pending draft is flushed before switching modes', async ({ page }) => {
   await fillJournal(page, '写到一半就切去拼贴。');
   await page.locator('a[href*="mode=collage"]').click();
   await page.waitForURL(/mode=collage/);
-  await expect(page.getByRole('heading', { name: '拼贴画布正在裱糊' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '自由拼贴画布' })).toBeVisible();
 
   const stored = await readBook(page, BOOK_A);
   expect(stored?.title).toBe('离开前保存的标题');
@@ -277,7 +278,7 @@ test('save failure is reported, retry works and leaving can be cancelled', async
 
   await page.locator('a[href*="mode=collage"]').click();
   await page.waitForURL(/mode=collage/);
-  await expect(page.getByRole('heading', { name: '拼贴画布正在裱糊' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '自由拼贴画布' })).toBeVisible();
 
   const stored = await readBook(page, BOOK_A);
   expect(stored?.title).toBe('重新写好的标题');

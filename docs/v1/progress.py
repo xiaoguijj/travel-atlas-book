@@ -31,16 +31,16 @@ def read_formal_plan(text):
     cards = text.split("## 5. ", 1)[1].split("## 6. ", 1)[0]
     tasks = {}
     for line in table.splitlines():
-        match = re.match(r"^\| (V1-\d{2}) · `([^`]+)` \| (.+) \| (.+) \| (.+) \| .+ \|$", line)
+        match = re.match(r"^\| (V1-\d{2}[A-Z]?) · `([^`]+)` \| (.+) \| (.+) \| (.+) \| .+ \|$", line)
         if match:
             task, branch, deliverable, dependencies, parallel = match.groups()
             tasks[task] = {
                 "id": task, "branch": branch, "deliverable": deliverable,
-                "dependencies": [f"V1-{part}" for part in re.findall(r"\d{2}", dependencies)],
+                "dependencies": [f"V1-{part}" for part in re.findall(r"\d{2}[A-Z]?", dependencies)],
                 "parallel": parallel,
             }
 
-    sections = re.split(r"^### (V1-\d{2}) · `([^`]+)` · (.+)$", cards, flags=re.M)
+    sections = re.split(r"^### (V1-\d{2}[A-Z]?) · `([^`]+)` · (.+)$", cards, flags=re.M)
     seen = set()
     for start in range(1, len(sections), 4):
         task, branch, title, body = sections[start:start + 4]

@@ -117,6 +117,11 @@ export interface CollageCanvas {
   items: CollageItem[];
 }
 
+/** A supplied precondition also protects an initially empty (undefined) collage. */
+export interface CollageSavePrecondition {
+  expected: CollageCanvas | undefined;
+}
+
 export interface TravelBook {
   id: string;
   cityId: string;
@@ -301,6 +306,7 @@ export type DataErrorCode =
   | 'INVALID_JOURNAL'
   | 'JOURNAL_CONFLICT'
   | 'INVALID_COLLAGE'
+  | 'COLLAGE_CONFLICT'
   | 'INVALID_PHOTO'
   | 'UNSUPPORTED_IMAGE_TYPE'
   | 'PHOTO_TOO_LARGE'

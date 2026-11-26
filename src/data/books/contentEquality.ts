@@ -1,11 +1,5 @@
-import type { JournalContent } from '../contracts';
-
 /** Compare the stored JSON, including unknown fields, without depending on key order. */
-export function sameJournalContent(left: JournalContent | undefined, right: JournalContent | undefined): boolean {
-  return equalValue(left, right);
-}
-
-function equalValue(left: unknown, right: unknown): boolean {
+export function sameStoredContent(left: unknown, right: unknown): boolean {
   if (Object.is(left, right)) return true;
   if (!left || !right || typeof left !== 'object' || typeof right !== 'object') return false;
   if (Array.isArray(left) || Array.isArray(right)) {
@@ -24,5 +18,5 @@ function equalValue(left: unknown, right: unknown): boolean {
   const keys = Reflect.ownKeys(leftRecord);
   return keys.length === Reflect.ownKeys(rightRecord).length
     && keys.every((key) => Object.prototype.hasOwnProperty.call(rightRecord, key)
-      && equalValue(leftRecord[key], rightRecord[key]));
+      && sameStoredContent(leftRecord[key], rightRecord[key]));
 }

@@ -143,13 +143,28 @@ class PlanTests(unittest.TestCase):
     def test_all_plan_cards_and_direct_dependencies_stay_in_sync(self):
         tasks = progress.read_formal_plan(progress.PLAN.read_text(encoding="utf-8"))
         self.assertEqual(json.loads(progress.TASKS.read_text(encoding="utf-8")), tasks)
-        self.assertEqual([task["id"] for task in tasks], [f"V1-{i:02}" for i in range(1, 12)])
-        self.assertEqual(sum(len(task["dependencies"]) for task in tasks), 13)
+        ids = [f"V1-{i:02}" for i in range(1, 12)]
+        ids.insert(ids.index("V1-08"), "V1-08A")
+        self.assertEqual([task["id"] for task in tasks], ids)
+        self.assertEqual(sum(len(task["dependencies"]) for task in tasks), 15)
         layers = progress.dependency_layers(tasks)
         for task in tasks:
             self.assertTrue(task["acceptance"])
             for upstream in task["dependencies"]:
                 self.assertLess(layers[upstream], layers[task["id"]])
+
+    def test_collage_core_merge_completes_only_the_stage(self):
+        tasks = progress.read_formal_plan(progress.PLAN.read_text(encoding="utf-8"))
+        merged = "2026-11-26T04:00:00Z"
+        pulls = [
+            pull(1, head="v1/05-book-shell", state="closed", merged=merged),
+            pull(2, head="v1/08a-collage-core", state="closed", merged=merged),
+        ]
+        states = {task["id"]: task for task in progress.resolve_tasks(tasks, {}, {}, pulls)}
+        self.assertEqual(states["V1-08A"]["state"], "done")
+        self.assertEqual(states["V1-08"]["state"], "ready")
+        self.assertIn("V1-08", states["V1-10"]["missing"])
+        self.assertNotIn("V1-08A", states["V1-10"]["dependencies"])
 
     def test_invalid_dependency_graphs_fail_the_build(self):
         for tasks, error in [

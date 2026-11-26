@@ -2,6 +2,7 @@ import {
   DataError,
   MAX_BOOK_TITLE_LENGTH,
   type CollageCanvas,
+  type CollageSavePrecondition,
   type IsoDateTime,
   type JournalContent,
   type JournalSavePrecondition,
@@ -18,7 +19,7 @@ import {
   planIncludesCity,
   requireCity,
 } from '../validation';
-import { sameJournalContent } from './journalEquality';
+import { sameStoredContent } from './contentEquality';
 
 export interface BookRepositoryOptions {
   /** 测试可注入固定时钟；生产缺省使用当前 UTC 时间。 */
@@ -34,7 +35,8 @@ export interface BookRepository {
   saveJournal(bookId: string, content: JournalContent, precondition?: JournalSavePrecondition): Promise<TravelBook>;
   /** Preserve a conflicting editor draft in a new book, without replacing the source. */
   copyJournalDraft(bookId: string, content: JournalContent): Promise<TravelBook>;
-  saveCollage(bookId: string, canvas: CollageCanvas): Promise<TravelBook>;
+  saveCollage(bookId: string, canvas: CollageCanvas, precondition?: CollageSavePrecondition): Promise<TravelBook>;
+  copyCollageDraft(bookId: string, canvas: CollageCanvas): Promise<TravelBook>;
 }
 
 function sortByRecentlyUpdated(books: TravelBook[]): TravelBook[] {
@@ -53,6 +55,35 @@ export function createBookRepository(
   options: BookRepositoryOptions = {},
 ): BookRepository {
   const now = options.now ?? (() => new Date().toISOString());
+
+  async function copyDraft(bookId: string, draft: { journal: JournalContent } | { collage: CollageCanvas }) {
+    const label = 'journal' in draft ? '正文' : '拼贴';
+    try {
+      const id = normalizeBookId(bookId);
+      if ('journal' in draft) assertJournalContent(draft.journal);
+      else assertCollageCanvas(draft.collage);
+      return await database.transaction('rw', database.books, async () => {
+        const source = await database.books.get(id);
+        if (!source) {
+          throw new DataError('BOOK_NOT_FOUND', '原手账不存在或已被删除', { bookId: id });
+        }
+        const suffix = `（${label}副本）`;
+        const timestamp = now();
+        const copy: TravelBook = {
+          id: createStableId(),
+          cityId: source.cityId,
+          title: `${(source.title.trim() || '未命名手账').slice(0, MAX_BOOK_TITLE_LENGTH - suffix.length)}${suffix}`,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+          ...draft,
+        };
+        await database.books.add(copy);
+        return copy;
+      });
+    } catch (error) {
+      throw toDataError(error, 'STORAGE_WRITE_FAILED', `${label}副本未能保存，请重试`);
+    }
+  }
 
   return {
     async listBooksByCity(cityId) {
@@ -154,8 +185,8 @@ export function createBookRepository(
           }
           // Check and write in the SAME readwrite transaction. A per-page queue or
           // a separate preflight read cannot protect against two concurrent tabs.
-          if (precondition && !sameJournalContent(book.journal, precondition.expected)) {
-            if (sameJournalContent(book.journal, content)) return book;
+          if (precondition && !sameStoredContent(book.journal, precondition.expected)) {
+            if (sameStoredContent(book.journal, content)) return book;
             throw new DataError(
               'JOURNAL_CONFLICT',
               '另一个标签页已更新正文，本页草稿已保留。请先另存本页正文，再打开副本继续编辑。',
@@ -171,34 +202,10 @@ export function createBookRepository(
       }
     },
 
-    async copyJournalDraft(bookId, content) {
-      try {
-        const id = normalizeBookId(bookId);
-        assertJournalContent(content);
-        return await database.transaction('rw', database.books, async () => {
-          const source = await database.books.get(id);
-          if (!source) {
-            throw new DataError('BOOK_NOT_FOUND', '原手账不存在或已被删除', { bookId: id });
-          }
-          const suffix = '（正文副本）';
-          const timestamp = now();
-          const copy: TravelBook = {
-            id: createStableId(),
-            cityId: source.cityId,
-            title: `${(source.title.trim() || '未命名手账').slice(0, MAX_BOOK_TITLE_LENGTH - suffix.length)}${suffix}`,
-            createdAt: timestamp,
-            updatedAt: timestamp,
-            journal: content,
-          };
-          await database.books.add(copy);
-          return copy;
-        });
-      } catch (error) {
-        throw toDataError(error, 'STORAGE_WRITE_FAILED', '正文副本未能保存，请重试');
-      }
-    },
+    copyJournalDraft: (bookId, content) => copyDraft(bookId, { journal: content }),
+    copyCollageDraft: (bookId, canvas) => copyDraft(bookId, { collage: canvas }),
 
-    async saveCollage(bookId, canvas) {
+    async saveCollage(bookId, canvas, precondition) {
       try {
         const id = normalizeBookId(bookId);
         assertCollageCanvas(canvas);
@@ -206,6 +213,14 @@ export function createBookRepository(
           const book = await database.books.get(id);
           if (!book) {
             throw new DataError('BOOK_NOT_FOUND', '手账不存在或已被删除', { bookId: id });
+          }
+          if (precondition && !sameStoredContent(book.collage, precondition.expected)) {
+            if (sameStoredContent(book.collage, canvas)) return book;
+            throw new DataError(
+              'COLLAGE_CONFLICT',
+              '另一个标签页已更新拼贴，本页草稿已保留。可将本页拼贴另存为副本。',
+              { bookId: id },
+            );
           }
           const updatedAt = now();
           await database.books.update(id, { collage: canvas, updatedAt });
@@ -228,3 +243,4 @@ export const renameBook = defaultRepository.renameBook;
 export const saveJournal = defaultRepository.saveJournal;
 export const copyJournalDraft = defaultRepository.copyJournalDraft;
 export const saveCollage = defaultRepository.saveCollage;
+export const copyCollageDraft = defaultRepository.copyCollageDraft;
