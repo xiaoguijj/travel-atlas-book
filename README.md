@@ -15,7 +15,7 @@
 - [V1 正式开发规划](docs/Travel-Atlas-Book-V1-Development-Plan.md)涵盖分支任务、路由契约与验收标准。
 - [V1 技术方案](docs/Travel-Atlas-Book-V1.md)记录技术选型、数据模型与调研来源。
 
-V1 手账流程为邮票收藏册 → 城市手账列表 → 创建或打开手账 → 模式选择页 → Journal 横线日记本或 Collage 自由拼贴。三种页面共用同一本手账的 `bookId`。在 Hash 路由下，模式选择页示例为 `/#/book/abc`，编辑器分别为 `/#/book/abc?mode=journal` 和 `/#/book/abc?mode=collage`。Collage 正式接入前显示「开发中」。
+V1 手账流程为邮票收藏册 → 城市手账列表 → 创建或打开手账 → 模式选择页 → Journal 横线日记本或 Collage 自由拼贴。三种页面共用同一本手账的 `bookId`。在 Hash 路由下，模式选择页示例为 `/#/book/abc`，编辑器分别为 `/#/book/abc?mode=journal` 和 `/#/book/abc?mode=collage`。两个模式都已接入正式界面。
 
 ## 快速开始
 
