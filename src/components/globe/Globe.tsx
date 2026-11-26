@@ -166,7 +166,8 @@ export const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe(
       event.stopPropagation();
       return;
     }
-    const cityId = sceneRef.current?.pickCity(event.clientX, event.clientY);
+    // 移动浏览器可能把合成 click 的坐标调整到邻近按钮，优先使用按下时的位置。
+    const cityId = sceneRef.current?.pickCity(gesture?.x ?? event.clientX, gesture?.y ?? event.clientY);
     if (!cityId) return;
     event.stopPropagation();
     const city = cities.find((item) => item.id === cityId);

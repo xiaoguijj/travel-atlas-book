@@ -32,10 +32,18 @@ import styles from './StampBookPage.module.css';
 export function StampBookPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const selectedCity = getCityById(searchParams.get('cityId') ?? undefined);
+  const requestedCityId = searchParams.get('cityId');
+  const selectedCity = getCityById(requestedCityId ?? undefined);
   const selectedCityId = selectedCity?.id;
   const [collections, setCollections] = useState<StampCollection[]>([]);
   const [storageNotice, setStorageNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (requestedCityId === null || selectedCity) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete('cityId');
+    setSearchParams(next, { replace: true });
+  }, [requestedCityId, selectedCity, searchParams, setSearchParams]);
 
   useEffect(() => {
     let alive = true;
@@ -310,7 +318,7 @@ export function StampsAliasPage() {
   const [searchParams] = useSearchParams();
   const next = new URLSearchParams(searchParams);
   const cityId = next.get('cityId');
-  if (cityId && !getCityById(cityId)) next.delete('cityId');
+  if (cityId !== null && !getCityById(cityId)) next.delete('cityId');
   const query = next.toString();
   return <Navigate replace to={query ? `${STAMP_BOOK_PATH}?${query}` : STAMP_BOOK_PATH} />;
 }

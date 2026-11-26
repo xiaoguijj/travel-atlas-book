@@ -332,8 +332,18 @@ test.describe('窄屏与触屏', () => {
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
 
+    await expect(marker(page, '上海')).toHaveAttribute('tabindex', '0');
+    await expect(marker(page, '杭州')).toHaveAttribute('tabindex', '0');
     const point = await markerPoint(page, '上海');
+    const hangzhou = await markerPoint(page, '杭州');
+    // 模拟浏览器把合成 click 的坐标挪到邻近图钉，真实触屏按下仍发生在上海。
+    await page.evaluate(({ x, y }) => {
+      document.addEventListener('click', (event) => {
+        Object.defineProperties(event, { clientX: { value: x }, clientY: { value: y } });
+      }, { capture: true, once: true });
+    }, hangzhou);
     await page.touchscreen.tap(point.x, point.y);
+    await expect(page.getByRole('dialog')).toHaveAccessibleName('上海 明信片');
     await expect(dialog(page, '上海')).toBeVisible();
     await page.getByRole('button', { name: '先留在地球' }).click();
 
@@ -347,8 +357,10 @@ test.describe('窄屏与触屏', () => {
     await page.goto('/');
     expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
 
+    await expect(marker(page, '上海')).toHaveAttribute('tabindex', '0');
     const shanghai = await markerPoint(page, '上海');
     await page.touchscreen.tap(shanghai.x + 18, shanghai.y - 14);
+    await expect(page.getByRole('dialog')).toHaveAccessibleName('上海 明信片');
     await expect(dialog(page, '上海')).toBeVisible();
   });
 

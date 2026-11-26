@@ -39,6 +39,10 @@ test('narrow navigation and every city connect the album, portal and plans', asy
   await expect(page.getByRole('link', { name: '伦敦手账书架' })).toBeVisible();
   await expect(page.getByRole('link', { name: '伦敦旅行计划' })).toHaveCount(0);
   await page.goto('/#/section/journals?cityId=missing');
+  await expect(page).toHaveURL(/#\/section\/journals$/);
+  await expect(page.getByRole('button', { name: '新建一本' })).toHaveCount(0);
+  await page.goto('/#/section/journals?cityId=&ref=album');
+  await expect(page).toHaveURL(/#\/section\/journals\?ref=album$/);
   await expect(page.getByRole('button', { name: '新建一本' })).toHaveCount(0);
 });
 
