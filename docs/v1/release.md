@@ -51,7 +51,7 @@ npm run typecheck
 npm test           # Vitest，20 个文件 / 181 个用例
 npm run build
 npm run preview    # 本地预览 dist/，http://localhost:4173
-npm run test:e2e   # 先 build，再跑 Playwright（79 个用例）
+npm run test:e2e   # 先 build，再跑 Playwright（80 个用例）
 npm run test:static # 只跑根路径/子路径静态部署用例
 ```
 
@@ -98,7 +98,7 @@ Qoder Sites 通过会话内 Sites Skills 或 `qoder sites` CLI 发布，静态�
 
 ### 4.2 子路径
 
-`vite.config.ts` 使用 `base: './'`，因此同一份 `dist/` 可放在根路径或 `/atlas/` 等子路径。子路径部署时入口是 `https://<站点>/atlas/`，资源使用相对路径；不需要改构建配置。发布前用 `scripts/serve-dist.mjs --base-path /atlas` 在本地模拟，E2E 已覆盖。
+`vite.config.ts` 使用 `base: './'`，因此同一份 `dist/` 可放在根路径或 `/atlas/` 等子路径。子路径部署时入口是 `https://<站点>/atlas/`，资源使用相对路径；不需要改构建配置。发布前用 `scripts/serve-dist.mjs --base-path /atlas` 在本地模拟；`static-deploy.spec.ts` 覆盖子路径入口、三种书页深链和两个编辑器的写入/刷新。
 
 ### 4.3 回退
 
@@ -114,9 +114,9 @@ Qoder Sites 通过会话内 Sites Skills 或 `qoder sites` CLI 发布，静态�
 | `npm run typecheck` | 通过 | 无输出错误 |
 | `npm test` | 通过 | 20 个文件 / 181 个用例 |
 | `npm run build` | 通过 | 351 modules；产物见第 2 节 |
-| `npm run test:e2e` | 通过 | 79 个用例，Chromium 1255，16 workers |
+| `npm run test:e2e` | 通过 | 80 个用例，Chromium 1255，16 workers |
 | 静态根路径 | 通过 | `static-deploy.spec.ts`，4174 根路径 + hash 深链 + 本地图片 |
-| 静态子路径 `/atlas` | 通过 | `static-deploy.spec.ts`，4175 子路径 + 深链 + 无 404 |
+| 静态子路径 `/atlas` | 通过 | `static-deploy.spec.ts`，4175 子路径 + 真实手账三深链 + 双编辑器持久化 + 无 404 |
 | 主演示路径 | 通过（自动化） | `demo-path.spec.ts`：建行程 → 邮票册 → 新建手账 → 模式选择 → Journal → 关联 → Collage → 刷新恢复 → 行程回看 |
 | 无 WebGL 退路 | 通过（自动化） | `home-globe.spec.ts` 的降级用例 |
 | 窄屏 390×844 | 通过（自动化） | 现有导航、书架、编辑器窄屏用例 |
@@ -124,10 +124,10 @@ Qoder Sites 通过会话内 Sites Skills 或 `qoder sites` CLI 发布，静态�
 | 主持机两次完整彩排 | **未执行** | 需要人工按第 6 节走两遍 |
 | Qoder Sites 线上预览 | **未执行** | 未发布，等待授权 |
 
-`npm run test:e2e` 覆盖的 79 个用例包括：应用启动、地球与图钉、无 WebGL、邮票册、模式选择、Journal 自动保存/冲突/失败重试/离开保护、Collage 素材/几何/图层/刷新、愿望地图、行程增删改与关联、跨模块联动、窄屏和静态部署。新增用例只有两个文件：
+`npm run test:e2e` 覆盖的 80 个用例包括：应用启动、地球与图钉、无 WebGL、邮票册、模式选择、Journal 自动保存/冲突/失败重试/离开保护、Collage 素材/几何/图层/刷新、愿望地图、行程增删改与关联、跨模块联动、窄屏和静态部署。新增用例只有两个文件：
 
 - `tests/e2e/demo-path.spec.ts`：一条完整演示主路径，并监控资源 404 与运行时错误。
-- `tests/e2e/static-deploy.spec.ts`：同一份 `dist/` 的根路径和 `/atlas` 子路径，直接打开与刷新 hash 深链。
+- `tests/e2e/static-deploy.spec.ts`：同一份 `dist/` 的根路径核心页，以及 `/atlas` 子路径下真实手账的三种 hash 深链和两个编辑器写入/刷新。
 
 ## 6. 现场演示流程
 
@@ -196,7 +196,7 @@ Qoder Sites 通过会话内 Sites Skills 或 `qoder sites` CLI 发布，静态�
 - [ ] 发布 commit 与 `dist/` 一一对应，记录 `index.html` SHA-256
 - [ ] Qoder Sites 预览地址在根路径或 `/atlas` 子路径可打开，深链刷新正常，无 404
 - [ ] 首页背景画授权已确认；未确认则不公开发布
-- [ ] 真实触屏设备完成第 8 节矩阵，中文输入法实际输入
+- [ ] 真实触屏设备完成规划文档第 8 节的验收矩阵，中文输入法实际输入
 - [ ] 主持机用空档案和演示档案各完整走两遍
 - [ ] 断网状态用 `demo/current` + 固定 4173 端口走完整流程
 - [ ] `demo/previous/` 与 Qoder 上一版可回退

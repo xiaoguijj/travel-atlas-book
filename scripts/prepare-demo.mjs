@@ -13,6 +13,7 @@ const projectRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const sourceDir = resolve(projectRoot, process.env.DEMO_DIST ?? 'dist');
 const targetDir = resolve(projectRoot, 'demo', 'current');
 const previousDir = resolve(projectRoot, 'demo', 'previous');
+const stagingDir = resolve(projectRoot, 'demo', 'previous-staging');
 
 async function collectFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -44,12 +45,27 @@ try {
   process.exit(1);
 }
 
-// 保留上一份已验证备份，便于演示当天一键回退。
-await rm(previousDir, { recursive: true, force: true });
+// 如果上一次替换在删除 previous 后中断，先保留现场，避免误删唯一一份旧备份。
 try {
-  await rename(targetDir, previousDir);
+  await stat(stagingDir);
+  console.error(`[demo] 发现上次未完成的备份 ${stagingDir}，请确认内容后手动删除再重试。`);
+  process.exit(1);
 } catch (error) {
   if (!error || typeof error !== 'object' || !('code' in error) || error.code !== 'ENOENT') throw error;
+}
+
+// 保留上一份已验证备份，便于演示当天一键回退。
+// 先把 current 移到临时目录，成功后才删除 previous 并补位，避免替换失败时回退点已经丢失。
+let staged = false;
+try {
+  await rename(targetDir, stagingDir);
+  staged = true;
+} catch (error) {
+  if (!error || typeof error !== 'object' || !('code' in error) || error.code !== 'ENOENT') throw error;
+}
+if (staged) {
+  await rm(previousDir, { recursive: true, force: true });
+  await rename(stagingDir, previousDir);
 }
 
 await mkdir(targetDir, { recursive: true });
@@ -70,8 +86,8 @@ const buildInfo = [
   `打包时间: ${builtAt}`,
   `构建提交: ${commit}`,
   `来源目录: ${relative(projectRoot, sourceDir) || '.'}`,
-  `文件数量: ${files.length}`,
-  `总大小: ${(totalBytes / 1024 / 1024).toFixed(2)} MB`,
+  `静态文件数量: ${files.length}（不含 BUILD.txt）`,
+  `静态产物总大小: ${(totalBytes / 1024 / 1024).toFixed(2)} MB（不含 BUILD.txt）`,
   `index.html SHA-256: ${indexHash}`,
   '',
   '运行方式:',
@@ -89,5 +105,5 @@ const buildInfo = [
 await writeFile(resolve(targetDir, 'BUILD.txt'), buildInfo, 'utf8');
 
 console.log(`[demo] 离线备份已生成: ${targetDir}`);
-console.log(`[demo] 文件 ${files.length} 个，共 ${(totalBytes / 1024 / 1024).toFixed(2)} MB`);
+console.log(`[demo] 静态文件 ${files.length} 个（不含 BUILD.txt），共 ${(totalBytes / 1024 / 1024).toFixed(2)} MB`);
 console.log('[demo] 启动: npm run demo:local -- --dist demo/current');

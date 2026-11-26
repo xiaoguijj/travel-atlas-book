@@ -1,4 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
+import { readBook } from './book-helpers';
+
+test.describe.configure({ timeout: 90_000 });
 
 const ROOT_ORIGIN = 'http://127.0.0.1:4174';
 const SUBPATH_ORIGIN = 'http://127.0.0.1:4175';
@@ -55,6 +58,51 @@ test('the same dist also works under a fixed subpath without rewrites', async ({
 
   await page.goto(`${SUBPATH}/#/plan/missing`);
   await expect(page.getByRole('heading', { name: '没有这趟行程' })).toBeVisible();
+
+  expect(assets.failures).toEqual([]);
+});
+
+test('a real book keeps both editors working through /atlas hash deep links', async ({ page }) => {
+  const assets = watchAssets(page);
+
+  await page.goto(`${SUBPATH}/#/section/journals`);
+  await expect(page.getByRole('heading', { name: '中国城市手账 · China Travel Stamps' })).toBeVisible();
+  await page.getByRole('button', { name: /^南京 Nanjing 邮票，/ }).click();
+  await page.getByRole('button', { name: '新建一本' }).click();
+  await page.waitForURL(/#\/book\/[0-9a-f-]{36}$/);
+
+  const match = new URL(page.url()).hash.match(/#\/book\/([0-9a-f-]{36})$/);
+  expect(match).not.toBeNull();
+  const bookId = match![1];
+  const modeHeading = page.getByRole('heading', { name: /南京 · Nanjing — 选择你的创作方式/ });
+  await expect(modeHeading).toBeVisible();
+
+  // 三种书页都按直接输入 hash 地址 + 刷新来验证，而不是只从应用内跳转。
+  await page.goto(`${SUBPATH}/#/book/${bookId}`);
+  await page.reload();
+  await expect(modeHeading).toBeVisible();
+
+  await page.goto(`${SUBPATH}/#/book/${bookId}?mode=journal`);
+  await page.reload();
+  await expect(page.getByLabel('手账正文', { exact: true })).toBeVisible();
+  await page.getByLabel('手账标题').fill('子路径深链手账');
+  await page.getByLabel('手账正文', { exact: true }).fill('在 /atlas 下写入并刷新恢复。');
+  await expect(page.locator('[data-state="saved"]')).toContainText('已保存');
+  await page.reload();
+  await expect(page.getByLabel('手账标题')).toHaveValue('子路径深链手账');
+  await expect(page.getByLabel('手账正文', { exact: true })).toContainText('在 /atlas 下写入并刷新恢复。');
+
+  await page.goto(`${SUBPATH}/#/book/${bookId}?mode=collage`);
+  await page.reload();
+  await expect(page.getByRole('region', { name: '拼贴画布', exact: true })).toBeVisible();
+  const rail = page.getByRole('toolbar', { name: '素材工具', exact: true });
+  await rail.getByRole('button', { name: '城市贴纸', exact: true }).click();
+  await page.getByRole('button', { name: '插入贴纸 南京邮票', exact: true }).click();
+  await expect(page.locator('[data-state="saved"]')).toContainText('已保存');
+  await expect.poll(async () => (await readBook(page, bookId))?.collage?.items.length).toBe(1);
+  await page.reload();
+  await expect(page.getByRole('region', { name: '拼贴画布', exact: true })).toBeVisible();
+  await expect.poll(async () => (await readBook(page, bookId))?.collage?.items.length).toBe(1);
 
   expect(assets.failures).toEqual([]);
 });
