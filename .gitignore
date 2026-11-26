@@ -2,6 +2,8 @@
 node_modules
 dist
 dist-ssr
+# 本地离线演示备份（scripts/prepare-demo.mjs 生成，不提交）
+demo
 .vite
 *.tsbuildinfo
 
