@@ -173,6 +173,154 @@
   padding: 0;
 }
 
+/* ------------------------------------------------------------------ Collage 暖色羊皮纸变体
+ * 仅在 Collage 编辑页启用（variant="collage"），消除深青顶栏与棕色桌面之间的割裂，
+ * 并压缩顶栏高度为中央手账让出更大展示面积；不影响 Journal 与其他任何内页。
+ */
+
+.pageCollage {
+  min-height: 100dvh;
+  background-color: #dfd0b4;
+}
+
+.bgCollage {
+  background-color: #dfd0b4;
+  background-image:
+    radial-gradient(110% 72% at 50% 4%, rgb(255 249 236 / 0.34), transparent 62%),
+    url('../../assets/collage-desk.jpg');
+  background-size: cover;
+  background-position: center;
+}
+
+.headerCollage {
+  min-height: 50px;
+  padding: 5px clamp(14px, 2.2vw, 28px);
+  overflow: hidden;
+  border-bottom: 1px solid rgb(146 108 64 / 0.32);
+  background:
+    radial-gradient(100% 140% at 50% 0%, rgb(255 251 242 / 0.52), rgb(255 251 242 / 0) 68%),
+    linear-gradient(180deg, rgb(246 236 214 / 0.94), rgb(233 215 182 / 0.9));
+  box-shadow: 0 2px 12px rgb(66 42 18 / 0.08);
+}
+
+.pageCollage .back {
+  height: 33px;
+  padding: 0 13px 0 10px;
+  border-color: rgb(146 106 62 / 0.56);
+  background: rgb(252 246 233 / 0.88);
+  color: #3a291a;
+  font-size: 13px;
+  box-shadow: 0 1px 4px rgb(68 44 18 / 0.12);
+}
+
+.pageCollage .back::after {
+  border-color: rgb(138 82 56 / 0.68);
+}
+
+.pageCollage .back:hover,
+.pageCollage .back:focus-visible {
+  border-color: #8a5238;
+  background: #fff9ec;
+}
+
+.pageCollage .brand {
+  gap: clamp(8px, 1.2vw, 14px);
+}
+
+.pageCollage .rule {
+  width: clamp(40px, 9vw, 140px);
+  background: linear-gradient(90deg, transparent, rgb(146 106 62 / 0.25) 28%, rgb(146 106 62 / 0.6));
+}
+
+.pageCollage .emblem {
+  width: clamp(22px, 2.4vw, 28px);
+  stroke: #7c5634;
+}
+
+.pageCollage .wordmark {
+  font-size: clamp(16px, 1.8vw, 21px);
+  color: #2f2014;
+  text-shadow: 0 1px 0 rgb(255 252 245 / 0.7);
+}
+
+.pageCollage .contentFlush {
+  display: flex;
+  flex-direction: column;
+}
+
+.collageHeaderLeft,
+.collageHeaderRight {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  fill: rgb(134 94 52 / 0.12);
+  stroke: rgb(96 66 36 / 0.55);
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.collageHeaderLeft {
+  left: 0;
+  width: 168px;
+  height: 50px;
+  opacity: 0.78;
+}
+
+.collageMountain {
+  fill: rgb(124 88 52 / 0.18);
+}
+
+.collageHeaderRight {
+  right: 16px;
+  width: 196px;
+  height: 50px;
+  opacity: 0.86;
+}
+
+.collagePostmarkWaves {
+  width: 48px;
+  height: 20px;
+  flex: none;
+  fill: none;
+  stroke: rgb(120 84 48 / 0.48);
+  stroke-width: 1.15;
+  stroke-linecap: round;
+}
+
+@media (max-width: 1020px) {
+  .collageHeaderRight,
+  .collagePostmarkWaves {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .headerCollage {
+    min-height: 48px;
+    padding: 4px 12px;
+  }
+
+  .collageHeaderLeft {
+    display: none;
+  }
+
+  .pageCollage .back {
+    height: 32px;
+    padding: 0 11px 0 9px;
+    font-size: 12px;
+  }
+
+  .pageCollage .wordmark {
+    font-size: 15px;
+  }
+
+  .pageCollage .emblem {
+    width: 21px;
+  }
+}
+
 /*
  * 手机宽度下返回胶囊本身就有 130px 左右，品牌组再绝对居中就会压上去
  * （实测 335px 视口溢出 8px）。这一段改成左右两端对齐：左边返回按钮，右边 Logo + 标题。

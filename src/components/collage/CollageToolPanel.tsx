@@ -159,8 +159,13 @@ export function CollageToolPanel({
         >
           <header className={styles.panelHead}>
             <div className={styles.panelTitle}>
-              <p className={styles.panelKicker}>旅途素材 · {cityName}</p>
-              <h3>{current.label}</h3>
+              <span className={styles.panelGlyph}>
+                <CurrentIcon />
+              </span>
+              <div>
+                <p className={styles.panelKicker}>旅途素材 · {cityName}</p>
+                <h3>{current.label}</h3>
+              </div>
             </div>
             <button
               type="button"

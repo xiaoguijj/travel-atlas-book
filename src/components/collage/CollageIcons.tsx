@@ -25,10 +25,11 @@ function Icon({ children, ...props }: IconProps) {
 export function PhotoIcon(props: IconProps) {
   return (
     <Icon {...props}>
-      <rect x="3" y="4.5" width="18" height="15" rx="2" />
-      <circle cx="8.6" cy="9.4" r="1.6" />
-      <path d="m4 16.6 4.7-4.3a1.6 1.6 0 0 1 2.2 0l3.2 3" />
-      <path d="m12.6 15.4 1.7-1.6a1.6 1.6 0 0 1 2.2 0l3.3 3.1" />
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+      <rect x="5.8" y="6.8" width="12.4" height="9.2" rx="1" strokeWidth="1.2" opacity="0.6" />
+      <circle cx="9.2" cy="9.8" r="1.3" />
+      <path d="m5.8 15 3.6-3.4a1.2 1.2 0 0 1 1.7 0l2.2 2.1" />
+      <path d="m12.3 13.7 1.3-1.2a1.2 1.2 0 0 1 1.7 0l2.8 2.6" />
     </Icon>
   );
 }
@@ -38,7 +39,8 @@ export function StampIcon(props: IconProps) {
     <Icon {...props}>
       <path d="M5 7.5a2.5 2.5 0 0 1 2.5-2.5h9A2.5 2.5 0 0 1 19 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 5 16.5z" />
       <path d="M8 6v-1.4M12 6v-1.4M16 6v-1.4M8 19.4V18M12 19.4V18M16 19.4V18M6 8.5H4.6M6 12H4.6M6 15.5H4.6M19.4 8.5H18M19.4 12H18M19.4 15.5H18" />
-      <path d="M9.5 10.2h5v3.6h-5z" />
+      <path d="M8.5 14.5h7M9.6 14.5v-3.2a2.4 2.4 0 0 1 4.8 0v3.2" />
+      <path d="M12 7.8v1.1" />
     </Icon>
   );
 }
@@ -46,11 +48,10 @@ export function StampIcon(props: IconProps) {
 export function StickerIcon(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5c0-.6-.06-1.2-.18-1.76L15 10.2 13.3 4.1A8.6 8.6 0 0 0 12 3.5z" />
-      <path d="M13.3 4.1 15 10.2l5.32.04A8.55 8.55 0 0 0 13.3 4.1z" />
-      <circle cx="9.2" cy="11" r=".9" />
-      <circle cx="13.6" cy="13.4" r=".9" />
-      <path d="M9.4 16.2c1.1 1 3.1 1.1 4.3.2" />
+      <path d="M12 3.8c1.4 0 2.5.4 3.5 1.1l3.6 3.6c.7 1 1.1 2.1 1.1 3.5a8.2 8.2 0 1 1-8.2-8.2z" />
+      <path d="M15.2 4.8v4a1.2 1.2 0 0 0 1.2 1.2h4" />
+      <path d="M11 9.6c-1.8 1.2-2.6 3-2.2 5 2 .4 3.8-.4 5-2.2" />
+      <path d="M8.6 14.8c1-1.2 2.1-2.3 3.4-3.4" />
     </Icon>
   );
 }
@@ -58,7 +59,10 @@ export function StickerIcon(props: IconProps) {
 export function TextIcon(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M5 6.5V5h14v1.5M12 5v14M9 19h6" />
+      <path d="M5.5 7V5.2h13V7" />
+      <path d="M12 5.2v13.6" />
+      <path d="M9 18.8h6" />
+      <path d="M5.5 5.2 6.8 6.5M18.5 5.2 17.2 6.5" strokeWidth="1.3" />
     </Icon>
   );
 }

@@ -75,7 +75,7 @@ function TextFields({ item, onChange }: { item: CollageTextItem; onChange: (item
         <span className={styles.fieldLabel}>文字内容</span>
         <textarea
           className={styles.textarea}
-          rows={3}
+          rows={2}
           value={item.text}
           onChange={(event) => onChange({ ...item, text: event.target.value })}
         />

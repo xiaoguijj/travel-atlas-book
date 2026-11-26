@@ -64,8 +64,18 @@ function CanvasAsset({ item, assets }: { item: Exclude<CollageItem, { kind: 'tex
           <Rect width={width} height={height} fill="#fffdf6" cornerRadius={2}
             shadowColor="#241a12" shadowBlur={16} shadowOpacity={0.26} shadowOffsetY={7} listening={false} />
         )}
-        <KonvaImage image={image} x={(width - imageWidth) / 2} y={(height - imageHeight) / 2}
-          width={imageWidth} height={imageHeight} listening={false} />
+        <KonvaImage
+          image={image}
+          x={(width - imageWidth) / 2}
+          y={(height - imageHeight) / 2}
+          width={imageWidth}
+          height={imageHeight}
+          shadowColor={item.kind === 'sticker' ? '#2c1a0a' : undefined}
+          shadowBlur={item.kind === 'sticker' ? 10 : 0}
+          shadowOpacity={item.kind === 'sticker' ? 0.2 : 0}
+          shadowOffsetY={item.kind === 'sticker' ? 4 : 0}
+          listening={false}
+        />
       </>
     );
   }
@@ -138,10 +148,10 @@ function SelectionHandles({ selected, scale }: { selected: CollageItem | undefin
   return (
     <Transformer ref={transformer} flipEnabled={false} keepRatio shiftBehavior="none"
       enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
-      anchorSize={14} rotateAnchorOffset={26}
-      borderStroke="#a96c50" borderStrokeWidth={1.5} borderDash={[5, 4]}
-      anchorStroke="#a96c50" anchorStrokeWidth={1.5}
-      anchorFill="#fff8ea" anchorCornerRadius={2}
+      anchorSize={13} rotateAnchorOffset={26}
+      borderStroke="#96563b" borderStrokeWidth={1.6} borderDash={[5, 4]}
+      anchorStroke="#8a4e35" anchorStrokeWidth={1.6}
+      anchorFill="#fff9ed" anchorCornerRadius={7}
       rotateAnchorCursor="grab"
       boundBoxFunc={(previous, next) => {
         const minimum = MIN_ITEM_SIZE * scale;

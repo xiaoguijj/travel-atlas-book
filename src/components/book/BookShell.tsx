@@ -140,27 +140,48 @@ function BookEditorShell({ book, city, mode, onBookSaved, stickers }: BookShellP
 
   const uploadPhoto = useCallback((file: File) => importPhoto(city.id, file), [city.id]);
 
+  const isCollage = mode === 'collage';
+
   return (
-    <InnerPageLayout back={createModeBack(book.id)} maxWidth={1280}>
+    <InnerPageLayout
+      back={createModeBack(book.id)}
+      maxWidth={isCollage ? null : 1280}
+      flush={isCollage}
+      variant={isCollage ? 'collage' : 'default'}
+    >
       <div className={styles.shell} data-mode={mode}>
         <header className={styles.toolbar}>
           <div className={styles.identity}>
-            <p className={styles.cityLine}>
-              {city.name}
-              <span>{city.nameEn}</span>
-            </p>
-            <label className={styles.titleField}>
-              <span className="srOnly">手账标题</span>
-              <input
-                className={styles.titleInput}
-                value={title}
-                onChange={(event) => changeTitle(event.target.value)}
-                onBlur={trimTitle}
-                maxLength={MAX_BOOK_TITLE_LENGTH}
-                aria-label="手账标题"
-                aria-invalid={state.error?.code === 'INVALID_TITLE' ? true : undefined}
-              />
-            </label>
+            {isCollage ? (
+              <svg className={styles.bookMark} viewBox="0 0 28 24" aria-hidden="true">
+                <path d="M2 5.5C5.5 4 10 4.4 14 6.8c4-2.4 8.5-2.8 12-1.3V19c-3.5-1.5-8-1.1-12 1.2C10 17.9 5.5 17.5 2 19z" />
+                <path d="M14 6.8v13.4" />
+                <path d="M5.5 9.5h5M5.5 13h4.5M17.5 9.5h5M17.5 13h4.5" />
+              </svg>
+            ) : null}
+            <div className={styles.identityText}>
+              <p className={styles.cityLine}>
+                {city.name}
+                <span>{city.nameEn}</span>
+              </p>
+              <label className={styles.titleField}>
+                <span className="srOnly">手账标题</span>
+                <input
+                  className={styles.titleInput}
+                  value={title}
+                  onChange={(event) => changeTitle(event.target.value)}
+                  onBlur={trimTitle}
+                  maxLength={MAX_BOOK_TITLE_LENGTH}
+                  aria-label="手账标题"
+                  aria-invalid={state.error?.code === 'INVALID_TITLE' ? true : undefined}
+                />
+                {isCollage ? (
+                  <svg className={styles.titleEditHint} viewBox="0 0 18 18" aria-hidden="true">
+                    <path d="M12.8 2.8 15.2 5.2 6 14.4 2.8 15.2 3.6 12z" />
+                  </svg>
+                ) : null}
+              </label>
+            </div>
           </div>
 
           <nav className={styles.modes} aria-label="编辑模式">

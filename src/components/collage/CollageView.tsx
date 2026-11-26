@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import collageClipArt from '../../assets/collage-clip.png';
+import collageCoverArt from '../../assets/collage-cover.png';
 import type { AssetMetadata, AssetQuery, CollageEditorProps, CollageItem } from '../../data/contracts';
 import type { City } from '../../data/types';
 import {
@@ -214,35 +216,52 @@ export function CollageView(props: CollageViewProps) {
       </h2>
 
       <div className={styles.desk} aria-hidden="true">
-        <span className={styles.deskCompass} />
-        <span className={styles.deskPostmark}>
-          <span>TRAVEL ATLAS</span>
-          <span>{city?.nameEn ?? 'JOURNAL'}</span>
-        </span>
+        <span className={styles.deskAirmailEdge} />
+        <div className={styles.deskWatermark}>
+          <span className={styles.deskCityScript}>{city?.nameEn ?? 'Travel Atlas'}</span>
+          <span className={styles.deskPostmarkTag}>TRAVEL ATLAS · {city?.name ?? 'JOURNAL'}</span>
+        </div>
       </div>
 
       <div className={styles.workspace}>
         <div className={styles.paperWrap}>
-          <span className={styles.paperStack} aria-hidden="true" />
-          <span className={styles.clip} aria-hidden="true">
-            <span className={styles.clipBody} />
-          </span>
-          <div className={styles.paper}>
-            <span className={styles.paperGrain} aria-hidden="true" />
-            <CollageStage
-              items={items}
-              selected={selected}
-              assets={assets}
-              onSelect={select}
-              onChange={updateItem}
-            />
-            <span className={styles.paperCorner} aria-hidden="true" />
-            {items.length === 0 ? (
-              <p className={styles.paperHint}>
-                <span className={styles.paperHintTitle}>旅途从一张空白纸开始</span>
-                <span className={styles.paperHintBody}>从左侧挑选照片、贴纸，或写下一段文字</span>
-              </p>
-            ) : null}
+          <img className={styles.journalCover} src={collageCoverArt} alt="" aria-hidden="true" />
+          <span className={styles.paperStackBack} aria-hidden="true" />
+          <span className={styles.paperStackMid} aria-hidden="true" />
+          <img className={styles.clip} src={collageClipArt} alt="" aria-hidden="true" />
+          <div className={styles.paperShadow}>
+            <div className={styles.paper}>
+              <span className={styles.paperPatina} aria-hidden="true" />
+              <svg className={styles.paperWatermark} viewBox="0 0 600 800" preserveAspectRatio="none" aria-hidden="true">
+                <rect x="22" y="22" width="556" height="756" rx="2" />
+                <rect x="28" y="28" width="544" height="744" rx="1" strokeDasharray="3 5" opacity="0.55" />
+                <g transform="translate(86 714)" opacity="0.72">
+                  <circle cx="0" cy="0" r="34" />
+                  <circle cx="0" cy="0" r="26" strokeDasharray="2 3" />
+                  <path d="M0-42v84M-42 0h84M-22-22l44 44M22-22l-44 44" />
+                  <polygon points="0,-32 5,-7 0,-12 -5,-7" fill="currentColor" opacity="0.45" />
+                </g>
+                <g transform="translate(514 82) rotate(-8)" opacity="0.58">
+                  <rect x="-26" y="-20" width="52" height="40" rx="2" strokeDasharray="3 2" />
+                  <path d="M-16 0h32M-12-8h24M-12 8h20" />
+                </g>
+              </svg>
+              <CollageStage
+                items={items}
+                selected={selected}
+                assets={assets}
+                onSelect={select}
+                onChange={updateItem}
+              />
+              <span className={styles.paperCorner} aria-hidden="true" />
+              {items.length === 0 ? (
+                <p className={styles.paperHint}>
+                  <span className={styles.paperHintOrnaments} aria-hidden="true">✦</span>
+                  <span className={styles.paperHintTitle}>旅途从一张空白纸开始</span>
+                  <span className={styles.paperHintBody}>从左侧挑选照片、贴纸，或写下一段文字</span>
+                </p>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
