@@ -70,22 +70,32 @@ export function useCollageEditor({ content, onChange, insertionRequest, onInsert
     select(item.id);
   }, [commit]);
 
+  /** Drop one asset from the shared library straight onto the paper. */
+  const insertAsset = useCallback((assetId: string) => {
+    if (isPhotoAssetId(assetId)) {
+      insert({ ...newItemBounds(draft.current.length, 360, 280), kind: 'photo', assetId });
+    } else if (isStickerAssetId(assetId)) {
+      insert({ ...newItemBounds(draft.current.length, 240, 240), kind: 'sticker', assetId });
+    }
+  }, [insert]);
+
   useEffect(() => {
     if (!insertionRequest) return;
     const { requestId, assetId } = insertionRequest;
     if (!handledRequests.current.has(requestId)) {
       handledRequests.current.add(requestId);
-      if (isPhotoAssetId(assetId)) {
-        insert({ ...newItemBounds(draft.current.length, 360, 280), kind: 'photo', assetId });
-      } else if (isStickerAssetId(assetId)) {
-        insert({ ...newItemBounds(draft.current.length, 240, 240), kind: 'sticker', assetId });
-      }
+      insertAsset(assetId);
     }
     onInsertionHandled?.(requestId);
-  }, [insertionRequest, insert, onInsertionHandled]);
+  }, [insertionRequest, insertAsset, onInsertionHandled]);
 
   function addText() {
-    insert({ ...newItemBounds(draft.current.length, 450, 200), kind: 'text', text: '新文字' });
+    insert({
+      ...newItemBounds(draft.current.length, 450, 200),
+      kind: 'text',
+      text: '新文字',
+      style: { fontFamily: 'KaiTi, STKaiti, "Kaiti SC", serif' },
+    });
   }
 
   function updateItem(item: CollageItem) {
@@ -111,5 +121,5 @@ export function useCollageEditor({ content, onChange, insertionRequest, onInsert
     commit(next);
   }
 
-  return { items, selected, select, addText, updateItem, removeSelected, moveSelected };
+  return { items, selected, select, addText, insertAsset, updateItem, removeSelected, moveSelected };
 }

@@ -53,12 +53,30 @@ function CanvasAsset({ item, assets }: { item: Exclude<CollageItem, { kind: 'tex
   const image = loaded?.src === src ? loaded?.image : undefined;
   const { width, height } = item;
   if (image) {
-    const fit = Math.min(width / image.naturalWidth, height / image.naturalHeight);
+    // Photos sit on a slim paper margin like a print in a travel journal.
+    const frame = item.kind === 'photo' ? Math.max(6, Math.min(width, height) * 0.045) : 0;
+    const fit = Math.min((width - frame * 2) / image.naturalWidth, (height - frame * 2) / image.naturalHeight);
     const imageWidth = image.naturalWidth * fit;
     const imageHeight = image.naturalHeight * fit;
     return (
-      <KonvaImage image={image} x={(width - imageWidth) / 2} y={(height - imageHeight) / 2}
-        width={imageWidth} height={imageHeight} listening={false} />
+      <>
+        {frame > 0 && (
+          <Rect width={width} height={height} fill="#fffdf6" cornerRadius={2}
+            shadowColor="#241a12" shadowBlur={16} shadowOpacity={0.26} shadowOffsetY={7} listening={false} />
+        )}
+        <KonvaImage
+          image={image}
+          x={(width - imageWidth) / 2}
+          y={(height - imageHeight) / 2}
+          width={imageWidth}
+          height={imageHeight}
+          shadowColor={item.kind === 'sticker' ? '#2c1a0a' : undefined}
+          shadowBlur={item.kind === 'sticker' ? 10 : 0}
+          shadowOpacity={item.kind === 'sticker' ? 0.2 : 0}
+          shadowOffsetY={item.kind === 'sticker' ? 4 : 0}
+          listening={false}
+        />
+      </>
     );
   }
 
@@ -106,7 +124,7 @@ function CanvasItem({ item, assets, onSelect, onChange }: {
       onTransformEnd={({ target }) => commitTransform(target)}>
       <Rect width={width} height={height} fill="transparent" />
       {item.kind === 'text' ? (
-        <Text width={width} height={height} text={item.text} wrap="word"
+        <Text width={width} height={height} text={item.text} wrap="word" lineHeight={1.3}
           fontSize={item.style?.fontSize ?? DEFAULT_TEXT_SIZE} fontFamily={item.style?.fontFamily ?? 'sans-serif'}
           fontStyle={`${item.style?.fontStyle === 'italic' ? 'italic' : ''} ${item.style?.fontWeight === 'bold' ? 'bold' : ''}`.trim() || 'normal'}
           fill={item.style?.color ?? DEFAULT_TEXT_COLOR} align={item.style?.align ?? 'left'} listening={false} />
@@ -130,7 +148,11 @@ function SelectionHandles({ selected, scale }: { selected: CollageItem | undefin
   return (
     <Transformer ref={transformer} flipEnabled={false} keepRatio shiftBehavior="none"
       enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
-      anchorSize={14} rotateAnchorOffset={24}
+      anchorSize={13} rotateAnchorOffset={26}
+      borderStroke="#96563b" borderStrokeWidth={1.6} borderDash={[5, 4]}
+      anchorStroke="#8a4e35" anchorStrokeWidth={1.6}
+      anchorFill="#fff9ed" anchorCornerRadius={7}
+      rotateAnchorCursor="grab"
       boundBoxFunc={(previous, next) => {
         const minimum = MIN_ITEM_SIZE * scale;
         return next.width < Math.min(previous.width, minimum) || next.height < Math.min(previous.height, minimum)

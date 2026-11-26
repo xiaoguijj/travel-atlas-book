@@ -187,3 +187,222 @@
     font-size: 0.7rem;
   }
 }
+
+/* ------------------------------------------------------------------ Collage 专属暖色羊皮纸外壳
+ * 仅作用于 data-mode="collage"，完全不影响 Journal 模式。
+ */
+
+.shell[data-mode='collage'] {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+  --save-status-bg: rgb(252 246 234 / 0.84);
+  --save-status-border: rgb(146 106 62 / 0.42);
+  --save-status-color: #5a432e;
+  --save-status-error-color: #8a4128;
+  --save-status-retry-border: rgb(138 82 56 / 0.55);
+  --save-status-retry-color: #8a4128;
+}
+
+.shell[data-mode='collage'] .toolbar {
+  gap: 8px 14px;
+  padding: 6px clamp(14px, 2.4vw, 28px);
+  border: 0;
+  border-bottom: 1px dashed rgb(154 116 70 / 0.36);
+  border-radius: 0;
+  background: linear-gradient(180deg, rgb(251 245 232 / 0.94), rgb(245 234 211 / 0.88));
+  box-shadow:
+    inset 0 1px 0 rgb(255 253 248 / 0.8),
+    0 5px 14px -10px rgb(68 42 16 / 0.18);
+}
+
+.shell[data-mode='collage'] .identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 210px;
+}
+
+.bookMark {
+  width: 26px;
+  height: 22px;
+  flex: none;
+  fill: rgb(228 205 168 / 0.65);
+  stroke: #7a5430;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.identityText {
+  display: grid;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.titleEditHint {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  fill: none;
+  stroke: rgb(118 85 52 / 0.55);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.shell[data-mode='collage'] .identityText {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.shell[data-mode='collage'] .cityLine {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid rgb(154 114 68 / 0.34);
+  border-radius: 999px;
+  background: rgb(235 220 192 / 0.7);
+  color: #6b4e33;
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+}
+
+.shell[data-mode='collage'] .cityLine span {
+  margin-left: 5px;
+  color: rgb(107 78 51 / 0.65);
+}
+
+.shell[data-mode='collage'] .titleField {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 120px;
+  max-width: 300px;
+}
+
+.shell[data-mode='collage'] .titleInput {
+  padding: 1px 2px;
+  border-bottom-color: rgb(138 100 60 / 0.34);
+  color: #2f2014;
+  font-size: clamp(0.96rem, 1.55vw, 1.12rem);
+}
+
+.shell[data-mode='collage'] .titleInput:hover {
+  border-bottom-color: rgb(138 100 60 / 0.62);
+}
+
+.shell[data-mode='collage'] .titleInput:focus-visible {
+  border-bottom-color: #8a5238;
+}
+
+.shell[data-mode='collage'] .modes {
+  gap: 4px;
+  padding: 3px;
+  border-color: rgb(154 116 70 / 0.34);
+  background: rgb(241 228 202 / 0.72);
+  box-shadow: inset 0 1px 2px rgb(92 60 28 / 0.08);
+}
+
+.shell[data-mode='collage'] .modeLink {
+  min-height: 28px;
+  padding: 3px 13px;
+  color: #5c4631;
+  font-size: 0.73rem;
+}
+
+.shell[data-mode='collage'] .modeLink:hover {
+  color: #2f2014;
+  background: rgb(176 141 87 / 0.16);
+}
+
+.shell[data-mode='collage'] .modeActive {
+  background: linear-gradient(180deg, #8b5e3b 0%, #6f482a 100%);
+  color: #fbf3e3;
+  box-shadow:
+    inset 0 1px 0 rgb(255 242 216 / 0.32),
+    inset 0 0 0 1px rgb(255 236 204 / 0.16),
+    0 2px 6px rgb(58 34 12 / 0.22);
+}
+
+.shell[data-mode='collage'] .modeActive:hover {
+  background: linear-gradient(180deg, #8b5e3b 0%, #6f482a 100%);
+  color: #fbf3e3;
+}
+
+.shell[data-mode='collage'] .assetButton {
+  min-height: 30px;
+  padding: 4px 13px;
+  border-color: rgb(146 106 62 / 0.56);
+  background: rgb(252 246 234 / 0.88);
+  color: #4b3622;
+  font-size: 0.74rem;
+}
+
+.shell[data-mode='collage'] .assetButton:hover {
+  border-color: #8a5238;
+  background: #fff9ed;
+}
+
+.shell[data-mode='collage'] .editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.shell[data-mode='collage'] .loading {
+  color: #5c4631;
+}
+
+@media (max-width: 900px) {
+  .shell[data-mode='collage'] .toolbar {
+    gap: 6px 10px;
+    padding: 7px 12px;
+  }
+
+  .shell[data-mode='collage'] .identityText {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1px;
+  }
+
+  .shell[data-mode='collage'] .cityLine {
+    width: fit-content;
+    padding: 1px 6px;
+    font-size: 0.58rem;
+  }
+
+  .shell[data-mode='collage'] .titleField {
+    max-width: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .shell[data-mode='collage'] .toolbar {
+    gap: 6px;
+    padding: 6px 10px;
+  }
+
+  .shell[data-mode='collage'] .bookMark {
+    display: none;
+  }
+
+  .shell[data-mode='collage'] .modeLink {
+    min-height: 27px;
+    padding: 3px 8px;
+    font-size: 0.68rem;
+  }
+
+  .shell[data-mode='collage'] .assetButton {
+    min-height: 28px;
+    padding: 3px 11px;
+    font-size: 0.7rem;
+  }
+}

@@ -3,11 +3,19 @@ import { resolve } from 'node:path';
 import type { CollageItem } from '../../src/data/contracts';
 import { readBook, readPhotoCount, seedBook, seedBooks } from './book-helpers';
 
+// The full-flow case paints, drags and reloads a real canvas; under a parallel
+// six-worker run it needs more than the default 30 s budget.
+test.describe.configure({ timeout: 60_000 });
+
 const BOOK = 'nanjing-collage';
 const OTHER = 'nanjing-other';
 const COLLAGE_URL = `/#/book/${BOOK}?mode=collage`;
-const layerMenu = (page: Page) => page.getByRole('combobox', { name: '图层', exact: true });
 const canvas = (page: Page) => page.getByRole('region', { name: '拼贴画布', exact: true }).locator('canvas');
+const rail = (page: Page) => page.getByRole('toolbar', { name: '素材工具', exact: true });
+const inspector = (page: Page) => page.locator('aside[aria-label="图层与属性"]');
+const selectionBar = (page: Page) => page.getByRole('toolbar', { name: '选中元素操作', exact: true });
+const layerList = (page: Page) => page.getByRole('listbox', { name: '图层列表', exact: true });
+const layerRows = (page: Page) => layerList(page).getByRole('option');
 
 function pixelAt(page: Page, x: number, y: number) {
   return canvas(page).evaluate((element, point) => {
@@ -37,10 +45,34 @@ async function mouseDrag(page: Page, x: number, y: number, toX: number, toY: num
   await page.mouse.up();
 }
 
-async function insertSticker(page: Page, label: string) {
-  await page.getByRole('button', { name: '插入贴纸', exact: true }).click();
-  await page.getByRole('button', { name: `选择贴纸 ${label}`, exact: true }).click();
-  await page.getByRole('button', { name: '使用这张素材' }).click();
+async function openTool(page: Page, name: '照片' | '城市贴纸' | '通用贴纸' | '文字') {
+  const button = rail(page).getByRole('button', { name, exact: true });
+  if ((await button.getAttribute('aria-pressed')) !== 'true') await button.click();
+}
+
+async function insertSticker(page: Page, group: '城市贴纸' | '通用贴纸', label: string) {
+  await openTool(page, group);
+  await page.getByRole('button', { name: `插入贴纸 ${label}`, exact: true }).click();
+}
+
+async function openInspector(page: Page) {
+  if (await inspector(page).count()) return;
+  await page.locator('button[aria-label="图层与属性"]').last().click();
+  await expect(inspector(page)).toBeVisible();
+}
+
+async function selectLayer(page: Page, id: string) {
+  await openInspector(page);
+  await layerList(page).locator(`[data-layer-id="${id}"]`).click();
+}
+
+async function layerIds(page: Page) {
+  return layerRows(page).evaluateAll((rows) => rows.map((row) => row.getAttribute('data-layer-id')));
+}
+
+async function addText(page: Page) {
+  await openTool(page, '文字');
+  await page.getByRole('button', { name: '添加文字', exact: true }).click();
 }
 
 test('collage assets, text, geometry and layer order survive reload and stay scoped to the book and mode', async ({ page }) => {
@@ -49,7 +81,8 @@ test('collage assets, text, geometry and layer order survive reload and stay sco
   await seedBooks(page, [seedBook(BOOK, '南京拼贴'), seedBook(OTHER, '南京另一本')]);
   await page.goto(COLLAGE_URL);
 
-  await page.getByRole('button', { name: '插入照片', exact: true }).click();
+  await openTool(page, '照片');
+  await page.getByRole('button', { name: '打开素材册', exact: true }).click();
   await page.locator('input[type=file]').setInputFiles(resolve('tests/fixtures/atlas-sample.png'));
   await expect(page.getByRole('button', { name: /选择照片 atlas-sample\.png/ })).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: '使用这张素材' }).click();
@@ -57,10 +90,12 @@ test('collage assets, text, geometry and layer order survive reload and stay sco
   expect(photo).toMatchObject({ kind: 'photo', assetId: expect.stringMatching(/^photo:/) });
   await expect.poll(() => pixelAt(page, photo.x + photo.width / 2, photo.y + photo.height / 2)).toEqual([255, 255, 255, 255]);
   expect(await readPhotoCount(page)).toBe(1);
+  await expect(page.getByRole('button', { name: '插入照片 atlas-sample.png', exact: true })).toBeVisible();
 
-  await insertSticker(page, '南京邮票');
-  await insertSticker(page, '绿皮火车');
-  await page.getByRole('button', { name: '添加文字', exact: true }).click();
+  await insertSticker(page, '城市贴纸', '南京邮票');
+  await insertSticker(page, '通用贴纸', '绿皮火车');
+  await addText(page);
+  await expect(page.getByLabel('文字内容')).toBeVisible();
   await page.getByLabel('文字内容').fill('南京散步');
   const fontSize = page.getByLabel('字号');
   await fontSize.fill('56');
@@ -75,25 +110,27 @@ test('collage assets, text, geometry and layer order survive reload and stay sco
     photo,
     expect.objectContaining({ kind: 'sticker', assetId: 'sticker:stamp-nanjing' }),
     expect.objectContaining({ kind: 'sticker', assetId: 'sticker:common-train' }),
-    expect.objectContaining({ kind: 'text', text: '南京散步', style: {
+    expect.objectContaining({ kind: 'text', text: '南京散步', style: expect.objectContaining({
       fontSize: 56, color: '#a02040', align: 'center', fontWeight: 'bold', fontStyle: 'italic',
-    } }),
+    }) }),
   ]);
   const [,, train, text] = original;
 
-  await page.getByRole('button', { name: '置底', exact: true }).click();
-  await expect(layerMenu(page).locator('option').nth(1)).toHaveAttribute('value', text.id);
-  await page.getByRole('button', { name: '上移', exact: true }).click();
-  await expect(layerMenu(page).locator('option').nth(2)).toHaveAttribute('value', text.id);
-  await page.getByRole('button', { name: '置顶', exact: true }).click();
-  await expect(layerMenu(page).locator('option').nth(4)).toHaveAttribute('value', text.id);
-  await layerMenu(page).selectOption(train.id);
-  await page.getByRole('button', { name: '下移', exact: true }).click();
-  await expect(layerMenu(page).locator('option').nth(2)).toHaveAttribute('value', train.id);
+  const order = inspector(page).locator('section[aria-label="图层顺序"]');
+  await order.getByRole('button', { name: '置底', exact: true }).click();
+  expect((await layerIds(page)).at(-1)).toBe(text.id);
+  await order.getByRole('button', { name: '上移', exact: true }).click();
+  expect((await layerIds(page)).at(2)).toBe(text.id);
+  await order.getByRole('button', { name: '置顶', exact: true }).click();
+  expect((await layerIds(page)).at(0)).toBe(text.id);
 
+  await selectLayer(page, train.id);
+  await order.getByRole('button', { name: '下移', exact: true }).click();
+  expect((await layerIds(page)).at(2)).toBe(train.id);
+
+  await selectLayer(page, text.id);
   let { x, y, w, h, scale } = await itemScreenBox(page, text);
   await mouseDrag(page, x + w / 2, y + h / 2, x + w / 2 + 100 * scale, y + h / 2 + 130 * scale);
-  await expect(layerMenu(page)).toHaveValue(text.id);
   const dragged = (await savedItems(page)).at(-1)!;
   expect(Math.abs(dragged.x - text.x - 100)).toBeLessThan(1 / scale);
   expect(Math.abs(dragged.y - text.y - 130)).toBeLessThan(1 / scale);
@@ -117,10 +154,10 @@ test('collage assets, text, geometry and layer order survive reload and stay sco
   expect(JSON.stringify(items)).not.toMatch(/blob:|scaleX|scaleY/);
 
   await page.reload();
-  await expect(layerMenu(page)).toHaveValue('');
+  await expect(selectionBar(page)).toHaveCount(0);
   ({ x, y, w, h } = await itemScreenBox(page, rotated));
   await page.mouse.click(x - h / 2, y + w / 2);
-  await expect(layerMenu(page)).toHaveValue(text.id);
+  await expect(inspector(page)).toBeVisible();
   await expect(page.getByLabel('文字内容')).toHaveValue('南京散步');
   await expect(page.getByLabel('粗体')).toBeChecked();
 
@@ -139,8 +176,8 @@ test('collage assets, text, geometry and layer order survive reload and stay sco
   expect(await readPhotoCount(page)).toBe(1);
 
   await page.getByRole('link', { name: /Collage · 自由拼贴/ }).click();
-  await layerMenu(page).selectOption(photo.id);
-  await page.getByRole('button', { name: '删除', exact: true }).click();
+  await selectLayer(page, photo.id);
+  await selectionBar(page).getByRole('button', { name: '删除', exact: true }).click();
   await page.getByRole('link', { name: /Journal · 横线日记本/ }).click();
   await expect(journal.getByRole('img', { name: 'atlas-sample.png' })).toBeVisible();
   const savedAfterDeletion = (await readBook(page, BOOK))!;
@@ -149,8 +186,8 @@ test('collage assets, text, geometry and layer order survive reload and stay sco
   expect(await readPhotoCount(page)).toBe(1);
 
   await page.goto(`/#/book/${OTHER}?mode=collage`);
-  await expect(layerMenu(page).locator('option')).toHaveCount(1);
-  await page.getByRole('button', { name: '添加文字', exact: true }).click();
+  await expect(layerRows(page)).toHaveCount(0);
+  await addText(page);
   expect(await savedItems(page, OTHER)).toMatchObject([{ kind: 'text', text: '新文字' }]);
   expect(await readBook(page, BOOK)).toEqual(savedAfterDeletion);
   expect(errors).toEqual([]);
@@ -159,7 +196,7 @@ test('collage assets, text, geometry and layer order survive reload and stay sco
 test('an item dropped past the canvas edge remains editable after reload', async ({ page }) => {
   await seedBooks(page, [seedBook(BOOK, '画布边缘')]);
   await page.goto(COLLAGE_URL);
-  await page.getByRole('button', { name: '添加文字', exact: true }).click();
+  await addText(page);
   const [item] = await savedItems(page);
   const { x, y, w, h } = await itemScreenBox(page, item);
   await mouseDrag(page, x + w / 2, y + h / 2, 5, y + h / 2);
@@ -170,13 +207,14 @@ test('an item dropped past the canvas edge remains editable after reload', async
   await page.reload();
   const restored = await itemScreenBox(page, moved);
   await page.mouse.click(restored.x + restored.w / 2, restored.y + restored.h / 2);
-  await expect(layerMenu(page)).toHaveValue(item.id);
+  await expect(page.getByLabel('文字内容')).toHaveValue('新文字');
+  await expect(inspector(page)).toBeVisible();
 });
 
 test('a failed collage write stays pending, blocks leaving and can be retried', async ({ page }) => {
   await seedBooks(page, [seedBook(BOOK, '保存重试')]);
   await page.goto(COLLAGE_URL);
-  await expect(layerMenu(page)).toBeVisible();
+  await expect(canvas(page)).toBeVisible();
   await page.evaluate(() => {
     const put = IDBObjectStore.prototype.put;
     IDBObjectStore.prototype.put = function (...args: Parameters<typeof put>) {
@@ -185,7 +223,7 @@ test('a failed collage write stays pending, blocks leaving and can be retried', 
     };
     window.addEventListener('test:allow-book-writes', () => { IDBObjectStore.prototype.put = put; }, { once: true });
   });
-  await page.getByRole('button', { name: '添加文字', exact: true }).click();
+  await addText(page);
   await expect(page.locator('[data-state="error"]')).toContainText('保存失败');
   expect((await readBook(page, BOOK))?.collage).toBeUndefined();
   await page.getByRole('link', { name: /Journal · 横线日记本/ }).click();
@@ -197,17 +235,21 @@ test('a failed collage write stays pending, blocks leaving and can be retried', 
   await page.getByRole('button', { name: '重试', exact: true }).click();
   expect(await savedItems(page)).toMatchObject([{ kind: 'text', text: '新文字' }]);
   await page.reload();
-  await expect(layerMenu(page).locator('option')).toHaveCount(2);
+  await expect(canvas(page)).toBeVisible();
+  const [restored] = (await readBook(page, BOOK))!.collage!.items;
+  const box = await itemScreenBox(page, restored);
+  await page.mouse.click(box.x + box.w / 2, box.y + box.h / 2);
+  await expect(page.getByLabel('文字内容')).toHaveValue('新文字');
 });
 
 test('a stale collage tab keeps its draft and can save a separate copy', async ({ page, context }) => {
   await seedBooks(page, [seedBook(BOOK, '双标签页拼贴')]);
   const other = await context.newPage();
   await Promise.all([page.goto(COLLAGE_URL), other.goto(COLLAGE_URL)]);
-  await expect(layerMenu(page).locator('option')).toHaveCount(1);
-  await expect(layerMenu(other).locator('option')).toHaveCount(1);
+  await expect(canvas(page)).toBeVisible();
+  await expect(canvas(other)).toBeVisible();
 
-  await page.getByRole('button', { name: '添加文字', exact: true }).click();
+  await addText(page);
   await page.getByLabel('文字内容').fill('先保存的画布');
   expect(await savedItems(page)).toMatchObject([{ text: '先保存的画布' }]);
   await page.getByLabel('文字内容').fill('同一标签页继续保存');
@@ -217,7 +259,7 @@ test('a stale collage tab keeps its draft and can save a separate copy', async (
   // The title receipt includes the latest book but cannot replace the open canvas baseline.
   await other.getByLabel('手账标题').fill('标题仍可独立保存');
   await expect.poll(async () => (await readBook(page, BOOK))?.title).toBe('标题仍可独立保存');
-  await other.getByRole('button', { name: '添加文字', exact: true }).click();
+  await addText(other);
   await other.getByLabel('文字内容').fill('本页的拼贴草稿');
   const warning = other.getByRole('alert').filter({ hasText: '拼贴有其他版本' });
   await expect(warning).toBeVisible();
@@ -232,8 +274,12 @@ test('a stale collage tab keeps its draft and can save a separate copy', async (
   const popup = other.waitForEvent('popup');
   await copyLink.click();
   const copy = await popup;
-  await expect(layerMenu(copy).locator('option').nth(1)).toHaveText('1. 文字 本页的拼贴草稿');
-  await layerMenu(copy).selectOption({ label: '1. 文字 本页的拼贴草稿' });
+  await expect(canvas(copy)).toBeVisible();
+  await openInspector(copy);
+  const rows = layerRows(copy);
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText('本页的拼贴草稿');
+  await rows.first().click();
   await copy.getByLabel('文字内容').fill('在副本继续编辑');
   await expect(copy.locator('header [data-state="saved"]')).toBeVisible();
   expect((await readBook(page, BOOK))?.collage?.items).toEqual(winner);
@@ -244,7 +290,7 @@ test('an oversized item can fit back onto the canvas after reload and resize aga
   const item: CollageItem = { id: 'oversized', kind: 'sticker', assetId: 'sticker:stamp-nanjing', x: 144, y: 164, width: 240, height: 240, rotation: 0 };
   await seedBooks(page, [seedBook(BOOK, '超大贴纸', 'nanjing', { collage: { width: 1200, height: 1600, items: [item] } })]);
   await page.goto(COLLAGE_URL);
-  await layerMenu(page).selectOption(item.id);
+  await selectLayer(page, item.id);
   let { x, y, w, h } = await itemScreenBox(page, item);
   await page.keyboard.down('Alt');
   await mouseDrag(page, x + w, y + h, 1475, 1175);
@@ -253,15 +299,15 @@ test('an oversized item can fit back onto the canvas after reload and resize aga
   expect(oversized.width).toBeGreaterThan(2400);
 
   await page.reload();
-  await layerMenu(page).selectOption(item.id);
-  await page.getByRole('button', { name: '适应画布', exact: true }).click();
+  await selectLayer(page, item.id);
+  await selectionBar(page).getByRole('button', { name: '适应画布', exact: true }).click();
   const [fitted] = await savedItems(page);
   expect(fitted).toMatchObject({ id: item.id, kind: 'sticker', assetId: item.assetId });
   expect(fitted.x).toBeGreaterThan(0);
   expect(fitted.x + fitted.width).toBeLessThan(1200);
   expect(fitted.y).toBeGreaterThan(0);
   expect(fitted.y + fitted.height).toBeLessThan(1600);
-  await expect(page.getByRole('button', { name: '适应画布', exact: true })).toBeDisabled();
+  await expect(selectionBar(page).getByRole('button', { name: '适应画布', exact: true })).toHaveCount(0);
 
   ({ x, y, w, h } = await itemScreenBox(page, fitted));
   await mouseDrag(page, x + w, y + h, x + w * 0.8, y + h * 0.8);
@@ -288,7 +334,7 @@ test.describe('narrow touch viewport', () => {
 
     let { x, y, w, h, scale } = await itemScreenBox(page, item);
     await page.touchscreen.tap(x + w / 2, y + h / 2);
-    await expect(layerMenu(page)).toHaveValue(item.id);
+    await expect(selectionBar(page)).toBeVisible();
     await touchDrag(x + w / 2, y + h / 2, 90 * scale, 110 * scale);
     const [moved] = await savedItems(page);
     expect(Math.abs(moved.x - item.x - 90)).toBeLessThan(1 / scale);
@@ -309,7 +355,41 @@ test.describe('narrow touch viewport', () => {
     await page.reload();
     ({ x, y, w, h } = await itemScreenBox(page, rotated));
     await page.touchscreen.tap(x - h / 2, y + w / 2);
-    await expect(layerMenu(page)).toHaveValue(item.id);
+    await expect(selectionBar(page)).toBeVisible();
     expect((await readBook(page, BOOK))?.collage?.items).toEqual([rotated]);
+  });
+
+  test('landscape touch viewports keep a usable canvas and allow touch interaction', async ({ page, context }) => {
+    const item: CollageItem = { id: 'landscape-item', kind: 'sticker', assetId: 'sticker:stamp-nanjing', x: 240, y: 240, width: 260, height: 220, rotation: 0 };
+    await seedBooks(page, [seedBook(BOOK, '横屏拼贴', 'nanjing', { collage: { width: 1200, height: 1600, items: [item] } })]);
+
+    await page.setViewportSize({ width: 667, height: 375 });
+    await page.goto(COLLAGE_URL);
+    await expect(canvas(page)).toBeVisible();
+    const box667 = (await canvas(page).boundingBox())!;
+    expect(box667.width).toBeGreaterThanOrEqual(280);
+    expect(box667.height / box667.width).toBeCloseTo(4 / 3, 2);
+
+    await page.setViewportSize({ width: 568, height: 320 });
+    await expect(canvas(page)).toBeVisible();
+    const box568 = (await canvas(page).boundingBox())!;
+    expect(box568.width).toBeGreaterThanOrEqual(280);
+    expect(box568.height / box568.width).toBeCloseTo(4 / 3, 2);
+
+    const { x, y, w, h, scale } = await itemScreenBox(page, item);
+    await page.touchscreen.tap(x + w / 2, y + h / 2);
+    await expect(selectionBar(page)).toBeVisible();
+
+    const session = await context.newCDPSession(page);
+    await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x + w / 2, y: y + h / 2 }] });
+    await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + w / 2 + 80 * scale, y: y + h / 2 + 40 * scale }] });
+    await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    const [moved] = await savedItems(page);
+    expect(Math.abs(moved.x - item.x - 80)).toBeLessThan(2 / scale);
+    expect(Math.abs(moved.y - item.y - 40)).toBeLessThan(2 / scale);
+
+    await openTool(page, '城市贴纸');
+    await expect(page.getByRole('button', { name: '收起素材面板', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '收起素材面板', exact: true }).click();
   });
 });

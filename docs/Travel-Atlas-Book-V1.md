@@ -78,7 +78,7 @@ V1 保留 React 18、Three.js、Vite 和 Hash 路由。Journal 用 Tiptap 3，Co
 | --- | --- | --- |
 | 城市与邮票册 | `getCityById(cityId)`、`listStampCards()`、`collectStamp(stampId)` | 城市由现有数据提供；邮票服务读静态定义与 `stamps`。城市页与收藏册调用同一收集接口，收藏册中已藏和未藏邮票均可返回对应城市。 |
 | 手账壳与模式选择页 | `listBooksByCity(cityId)`、`createBook(cityId, title, planId?)`、`getBook(bookId)` | 点击邮票进入对应城市手账列表，新建成功或打开旧手账进入 `/book/:bookId`。省略或传入无效 `mode` 时显示模式选择页。手账壳按书记录确定所属城市，无效书 ID 可返回邮票册。 |
-| Journal / Collage | `saveJournal(bookId, doc)`、`saveCollage(bookId, canvas)`。视图接收各自的内容、素材、保存回调和状态。 | 通过 `/book/:bookId?mode=journal` 与 `/book/:bookId?mode=collage` 独立延迟加载。共同使用同一个 `bookId`、素材接口和保存队列，各自更新自己的内容。正式接入前 Collage 显示「开发中」。 |
+| Journal / Collage | `saveJournal(bookId, doc)`、`saveCollage(bookId, canvas)`。视图接收各自的内容、素材、保存回调和状态。 | 通过 `/book/:bookId?mode=journal` 与 `/book/:bookId?mode=collage` 独立延迟加载。共同使用同一个 `bookId`、素材接口和保存队列，各自更新自己的内容。V1-08B 起 Collage 从模式选择页直接进入正式拼贴界面。 |
 | 素材 | `listAssets(cityId)`、`getAsset(assetId)`、`importPhoto(cityId, file)` | 合并同城照片、本城贴纸和通用贴纸。统一返回渲染需要的元数据；预览组件自行创建和释放 URL。用返回的 ID 插入编辑内容。 |
 | 愿望与计划 | `listWishes()`、`getWish(cityId)`、`saveWish(cityId, note)`、`removeWish(cityId)`；`listPlans(cityId?)`、`getPlan(planId)`、`savePlan(draft, confirmation?)`、`deletePlan(planId)` | V1 的 `/section/plans` 进入愿望地图，`/plan/city/:cityId` 显示城市愿望与行程，`/plan/new?cityId=nanjing` 预填城市，`/plan/:planId` 打开已有行程。计划详情可打开已关联手账的模式选择页。 |
 | 跨模块操作 | `linkBookToPlan(bookId, planId?)`；计划变更和删除复用关系校验与清理。 | 由页面调用独立的业务操作，统一进入数据层事务。书和计划的仓储无需互相导入。 |
