@@ -183,6 +183,15 @@
   background-color: #dfd0b4;
 }
 
+@media (min-width: 901px) and (min-height: 501px) {
+  .pageCollage {
+    flex: none;
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+}
+
 .bgCollage {
   background-color: #dfd0b4;
   background-image:
@@ -250,6 +259,7 @@
 .pageCollage .contentFlush {
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .collageHeaderLeft,

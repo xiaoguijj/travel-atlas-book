@@ -4,6 +4,7 @@ import {
   COLLAGE_CANVAS_WIDTH,
   DataError,
   JOURNAL_MEDIA_NODE_NAME,
+  LEGACY_COLLAGE_CANVAS_WIDTH,
   MAX_BOOK_TITLE_LENGTH,
   type CollageCanvas,
   type CollageItem,
@@ -143,10 +144,11 @@ export function assertCollageCanvas(canvas: CollageCanvas): void {
   if (!canvas || typeof canvas !== 'object') {
     throw new DataError('INVALID_COLLAGE', '拼贴内容不能为空');
   }
-  if (canvas.width !== COLLAGE_CANVAS_WIDTH || canvas.height !== COLLAGE_CANVAS_HEIGHT) {
+  const validWidth = canvas.width === COLLAGE_CANVAS_WIDTH || canvas.width === LEGACY_COLLAGE_CANVAS_WIDTH;
+  if (!validWidth || canvas.height !== COLLAGE_CANVAS_HEIGHT) {
     throw new DataError(
       'INVALID_COLLAGE',
-      `拼贴逻辑画布必须是 ${COLLAGE_CANVAS_WIDTH}×${COLLAGE_CANVAS_HEIGHT}`,
+      `拼贴逻辑画布必须是 ${COLLAGE_CANVAS_WIDTH}×${COLLAGE_CANVAS_HEIGHT}（兼容 ${LEGACY_COLLAGE_CANVAS_WIDTH}×${COLLAGE_CANVAS_HEIGHT}）`,
       { width: canvas.width, height: canvas.height },
     );
   }

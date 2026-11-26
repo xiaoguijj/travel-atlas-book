@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import collageClipArt from '../../assets/collage-clip.png';
 import collageCoverArt from '../../assets/collage-cover.png';
 import type { AssetMetadata, AssetQuery, CollageEditorProps, CollageItem } from '../../data/contracts';
@@ -12,10 +12,21 @@ import {
   ToBottomIcon,
   ToTopIcon,
   TrashIcon,
+  ZoomInIcon,
+  ZoomOutIcon,
 } from './CollageIcons';
 import { CollageInspector } from './CollageInspector';
 import { CollageStage } from './CollageStage';
 import { CollageToolPanel, type CollageTool } from './CollageToolPanel';
+import {
+  DEFAULT_COLLAGE_ZOOM,
+  MAX_COLLAGE_ZOOM,
+  MIN_COLLAGE_ZOOM,
+  computeFitPaperSize,
+  formatZoomPercent,
+  stepZoomIn,
+  stepZoomOut,
+} from './collageViewport';
 import { fitItemToCanvas, useCollageEditor } from './useCollageEditor';
 import styles from './CollageView.module.css';
 
@@ -137,9 +148,103 @@ export function CollageView(props: CollageViewProps) {
   } = useCollageEditor(props);
   const [tool, setTool] = useState<CollageTool | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [zoom, setZoom] = useState<number>(DEFAULT_COLLAGE_ZOOM);
+  const [fitSize, setFitSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const pageRef = useRef<HTMLElement>(null);
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const pendingScrollCenter = useRef<{ x: number; y: number; reset: boolean } | null>(null);
   const library = useCityAssets(assets, city?.id);
   const requestId = props.insertionRequest?.requestId;
   const reloadLibrary = library.retry;
+
+  useLayoutEffect(() => {
+    const pageEl = pageRef.current;
+    const workspaceEl = workspaceRef.current;
+    if (!pageEl || !workspaceEl) return;
+
+    const measure = () => {
+      const desktopBounded = window.innerWidth > 900 && window.innerHeight > 500;
+      const availHeight = desktopBounded
+        ? pageEl.clientHeight
+        : Math.max(0, window.innerHeight - workspaceEl.getBoundingClientRect().top);
+      const next = computeFitPaperSize({
+        workspaceWidth: pageEl.clientWidth,
+        workspaceHeight: availHeight,
+        windowWidth: window.innerWidth,
+        windowHeight: window.innerHeight,
+      });
+      setFitSize((current) => (current.width === next.width && current.height === next.height ? current : next));
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(pageEl);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, []);
+
+  const paperWidth = fitSize.width > 0 ? Math.round(fitSize.width * zoom) : 0;
+  const paperScale = paperWidth > 0 ? paperWidth / 780 : 1;
+
+  const applyZoom = useCallback((nextZoom: number, resetScroll = false) => {
+    const workspaceEl = workspaceRef.current;
+    if (workspaceEl) {
+      pendingScrollCenter.current = resetScroll
+        ? { x: 0.5, y: 0.5, reset: true }
+        : {
+          x: workspaceEl.scrollWidth > workspaceEl.clientWidth
+            ? (workspaceEl.scrollLeft + workspaceEl.clientWidth / 2) / workspaceEl.scrollWidth
+            : 0.5,
+          y: workspaceEl.scrollHeight > workspaceEl.clientHeight
+            ? (workspaceEl.scrollTop + workspaceEl.clientHeight / 2) / workspaceEl.scrollHeight
+            : 0.5,
+          reset: false,
+        };
+    }
+    setZoom(nextZoom);
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    applyZoom(stepZoomOut(zoom));
+  }, [applyZoom, zoom]);
+
+  const handleZoomIn = useCallback(() => {
+    applyZoom(stepZoomIn(zoom));
+  }, [applyZoom, zoom]);
+
+  const handleFitScreen = useCallback(() => {
+    applyZoom(DEFAULT_COLLAGE_ZOOM, true);
+  }, [applyZoom]);
+
+  useLayoutEffect(() => {
+    const pending = pendingScrollCenter.current;
+    const workspaceEl = workspaceRef.current;
+    if (!pending || !workspaceEl) return;
+    pendingScrollCenter.current = null;
+    if (pending.reset || zoom <= DEFAULT_COLLAGE_ZOOM) {
+      workspaceEl.scrollLeft = 0;
+      workspaceEl.scrollTop = 0;
+      return;
+    }
+    workspaceEl.scrollLeft = Math.max(0, pending.x * workspaceEl.scrollWidth - workspaceEl.clientWidth / 2);
+    workspaceEl.scrollTop = Math.max(0, pending.y * workspaceEl.scrollHeight - workspaceEl.clientHeight / 2);
+  }, [zoom, paperWidth]);
+
+  useEffect(() => {
+    const workspaceEl = workspaceRef.current;
+    if (!workspaceEl) return;
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      if (event.deltaY < 0) applyZoom(stepZoomIn(zoom));
+      else if (event.deltaY > 0) applyZoom(stepZoomOut(zoom));
+    };
+    workspaceEl.addEventListener('wheel', onWheel, { passive: false });
+    return () => workspaceEl.removeEventListener('wheel', onWheel);
+  }, [applyZoom, zoom]);
 
   useEffect(() => {
     // 素材册里刚上传的照片也要出现在左侧素材面板里。
@@ -205,6 +310,7 @@ export function CollageView(props: CollageViewProps) {
 
   return (
     <section
+      ref={pageRef}
       className={styles.page}
       data-save-state={saveState.status}
       data-selected={selected ? 'true' : undefined}
@@ -223,47 +329,93 @@ export function CollageView(props: CollageViewProps) {
         </div>
       </div>
 
-      <div className={styles.workspace}>
-        <div className={styles.paperWrap}>
-          <img className={styles.journalCover} src={collageCoverArt} alt="" aria-hidden="true" />
-          <span className={styles.paperStackBack} aria-hidden="true" />
-          <span className={styles.paperStackMid} aria-hidden="true" />
-          <img className={styles.clip} src={collageClipArt} alt="" aria-hidden="true" />
-          <div className={styles.paperShadow}>
-            <div className={styles.paper}>
-              <span className={styles.paperPatina} aria-hidden="true" />
-              <svg className={styles.paperWatermark} viewBox="0 0 600 800" preserveAspectRatio="none" aria-hidden="true">
-                <rect x="22" y="22" width="556" height="756" rx="2" />
-                <rect x="28" y="28" width="544" height="744" rx="1" strokeDasharray="3 5" opacity="0.55" />
-                <g transform="translate(86 714)" opacity="0.72">
-                  <circle cx="0" cy="0" r="34" />
-                  <circle cx="0" cy="0" r="26" strokeDasharray="2 3" />
-                  <path d="M0-42v84M-42 0h84M-22-22l44 44M22-22l-44 44" />
-                  <polygon points="0,-32 5,-7 0,-12 -5,-7" fill="currentColor" opacity="0.45" />
-                </g>
-                <g transform="translate(514 82) rotate(-8)" opacity="0.58">
-                  <rect x="-26" y="-20" width="52" height="40" rx="2" strokeDasharray="3 2" />
-                  <path d="M-16 0h32M-12-8h24M-12 8h20" />
-                </g>
-              </svg>
-              <CollageStage
-                items={items}
-                selected={selected}
-                assets={assets}
-                onSelect={select}
-                onChange={updateItem}
-              />
-              <span className={styles.paperCorner} aria-hidden="true" />
-              {items.length === 0 ? (
-                <p className={styles.paperHint}>
-                  <span className={styles.paperHintOrnaments} aria-hidden="true">✦</span>
-                  <span className={styles.paperHintTitle}>旅途从一张空白纸开始</span>
-                  <span className={styles.paperHintBody}>从左侧挑选照片、贴纸，或写下一段文字</span>
-                </p>
-              ) : null}
+      <div ref={workspaceRef} className={styles.workspace}>
+        <div
+          className={styles.workspaceInner}
+          style={{ '--paper-scale': `${paperScale}` } as CSSProperties}
+        >
+          <div
+            className={styles.paperWrap}
+            style={paperWidth > 0 ? ({ width: `${paperWidth}px`, '--paper-scale': `${paperScale}` } as CSSProperties) : undefined}
+          >
+            <img className={styles.journalCover} src={collageCoverArt} alt="" aria-hidden="true" />
+            <span className={styles.paperStackBack} aria-hidden="true" />
+            <span className={styles.paperStackMid} aria-hidden="true" />
+            <img className={styles.clip} src={collageClipArt} alt="" aria-hidden="true" />
+            <div className={styles.paperShadow}>
+              <div className={styles.paper}>
+                <span className={styles.paperPatina} aria-hidden="true" />
+                <svg className={styles.paperWatermark} viewBox="0 0 900 800" preserveAspectRatio="none" aria-hidden="true">
+                  <rect x="22" y="22" width="856" height="756" rx="2" />
+                  <rect x="28" y="28" width="844" height="744" rx="1" strokeDasharray="3 5" opacity="0.55" />
+                  <g transform="translate(86 714)" opacity="0.72">
+                    <circle cx="0" cy="0" r="34" />
+                    <circle cx="0" cy="0" r="26" strokeDasharray="2 3" />
+                    <path d="M0-42v84M-42 0h84M-22-22l44 44M22-22l-44 44" />
+                    <polygon points="0,-32 5,-7 0,-12 -5,-7" fill="currentColor" opacity="0.45" />
+                  </g>
+                  <g transform="translate(814 82) rotate(-8)" opacity="0.58">
+                    <rect x="-26" y="-20" width="52" height="40" rx="2" strokeDasharray="3 2" />
+                    <path d="M-16 0h32M-12-8h24M-12 8h20" />
+                  </g>
+                </svg>
+                <CollageStage
+                  items={items}
+                  selected={selected}
+                  assets={assets}
+                  displayWidthHint={paperWidth}
+                  onSelect={select}
+                  onChange={updateItem}
+                />
+                <span className={styles.paperCorner} aria-hidden="true" />
+                {items.length === 0 ? (
+                  <p className={styles.paperHint}>
+                    <span className={styles.paperHintOrnaments} aria-hidden="true">✦</span>
+                    <span className={styles.paperHintTitle}>旅途从一张空白纸开始</span>
+                    <span className={styles.paperHintBody}>从左侧挑选照片、贴纸，或写下一段文字</span>
+                  </p>
+                ) : null}
+              </div>
             </div>
           </div>
         </div>
+      </div>
+
+      <div className={styles.zoomBar} role="toolbar" aria-label="画布缩放控制">
+        <button
+          type="button"
+          className={styles.zoomButton}
+          onClick={handleZoomOut}
+          disabled={zoom <= MIN_COLLAGE_ZOOM}
+          aria-label="缩小画布"
+          title="缩小画布"
+        >
+          <ZoomOutIcon />
+        </button>
+        <span className={styles.zoomPercent} aria-label="当前缩放比例" aria-live="polite">
+          {formatZoomPercent(zoom)}
+        </span>
+        <button
+          type="button"
+          className={styles.zoomButton}
+          onClick={handleZoomIn}
+          disabled={zoom >= MAX_COLLAGE_ZOOM}
+          aria-label="放大画布"
+          title="放大画布"
+        >
+          <ZoomInIcon />
+        </button>
+        <span className={styles.barDivider} aria-hidden="true" />
+        <button
+          type="button"
+          className={styles.zoomFitButton}
+          onClick={handleFitScreen}
+          aria-label="适应屏幕"
+          title="适应屏幕"
+        >
+          <FitIcon />
+          <span>适应屏幕</span>
+        </button>
       </div>
 
       <SelectionToolbar

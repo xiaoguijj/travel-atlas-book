@@ -1,6 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
 import { resolve } from 'node:path';
-import type { CollageItem } from '../../src/data/contracts';
+import {
+  COLLAGE_CANVAS_HEIGHT,
+  COLLAGE_CANVAS_WIDTH,
+  type CollageItem,
+} from '../../src/data/contracts';
 import { readBook, readPhotoCount, seedBook, seedBooks } from './book-helpers';
 
 // The full-flow case paints, drags and reloads a real canvas; under a parallel
@@ -14,16 +18,17 @@ const canvas = (page: Page) => page.getByRole('region', { name: '拼贴画布', 
 const rail = (page: Page) => page.getByRole('toolbar', { name: '素材工具', exact: true });
 const inspector = (page: Page) => page.locator('aside[aria-label="图层与属性"]');
 const selectionBar = (page: Page) => page.getByRole('toolbar', { name: '选中元素操作', exact: true });
+const zoomBar = (page: Page) => page.getByRole('toolbar', { name: '画布缩放控制', exact: true });
 const layerList = (page: Page) => page.getByRole('listbox', { name: '图层列表', exact: true });
 const layerRows = (page: Page) => layerList(page).getByRole('option');
 
 function pixelAt(page: Page, x: number, y: number) {
   return canvas(page).evaluate((element, point) => {
     const surface = element as HTMLCanvasElement;
-    const px = Math.round(surface.width * point.x / 1200);
-    const py = Math.round(surface.height * point.y / 1600);
+    const px = Math.round(surface.width * point.x / point.canvasWidth);
+    const py = Math.round(surface.height * point.y / point.canvasHeight);
     return Array.from(surface.getContext('2d')!.getImageData(px, py, 1, 1).data);
-  }, { x, y });
+  }, { x, y, canvasWidth: COLLAGE_CANVAS_WIDTH, canvasHeight: COLLAGE_CANVAS_HEIGHT });
 }
 
 async function savedItems(page: Page, bookId = BOOK) {
@@ -34,7 +39,7 @@ async function savedItems(page: Page, bookId = BOOK) {
 async function itemScreenBox(page: Page, item: CollageItem) {
   await canvas(page).scrollIntoViewIfNeeded();
   const rect = (await canvas(page).boundingBox())!;
-  const scale = rect.width / 1200;
+  const scale = rect.width / COLLAGE_CANVAS_WIDTH;
   return { x: rect.x + item.x * scale, y: rect.y + item.y * scale, w: item.width * scale, h: item.height * scale, scale };
 }
 
@@ -150,7 +155,7 @@ test('collage assets, text, geometry and layer order survive reload and stay sco
   expect(Math.abs(rotated.rotation - 90)).toBeLessThan(1.5);
   expect(items.map((item) => item.id)).toEqual([photo.id, train.id, original[1].id, text.id]);
   expect(saved.journal).toBeUndefined();
-  expect(saved.collage).toEqual({ width: 1200, height: 1600, items });
+  expect(saved.collage).toEqual({ width: COLLAGE_CANVAS_WIDTH, height: COLLAGE_CANVAS_HEIGHT, items });
   expect(JSON.stringify(items)).not.toMatch(/blob:|scaleX|scaleY/);
 
   await page.reload();
@@ -288,7 +293,7 @@ test('a stale collage tab keeps its draft and can save a separate copy', async (
 test('an oversized item can fit back onto the canvas after reload and resize again', async ({ page }) => {
   await page.setViewportSize({ width: 1500, height: 1200 });
   const item: CollageItem = { id: 'oversized', kind: 'sticker', assetId: 'sticker:stamp-nanjing', x: 144, y: 164, width: 240, height: 240, rotation: 0 };
-  await seedBooks(page, [seedBook(BOOK, '超大贴纸', 'nanjing', { collage: { width: 1200, height: 1600, items: [item] } })]);
+  await seedBooks(page, [seedBook(BOOK, '超大贴纸', 'nanjing', { collage: { width: COLLAGE_CANVAS_WIDTH, height: COLLAGE_CANVAS_HEIGHT, items: [item] } })]);
   await page.goto(COLLAGE_URL);
   await selectLayer(page, item.id);
   let { x, y, w, h } = await itemScreenBox(page, item);
@@ -304,9 +309,9 @@ test('an oversized item can fit back onto the canvas after reload and resize aga
   const [fitted] = await savedItems(page);
   expect(fitted).toMatchObject({ id: item.id, kind: 'sticker', assetId: item.assetId });
   expect(fitted.x).toBeGreaterThan(0);
-  expect(fitted.x + fitted.width).toBeLessThan(1200);
+  expect(fitted.x + fitted.width).toBeLessThan(COLLAGE_CANVAS_WIDTH);
   expect(fitted.y).toBeGreaterThan(0);
-  expect(fitted.y + fitted.height).toBeLessThan(1600);
+  expect(fitted.y + fitted.height).toBeLessThan(COLLAGE_CANVAS_HEIGHT);
   await expect(selectionBar(page).getByRole('button', { name: '适应画布', exact: true })).toHaveCount(0);
 
   ({ x, y, w, h } = await itemScreenBox(page, fitted));
@@ -315,12 +320,83 @@ test('an oversized item can fit back onto the canvas after reload and resize aga
   expect(resized.width / fitted.width).toBeCloseTo(0.8, 1);
 });
 
+test('wide layout adapts without overlapping toolbars, supports zoom controls, and preserves legacy 1200x1600 works', async ({ page }) => {
+  const legacyItems: CollageItem[] = [
+    { id: 'legacy-sticker', kind: 'sticker', assetId: 'sticker:stamp-nanjing', x: 180, y: 200, width: 240, height: 240, rotation: 6 },
+    { id: 'legacy-text', kind: 'text', text: '旧画布记忆', x: 300, y: 620, width: 450, height: 140, rotation: 0, style: { fontSize: 48, color: '#2b2118' } },
+  ];
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await seedBooks(page, [seedBook(BOOK, '兼容宽画布', 'nanjing', { collage: { width: 1200, height: 1600, items: legacyItems } })]);
+  await page.goto(COLLAGE_URL);
+  await expect(canvas(page)).toBeVisible();
+
+  const fitBox = (await canvas(page).boundingBox())!;
+  expect(fitBox.width / fitBox.height).toBeCloseTo(COLLAGE_CANVAS_WIDTH / COLLAGE_CANVAS_HEIGHT, 2);
+
+  const railBox = (await rail(page).boundingBox())!;
+  const rightDockBox = (await page.locator('button[aria-label="图层与属性"]').last().boundingBox())!;
+  const zoomBox = (await zoomBar(page).boundingBox())!;
+  expect(fitBox.x).toBeGreaterThan(railBox.x + railBox.width);
+  expect(fitBox.x + fitBox.width).toBeLessThan(rightDockBox.x);
+  expect(fitBox.x + fitBox.width < zoomBox.x || fitBox.y + fitBox.height < zoomBox.y).toBe(true);
+  await expect(zoomBar(page).getByLabel('当前缩放比例')).toHaveText('100%');
+
+  // Legacy 1200x1600 items restore centered (+300 X offset) with zero deformation or spurious auto-save.
+  expect(await page.locator('[data-state]').getAttribute('data-state')).toBe('ready');
+  const shiftedSticker: CollageItem = { ...legacyItems[0], x: legacyItems[0].x + 300 };
+  const shiftedBox = await itemScreenBox(page, shiftedSticker);
+  await page.mouse.click(shiftedBox.x + shiftedBox.w / 2, shiftedBox.y + shiftedBox.h / 2);
+  await expect(selectionBar(page)).toBeVisible();
+
+  // Zoom in -> verify percentage and accurate dragging at zoomed coordinates -> fit to screen.
+  await zoomBar(page).getByRole('button', { name: '放大画布', exact: true }).click();
+  await expect(zoomBar(page).getByLabel('当前缩放比例')).toHaveText('110%');
+  await zoomBar(page).getByRole('button', { name: '放大画布', exact: true }).click();
+  await expect(zoomBar(page).getByLabel('当前缩放比例')).toHaveText('125%');
+
+  const zoomedBox = (await canvas(page).boundingBox())!;
+  expect(zoomedBox.width / fitBox.width).toBeCloseTo(1.25, 2);
+  const zoomedItem = await itemScreenBox(page, shiftedSticker);
+  await mouseDrag(
+    page,
+    zoomedItem.x + zoomedItem.w / 2,
+    zoomedItem.y + zoomedItem.h / 2,
+    zoomedItem.x + zoomedItem.w / 2 + 120 * zoomedItem.scale,
+    zoomedItem.y + zoomedItem.h / 2 + 80 * zoomedItem.scale,
+  );
+  const savedAfterZoomDrag = await savedItems(page);
+  const updatedBook = (await readBook(page, BOOK))!;
+  expect(updatedBook.collage?.width).toBe(COLLAGE_CANVAS_WIDTH);
+  expect(updatedBook.collage?.height).toBe(COLLAGE_CANVAS_HEIGHT);
+  expect(savedAfterZoomDrag).toHaveLength(2);
+  expect(Math.abs(savedAfterZoomDrag[0].x - (shiftedSticker.x + 120))).toBeLessThan(2 / zoomedItem.scale);
+  expect(Math.abs(savedAfterZoomDrag[0].y - (shiftedSticker.y + 80))).toBeLessThan(2 / zoomedItem.scale);
+  expect(savedAfterZoomDrag[0].width).toBe(legacyItems[0].width);
+  expect(savedAfterZoomDrag[0].height).toBe(legacyItems[0].height);
+  expect(savedAfterZoomDrag[1]).toEqual({ ...legacyItems[1], x: legacyItems[1].x + 300 });
+
+  await zoomBar(page).getByRole('button', { name: '缩小画布', exact: true }).click();
+  await expect(zoomBar(page).getByLabel('当前缩放比例')).toHaveText('110%');
+  await zoomBar(page).getByRole('button', { name: '适应屏幕', exact: true }).click();
+  await expect(zoomBar(page).getByLabel('当前缩放比例')).toHaveText('100%');
+  const restoredFitBox = (await canvas(page).boundingBox())!;
+  expect(restoredFitBox.width).toBeCloseTo(fitBox.width, 0);
+
+  // Adaptive resize on narrower desktop window still clears toolbars.
+  await page.setViewportSize({ width: 1024, height: 700 });
+  const narrowBox = (await canvas(page).boundingBox())!;
+  const narrowRail = (await rail(page).boundingBox())!;
+  const narrowDock = (await page.locator('button[aria-label="图层与属性"]').last().boundingBox())!;
+  expect(narrowBox.x).toBeGreaterThan(narrowRail.x + narrowRail.width);
+  expect(narrowBox.x + narrowBox.width).toBeLessThan(narrowDock.x);
+});
+
 test.describe('narrow touch viewport', () => {
   test.use({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 
   test('a missing photo remains visible and touch gestures commit logical coordinates', async ({ page, context }) => {
     const item: CollageItem = { id: 'missing', kind: 'photo', assetId: 'photo:missing', x: 140, y: 150, width: 340, height: 260, rotation: 0 };
-    await seedBooks(page, [seedBook(BOOK, '窄屏拼贴', 'nanjing', { collage: { width: 1200, height: 1600, items: [item] } })]);
+    await seedBooks(page, [seedBook(BOOK, '窄屏拼贴', 'nanjing', { collage: { width: COLLAGE_CANVAS_WIDTH, height: COLLAGE_CANVAS_HEIGHT, items: [item] } })]);
     await page.goto(COLLAGE_URL);
     await expect.poll(() => pixelAt(page, 170, 180)).toEqual([228, 228, 228, 255]);
     const session = await context.newCDPSession(page);
@@ -361,20 +437,20 @@ test.describe('narrow touch viewport', () => {
 
   test('landscape touch viewports keep a usable canvas and allow touch interaction', async ({ page, context }) => {
     const item: CollageItem = { id: 'landscape-item', kind: 'sticker', assetId: 'sticker:stamp-nanjing', x: 240, y: 240, width: 260, height: 220, rotation: 0 };
-    await seedBooks(page, [seedBook(BOOK, '横屏拼贴', 'nanjing', { collage: { width: 1200, height: 1600, items: [item] } })]);
+    await seedBooks(page, [seedBook(BOOK, '横屏拼贴', 'nanjing', { collage: { width: COLLAGE_CANVAS_WIDTH, height: COLLAGE_CANVAS_HEIGHT, items: [item] } })]);
 
     await page.setViewportSize({ width: 667, height: 375 });
     await page.goto(COLLAGE_URL);
     await expect(canvas(page)).toBeVisible();
     const box667 = (await canvas(page).boundingBox())!;
     expect(box667.width).toBeGreaterThanOrEqual(280);
-    expect(box667.height / box667.width).toBeCloseTo(4 / 3, 2);
+    expect(box667.height / box667.width).toBeCloseTo(COLLAGE_CANVAS_HEIGHT / COLLAGE_CANVAS_WIDTH, 2);
 
     await page.setViewportSize({ width: 568, height: 320 });
     await expect(canvas(page)).toBeVisible();
     const box568 = (await canvas(page).boundingBox())!;
     expect(box568.width).toBeGreaterThanOrEqual(280);
-    expect(box568.height / box568.width).toBeCloseTo(4 / 3, 2);
+    expect(box568.height / box568.width).toBeCloseTo(COLLAGE_CANVAS_HEIGHT / COLLAGE_CANVAS_WIDTH, 2);
 
     const { x, y, w, h, scale } = await itemScreenBox(page, item);
     await page.touchscreen.tap(x + w / 2, y + h / 2);
