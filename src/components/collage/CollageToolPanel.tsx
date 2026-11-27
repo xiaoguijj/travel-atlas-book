@@ -126,8 +126,9 @@ export function CollageToolPanel({
       : '通用贴纸还在整理中，之后会出现在这里。';
 
   return (
-    <div className={styles.tools}>
-      <div className={styles.rail} role="toolbar" aria-label="素材工具" aria-orientation="vertical">
+    <>
+      <div className={styles.tools}>
+        <div className={styles.rail} role="toolbar" aria-label="素材工具" aria-orientation="vertical">
         {TOOL_META.map((tool) => {
           const ToolIcon = TOOL_ICONS[tool.key];
           const active = open === tool.key;
@@ -150,8 +151,9 @@ export function CollageToolPanel({
           );
         })}
       </div>
+    </div>
 
-      {current && CurrentIcon ? (
+    {current && CurrentIcon ? (
         <section
           id="collage-tool-panel"
           className={styles.toolPanel}
@@ -221,6 +223,6 @@ export function CollageToolPanel({
           </div>
         </section>
       ) : null}
-    </div>
+    </>
   );
 }

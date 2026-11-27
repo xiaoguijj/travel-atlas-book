@@ -1,4 +1,8 @@
 .notice {
+  /* 纸页的 .tilt 是带 transform 的兄弟节点，会压过普通静态元素；
+     抬到自己的层上，保证斜转纸角翘到这块区域时按钮依然可点。 */
+  position: relative;
+  z-index: 1;
   margin: 14px 0;
   padding: 14px 16px;
   border: 1px solid rgb(176 141 87 / 0.6);

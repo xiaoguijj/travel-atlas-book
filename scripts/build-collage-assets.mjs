@@ -5,10 +5,10 @@
  *
  * 从 assets-source/ 读取生成原图并输出至 src/assets/：
  * - collage-desk.jpg：温润牛皮纸与亚麻旅途书桌底纹（1600 宽）
- * - collage-paper.jpg：空白手工复古棉纸/牛皮纸纹理（1350×1200，精确 9:8 宽幅，无拉伸扩展）
+ * - collage-paper.jpg：空白手工复古棉纸/牛皮纸纹理（1600×1200，精确 4:3 横版，无拉伸扩展）
  * - collage-cover.png：做旧牛皮手账封皮（外缘去白底透明抠图，等比拼宽保留缝线与黄铜包角）
  * - collage-clip.png：做旧黄铜长尾夹（外缘及金属丝环内孔去白底透明抠图）
- * - collage-paper-mask.png：手撕毛边纸张不规则轮廓遮罩（1350×1200，精确 9:8）
+ * - collage-paper-mask.png：手撕毛边纸张不规则轮廓遮罩（1600×1200，精确 4:3）
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -54,20 +54,20 @@ function copyBand(src, dst, dstX, srcX, width, height) {
 
 async function buildPaper() {
   const source = await Jimp.read(path.join(sourceDir, 'collage-paper.jpg'));
-  // Keep 1:1 vertical fiber scale at 1200px height and expand horizontally to 1350×1200 (exact 9:8).
+  // Keep 1:1 vertical fiber scale at 1200px height and expand horizontally to 1600×1200 (exact 4:3).
   if (source.bitmap.height !== 1200) source.resize(Jimp.AUTO, 1200);
   const srcW = source.bitmap.width;
-  const targetW = 1350;
+  const targetW = 1600;
   const targetH = 1200;
   const image = new Jimp(targetW, targetH, 0xffffffff);
 
   const srcData = source.bitmap.data;
   const dstData = image.bitmap.data;
   const shiftRight = targetW - srcW;
-  const fade1Start = 400;
-  const fade1End = 560;
-  const fade2Start = 790;
-  const fade2End = 950;
+  const fade1Start = 474;
+  const fade1End = 664;
+  const fade2Start = 936;
+  const fade2End = 1126;
   const clampX = (x) => Math.max(0, Math.min(srcW - 1, x));
 
   for (let y = 0; y < targetH; y += 1) {
@@ -160,7 +160,7 @@ async function buildCover() {
   source.crop(box.x, box.y, box.w, box.h);
   source.resize(680, Jimp.AUTO);
 
-  // Widen the leather cover to match the 9:8 wide canvas (~1036×914) without stretching spine, stitching, or brass corners.
+  // 封皮按源图可拼接的最大宽度出图（约 1036 宽），不随画布比例继续加宽，避免缝线重排失真。
   const srcW = source.bitmap.width;
   const h = source.bitmap.height;
   const targetW = 1036;
@@ -207,7 +207,7 @@ async function buildClip() {
 }
 
 async function buildPaperMask() {
-  const w = 1350;
+  const w = 1600;
   const h = 1200;
   const mask = new Jimp(w, h, 0x00000000);
   const { data } = mask.bitmap;

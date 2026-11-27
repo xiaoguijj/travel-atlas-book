@@ -55,7 +55,7 @@ interface PointerGesture {
 export const Globe = forwardRef<GlobeHandle, GlobeProps>(function Globe(
   {
     cities, targetCityId, activeCityId, onSelectCity, onCityArrival,
-    fill, hint = '拖动旋转 · 滚轮缩放 · 点击城市标记', layered = false,
+    fill, hint = '拖动旋转 · 点击城市标记', layered = false,
   },
   ref,
 ) {

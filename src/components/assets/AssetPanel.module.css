@@ -292,7 +292,7 @@
   border: 1px solid var(--tab-terracottaDeep);
   border-radius: 3px;
   background: var(--tab-terracotta);
-  color: var(--tab-cream);
+  color: #111;
   font-family: var(--tab-font-ui);
   font-size: 0.82rem;
   letter-spacing: 0.05em;
@@ -302,7 +302,7 @@
 .use:disabled {
   border-color: rgb(75 93 102 / 0.25);
   background: rgb(75 93 102 / 0.16);
-  color: rgb(75 93 102 / 0.5);
+  color: rgb(17 17 17 / 0.5);
   cursor: not-allowed;
 }
 

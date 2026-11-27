@@ -98,7 +98,7 @@ for (const sticker of [
     ];
     await expect.poll(async () => documentOrder((await readBook(page, bookId))?.journal)).toEqual(expectedOrder);
     const stored = (await readBook(page, bookId))!.journal!;
-    expect(stored.doc.content?.[1].attrs).toEqual({ assetId, caption: '' });
+    expect(stored.doc.content?.[1].attrs).toEqual({ assetId, caption: '', rotation: 0, lines: 3 });
     await expect(editor.locator(':scope > p')).toHaveText([prefix + selected, suffix, nextParagraph]);
 
     await page.reload();

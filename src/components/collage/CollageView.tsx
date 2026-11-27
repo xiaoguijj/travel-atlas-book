@@ -147,7 +147,8 @@ export function CollageView(props: CollageViewProps) {
     moveSelected,
   } = useCollageEditor(props);
   const [tool, setTool] = useState<CollageTool | null>(null);
-  const [inspectorOpen, setInspectorOpen] = useState(false);
+  // 桌面上属性栏默认展开，与左侧工具轨、中间纸面构成固定三栏；窄屏仍是点开才出现的底部浮层。
+  const [inspectorOpen, setInspectorOpen] = useState(() => window.matchMedia('(min-width: 901px)').matches);
   const [zoom, setZoom] = useState<number>(DEFAULT_COLLAGE_ZOOM);
   const [fitSize, setFitSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const pageRef = useRef<HTMLElement>(null);
@@ -164,11 +165,12 @@ export function CollageView(props: CollageViewProps) {
 
     const measure = () => {
       const desktopBounded = window.innerWidth > 900 && window.innerHeight > 500;
+      // 桌面三栏布局下按工作区（中栏）实测尺寸计算，左右栏已由页面留白让出。
       const availHeight = desktopBounded
-        ? pageEl.clientHeight
+        ? workspaceEl.clientHeight
         : Math.max(0, window.innerHeight - workspaceEl.getBoundingClientRect().top);
       const next = computeFitPaperSize({
-        workspaceWidth: pageEl.clientWidth,
+        workspaceWidth: workspaceEl.clientWidth,
         workspaceHeight: availHeight,
         windowWidth: window.innerWidth,
         windowHeight: window.innerHeight,

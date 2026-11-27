@@ -61,6 +61,11 @@ async function insertSticker(page: Page, group: '城市贴纸' | '通用贴纸',
 }
 
 async function openInspector(page: Page) {
+  // 桌面端属性栏默认展开、窄屏点选中栏按钮打开；先等编辑器渲染完成再判断，
+  // 直接 count() 会与编辑器懒加载竞态，误点尚未出现的“图层与属性”按钮。
+  await expect
+    .poll(async () => (await inspector(page).count()) + (await page.locator('button[aria-label="图层与属性"]').count()))
+    .toBeGreaterThan(0);
   if (await inspector(page).count()) return;
   await page.locator('button[aria-label="图层与属性"]').last().click();
   await expect(inspector(page)).toBeVisible();
@@ -334,16 +339,18 @@ test('wide layout adapts without overlapping toolbars, supports zoom controls, a
   expect(fitBox.width / fitBox.height).toBeCloseTo(COLLAGE_CANVAS_WIDTH / COLLAGE_CANVAS_HEIGHT, 2);
 
   const railBox = (await rail(page).boundingBox())!;
-  const rightDockBox = (await page.locator('button[aria-label="图层与属性"]').last().boundingBox())!;
+  // 桌面端属性栏默认展开、与纸面同占右侧栏，直接量取属性面板的左缘。
+  await expect(inspector(page)).toBeVisible();
+  const rightPanelBox = (await inspector(page).boundingBox())!;
   const zoomBox = (await zoomBar(page).boundingBox())!;
   expect(fitBox.x).toBeGreaterThan(railBox.x + railBox.width);
-  expect(fitBox.x + fitBox.width).toBeLessThan(rightDockBox.x);
+  expect(fitBox.x + fitBox.width).toBeLessThan(rightPanelBox.x);
   expect(fitBox.x + fitBox.width < zoomBox.x || fitBox.y + fitBox.height < zoomBox.y).toBe(true);
   await expect(zoomBar(page).getByLabel('当前缩放比例')).toHaveText('100%');
 
-  // Legacy 1200x1600 items restore centered (+300 X offset) with zero deformation or spurious auto-save.
+  // Legacy 1200x1600 items restore at their original coordinates with zero deformation or spurious auto-save.
   expect(await page.locator('[data-state]').getAttribute('data-state')).toBe('ready');
-  const shiftedSticker: CollageItem = { ...legacyItems[0], x: legacyItems[0].x + 300 };
+  const shiftedSticker: CollageItem = legacyItems[0];
   const shiftedBox = await itemScreenBox(page, shiftedSticker);
   await page.mouse.click(shiftedBox.x + shiftedBox.w / 2, shiftedBox.y + shiftedBox.h / 2);
   await expect(selectionBar(page)).toBeVisible();
@@ -373,7 +380,7 @@ test('wide layout adapts without overlapping toolbars, supports zoom controls, a
   expect(Math.abs(savedAfterZoomDrag[0].y - (shiftedSticker.y + 80))).toBeLessThan(2 / zoomedItem.scale);
   expect(savedAfterZoomDrag[0].width).toBe(legacyItems[0].width);
   expect(savedAfterZoomDrag[0].height).toBe(legacyItems[0].height);
-  expect(savedAfterZoomDrag[1]).toEqual({ ...legacyItems[1], x: legacyItems[1].x + 300 });
+  expect(savedAfterZoomDrag[1]).toEqual(legacyItems[1]);
 
   await zoomBar(page).getByRole('button', { name: '缩小画布', exact: true }).click();
   await expect(zoomBar(page).getByLabel('当前缩放比例')).toHaveText('110%');
@@ -384,11 +391,14 @@ test('wide layout adapts without overlapping toolbars, supports zoom controls, a
 
   // Adaptive resize on narrower desktop window still clears toolbars.
   await page.setViewportSize({ width: 1024, height: 700 });
+  // resize 后纸面收缩要经 React 提交才生效，先等画布宽度回落再量取。
+  await expect.poll(async () => (await canvas(page).boundingBox())!.width).toBeLessThan(fitBox.width);
   const narrowBox = (await canvas(page).boundingBox())!;
   const narrowRail = (await rail(page).boundingBox())!;
-  const narrowDock = (await page.locator('button[aria-label="图层与属性"]').last().boundingBox())!;
+  await expect(inspector(page)).toBeVisible();
+  const narrowPanel = (await inspector(page).boundingBox())!;
   expect(narrowBox.x).toBeGreaterThan(narrowRail.x + narrowRail.width);
-  expect(narrowBox.x + narrowBox.width).toBeLessThan(narrowDock.x);
+  expect(narrowBox.x + narrowBox.width).toBeLessThan(narrowPanel.x);
 });
 
 test.describe('narrow touch viewport', () => {

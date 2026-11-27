@@ -27,8 +27,8 @@ export const heroGlobe = {
   centerY: 461.5,
   /** 画里那个静态地球被挖掉的半径（含高光带外缘） */
   holeRadius: 292,
-  /** 缩小球体，给桌面地图上的圆形底托留出边缘 */
-  liveRadius: 240,
+  /** 保持用户确认的满圆孔尺寸；交互只旋转，不允许缩放。 */
+  liveRadius: 292,
   /** WebGL 容器的位置：正方形，边长 741 */
   stage: { x: 623, y: 91, size: 741 },
 } as const;

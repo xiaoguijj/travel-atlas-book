@@ -140,10 +140,13 @@ interface JournalContent {
 interface JournalMediaAttrs {
   assetId: string;            // photo:<uuid> 或 sticker:<id>
   caption?: string;
+  rotation?: number;          // 旋转角度（度，-180–180），缺省 0
+  lines?: number;             // 照片占横线本行数（整数，行高 = 一条横线），缺省 3
 }
 ```
 
 - 正文只保存素材 ID，不保存 Blob、base64、object URL 或渲染态。
+- `rotation` / `lines` 为 2026-11-27 界面微调新增字段；旧手账缺省时按 0 / 3 渲染，打开旧档不触发写库，实际编辑后随正文一起按新字段保存。
 - 保存前会检查 `doc.type === 'doc'`、`content` 为数组、每个 `atlasMedia` 节点具有合法素材 ID。
 - 空正文仍应提交完整 Tiptap doc；`journal` 字段缺省表示尚未保存过 Journal。
 
@@ -151,7 +154,7 @@ interface JournalMediaAttrs {
 
 ```ts
 interface CollageCanvas {
-  width: 1200;                // COLLAGE_CANVAS_WIDTH
+  width: 2133;                // COLLAGE_CANVAS_WIDTH，4:3 横版
   height: 1600;               // COLLAGE_CANVAS_HEIGHT
   items: CollageItem[];       // 从底到顶
 }
@@ -164,6 +167,8 @@ interface CollageCanvas {
 - `kind: 'text'`：必须有 `text`，可选有限 `style`（字号、字体、颜色、对齐、斜体、粗体）。
 
 保存时校验固定画布尺寸、元素 ID 唯一、数值有限、宽高大于 0、素材前缀与类型匹配。视口缩放、选中框、Konva 节点、临时 URL 均不入库。
+
+2026-11-27 经需求方确认改为 2133×1600（4:3）横版，同时继续接受历史宽度 1200（v1 竖版）与 1800（此前 9:8 宽版）。旧档打开时**仅向右扩宽显示**：`items` 的所有坐标、尺寸、旋转、文字样式和图层顺序一律不变，不做居中平移；打开、选中或视口缩放均不写库，任何一次实际编辑后才以 2133 入库。旧版本应用只接受其对应宽度，因此横版一经保存，应使用本版本或更新版本继续编辑。
 
 ### 4.4 PhotoAsset
 

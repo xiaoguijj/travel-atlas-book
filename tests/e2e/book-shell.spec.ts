@@ -39,6 +39,11 @@ function journalHasText(book: { journal?: { doc: { content?: unknown[] } } } | u
   return JSON.stringify(book?.journal ?? null).includes(text);
 }
 
+/** The photo cell does not print its asset id, so the id is read from the stored journal. */
+function readMediaAssetId(book: Awaited<ReturnType<typeof readBook>>): string {
+  return String(book?.journal?.doc.content?.find((node) => node.type === 'atlasMedia')?.attrs?.assetId ?? '');
+}
+
 test('mode selection page, mode URLs, refresh, back and invalid IDs', async ({ page }) => {
   const errors = watchRuntimeErrors(page);
   await seedBooks(page, [seedBook(BOOK_A, TITLE_A)]);
@@ -159,25 +164,21 @@ test('shared asset panel uploads a photo, inserts it and restores the same asset
   await expect(dialog).toBeHidden();
   const media = page.getByLabel('手账正文', { exact: true }).locator('[data-type="atlasMedia"]');
   await expect(media).toHaveCount(1);
-  const assetLabel = media.getByText(/^photo:[^\s]+$/);
-  await expect(assetLabel).toBeVisible();
-  const assetId = (await assetLabel.innerText()).trim();
-  expect(assetId).toMatch(/^photo:/);
   const photo = media.getByRole('img', { name: 'atlas-sample.png', exact: true });
   await expect(photo).toBeVisible();
   await expect.poll(() => photo.evaluate((element) => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   await waitSaved(page);
 
   expect(await readPhotoCount(page)).toBe(1);
-  const stored = await readBook(page, BOOK_A);
-  expect(JSON.stringify(stored?.journal)).toContain(assetId);
+  const assetId = readMediaAssetId(await readBook(page, BOOK_A));
+  expect(assetId).toMatch(/^photo:/);
 
   await page.reload();
   await expect(page.getByLabel('手账正文', { exact: true })).toBeVisible();
   await expect(media).toHaveCount(1);
   await expect(photo).toBeVisible();
   await expect.poll(() => photo.evaluate((element) => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
-  await expect(assetLabel).toHaveText(assetId);
+  await expect.poll(async () => readMediaAssetId(await readBook(page, BOOK_A))).toBe(assetId);
 
   expect(errors).toEqual([]);
 });
