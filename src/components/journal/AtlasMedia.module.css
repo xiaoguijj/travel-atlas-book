@@ -1,5 +1,5 @@
 /* ------------------------------------------------------------------ 素材
- * 照片和贴纸都是裁好的那张图本身：不加框、不占说明行，默认高度占三条横线；
+ * 图片不加框，默认高度占三条横线。照片下方留一条横线写说明。
  * 选中后四角浮出复制、取走、旋转、缩放四个圆钮，外观与贴纸层同一套。
  * --rule-step 由手账页按源图坐标设下来，这里所有尺寸都跟着画一起缩放。
  */
@@ -11,6 +11,35 @@
   max-width: 100%;
   margin: 0;
   vertical-align: top;
+}
+
+.photo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.caption {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--rule-step, 3.287cqw);
+  padding: 0 2px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--tab-ink);
+  font-family: var(--tab-font-display);
+  font-size: 1.75cqw;
+}
+
+.caption::placeholder {
+  color: rgb(31 46 54 / 0.56);
+}
+
+.caption:focus-visible {
+  outline: 2px dashed var(--tab-brass);
+  outline-offset: -2px;
 }
 
 /* 图自己在里面转，这个壳不转：它量的才是素材没转时占的那块地方 */
@@ -143,5 +172,9 @@
   /* 窄屏上 1cqw 太小，占位文字改用固定下限 */
   .placeholder {
     font-size: 11.5px;
+  }
+
+  .caption {
+    font-size: 15px;
   }
 }

@@ -15,6 +15,7 @@ import {
   type AssetResource,
   type StickerAssetResource,
 } from '../../data/contracts';
+import { isPhotoAssetId } from '../../data/ids';
 import styles from './AtlasMedia.module.css';
 
 /**
@@ -154,6 +155,7 @@ function sameControls(a: Controls | null, b: Controls): boolean {
 function AtlasMediaView(props: NodeViewProps) {
   const assetId = String(props.node.attrs.assetId ?? '');
   const caption = String(props.node.attrs.caption ?? '');
+  const isPhoto = isPhotoAssetId(assetId);
   const assets = resolverOf(props);
   const getAsset = assets?.getAsset;
   const [resource, setResource] = useState<AssetResource | undefined>(undefined);
@@ -169,9 +171,11 @@ function AtlasMediaView(props: NodeViewProps) {
   const draftRef = useRef<typeof stored | null>(null);
   const shape = draft ?? stored;
   const frameRef = useRef<HTMLSpanElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
   const handlesRef = useRef<HTMLDivElement>(null);
   const gesture = useRef<Gesture | null>(null);
   const [controls, setControls] = useState<Controls | null>(null);
+  const [imageVisible, setImageVisible] = useState(false);
 
   const latest = useRef({ stored, updateAttributes: props.updateAttributes });
   latest.current = { stored, updateAttributes: props.updateAttributes };
@@ -231,12 +235,20 @@ function AtlasMediaView(props: NodeViewProps) {
 
     function end(event?: PointerEvent) {
       const active = gesture.current;
-      if (event && active && active.pointerId !== event.pointerId) return;
+      if (!active || (event && active.pointerId !== event.pointerId)) return;
+      const next = draftRef.current;
       gesture.current = null;
+      draftRef.current = null;
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', end);
       window.removeEventListener('pointercancel', end);
-      if (active && draftRef.current) latest.current.updateAttributes(draftRef.current);
+      if (!event) return;
+      const { stored, updateAttributes } = latest.current;
+      if (event.type === 'pointerup' && next && (next.rotation !== stored.rotation || next.lines !== stored.lines)) {
+        updateAttributes(next);
+      } else {
+        setDraft(null);
+      }
     }
 
     return { move, end };
@@ -244,9 +256,8 @@ function AtlasMediaView(props: NodeViewProps) {
 
   useEffect(() => () => handlers.end(), [handlers]);
 
-  /** 开始一次手势；返回 false 表示这不是该接手的那次按下（右键、中键） */
-  function begin(event: ReactPointerEvent<HTMLElement>, next: Gesture): boolean {
-    if (event.pointerType === 'mouse' && event.button !== 0) return false;
+  function begin(event: ReactPointerEvent<HTMLElement>, next: Gesture) {
+    if (gesture.current || (event.pointerType === 'mouse' && event.button !== 0)) return;
     // 不让这次按下顺带把正文的光标、选区抢走
     event.preventDefault();
     event.stopPropagation();
@@ -254,7 +265,6 @@ function AtlasMediaView(props: NodeViewProps) {
     window.addEventListener('pointermove', handlers.move, { passive: false });
     window.addEventListener('pointerup', handlers.end);
     window.addEventListener('pointercancel', handlers.end);
-    return true;
   }
 
   /** 缩放看把手离中心多远，旋转看把手绕中心转过多少，两者都绕素材自己的中心 */
@@ -269,7 +279,7 @@ function AtlasMediaView(props: NodeViewProps) {
     const base = { pointerId: event.pointerId, centerX, centerY };
 
     if (kind === 'scale') {
-      const image = node.querySelector('img');
+      const image = imageRef.current;
       const natural = image && image.naturalWidth > 0 && image.naturalHeight > 0 ? image : null;
       const step = box.height / shape.lines;
       const available = node.closest('[contenteditable="true"]')?.clientWidth ?? 0;
@@ -296,12 +306,26 @@ function AtlasMediaView(props: NodeViewProps) {
     });
   }
 
+  // 把手能越过正文边缘，但图片完全滚出可视区时，把手也要消失。
+  useLayoutEffect(() => {
+    const image = imageRef.current;
+    if (!props.selected || !image) {
+      setImageVisible(false);
+      return;
+    }
+    const observer = new IntersectionObserver(([entry]) => {
+      setImageVisible(entry.intersectionRatio > 0);
+    }, { threshold: Number.EPSILON });
+    observer.observe(image);
+    return () => observer.disconnect();
+  }, [props.selected, src]);
+
   /**
    * 四个圆钮的位置在选中期间逐帧重算：素材会转、会缩放，纸也会滚动或缩放，
    * 圆钮得跟着素材在纸上的实际落点走。数值没变就不重画。
    */
   useLayoutEffect(() => {
-    if (!props.selected || !src) {
+    if (!props.selected || !src || !imageVisible) {
       setControls(null);
       return undefined;
     }
@@ -341,7 +365,7 @@ function AtlasMediaView(props: NodeViewProps) {
     };
     measure();
     return () => cancelAnimationFrame(frame);
-  }, [props.selected, src, shape.rotation, shape.lines]);
+  }, [props.selected, src, imageVisible, shape.rotation, shape.lines]);
 
   function duplicate() {
     const position = props.getPos();
@@ -359,7 +383,10 @@ function AtlasMediaView(props: NodeViewProps) {
     ({ left: `${point.left}px`, top: `${point.top}px` }) as CSSProperties;
 
   return (
-    <NodeViewWrapper className={styles.item} data-type={JOURNAL_MEDIA_NODE_NAME}>
+    <NodeViewWrapper
+      className={isPhoto ? `${styles.item} ${styles.photo}` : styles.item}
+      data-type={JOURNAL_MEDIA_NODE_NAME}
+    >
       {src ? (
         <span
           ref={frameRef}
@@ -367,6 +394,7 @@ function AtlasMediaView(props: NodeViewProps) {
           style={{ '--media-rotation': `${shape.rotation}deg`, '--media-lines': shape.lines } as CSSProperties}
         >
           <img
+            ref={imageRef}
             className={styles.itemImage}
             src={src}
             alt={caption || resource?.label || assetId}
@@ -376,6 +404,16 @@ function AtlasMediaView(props: NodeViewProps) {
       ) : (
         <p className={styles.placeholder}>{placeholderCopy(state, assetId)}</p>
       )}
+      {isPhoto ? (
+        <input
+          className={styles.caption}
+          value={caption}
+          onChange={(event) => props.updateAttributes({ caption: event.target.value })}
+          placeholder="给这一格写一句说明（可以不填）"
+          aria-label="素材说明"
+          maxLength={60}
+        />
+      ) : null}
       {!src ? (
         <button
           type="button"

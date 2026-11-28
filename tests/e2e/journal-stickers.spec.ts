@@ -118,6 +118,74 @@ for (const sticker of [
   });
 }
 
+test('clicking a scale handle without dragging preserves the undone rotation', async ({ page }) => {
+  const bookId = 'journal-media-undo';
+  await seedBooks(page, [seedBook(bookId, '旋转撤销', 'nanjing', {
+    journal: { doc: { type: 'doc', content: [
+      paragraph('第一行'),
+      { type: 'atlasMedia', attrs: { assetId: 'sticker:common-camera' } },
+      { type: 'paragraph' },
+    ] } },
+  })]);
+  await page.goto(`/#/book/${bookId}?mode=journal`);
+  const media = page.locator('[data-type="atlasMedia"]');
+  const image = media.getByRole('img');
+  await expectLoadedArtwork(image, 'common-camera');
+  await image.click();
+  const rotate = media.getByRole('button', { name: '旋转这一格', exact: true });
+  await expect(rotate).toBeVisible();
+  const bounds = (await rotate.boundingBox())!;
+  const x = bounds.x + bounds.width / 2;
+  const y = bounds.y + bounds.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + 65, y + 36, { steps: 6 });
+  await page.mouse.up();
+
+  const savedRotation = async () => (await readBook(page, bookId))?.journal?.doc.content?.[1]?.attrs?.rotation ?? 0;
+  await expect.poll(savedRotation).not.toBe(0);
+  const rotated = await savedRotation();
+  await page.getByRole('button', { name: '撤销', exact: true }).click();
+  await expect.poll(savedRotation).toBe(0);
+
+  await image.click();
+  await media.getByRole('button', { name: '缩放这一格', exact: true }).click();
+  await expect(image).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');
+  const redo = page.getByRole('button', { name: '重做', exact: true });
+  await expect(redo).toBeEnabled();
+  await redo.click();
+  await expect.poll(savedRotation).toBe(rotated);
+});
+
+test('handles hide when selected media scrolls out and return with the media', async ({ page }) => {
+  const bookId = 'journal-media-scroll';
+  const lines = Array.from({ length: 42 }, (_, index) => paragraph(`正文第 ${index + 1} 行`));
+  await seedBooks(page, [seedBook(bookId, '滚动媒体', 'nanjing', {
+    journal: { doc: { type: 'doc', content: [
+      ...lines.slice(0, 3),
+      { type: 'atlasMedia', attrs: { assetId: 'sticker:common-camera' } },
+      ...lines.slice(3),
+    ] } },
+  })]);
+  await page.goto(`/#/book/${bookId}?mode=journal`);
+  const editor = page.getByRole('textbox', { name: '手账正文', exact: true });
+  const media = editor.locator('[data-type="atlasMedia"]');
+  const image = media.getByRole('img');
+  await expectLoadedArtwork(image, 'common-camera');
+  await image.click();
+  const remove = media.getByRole('button', { name: '取走这一格', exact: true });
+  await expect(remove).toBeVisible();
+
+  await editor.getByText('正文第 2 行', { exact: true }).hover();
+  await page.mouse.wheel(0, 300);
+  await expect(image).not.toBeInViewport();
+  await expect(media.getByRole('button')).toHaveCount(0);
+
+  await page.mouse.wheel(0, -300);
+  await expect(image).toBeInViewport();
+  await expect(remove).toBeVisible();
+});
+
 test('the real shared catalog isolates city artwork and loads common stickers in both cities', async ({ page }) => {
   const cities = [
     { id: 'nanjing', labels: ['南京邮票', '鸡鸣寺', '鸭血粉丝汤', '梅花', '南京云锦'] },

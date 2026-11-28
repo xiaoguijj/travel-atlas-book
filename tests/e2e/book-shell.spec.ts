@@ -173,12 +173,32 @@ test('shared asset panel uploads a photo, inserts it and restores the same asset
   const assetId = readMediaAssetId(await readBook(page, BOOK_A));
   expect(assetId).toMatch(/^photo:/);
 
+  const caption = media.getByRole('textbox', { name: '素材说明', exact: true });
+  const captionText = '在南京拍下的第一张照片';
+  await expect(caption).toBeVisible();
+  await caption.fill(captionText);
+  await expect.poll(async () => {
+    const book = await readBook(page, BOOK_A);
+    return book?.journal?.doc.content?.find((node) => node.attrs?.assetId === assetId)?.attrs?.caption;
+  }).toBe(captionText);
+
   await page.reload();
   await expect(page.getByLabel('手账正文', { exact: true })).toBeVisible();
   await expect(media).toHaveCount(1);
-  await expect(photo).toBeVisible();
-  await expect.poll(() => photo.evaluate((element) => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  await expect(caption).toHaveValue(captionText);
+  const savedPhoto = media.getByRole('img', { name: captionText, exact: true });
+  await expect(savedPhoto).toBeVisible();
+  await expect.poll(() => savedPhoto.evaluate((element) => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   await expect.poll(async () => readMediaAssetId(await readBook(page, BOOK_A))).toBe(assetId);
+
+  const legacyCaption = '旧手账里的照片说明';
+  await seedBooks(page, [seedBook(BOOK_B, TITLE_B, 'nanjing', {
+    journal: { doc: { type: 'doc', content: [
+      { type: 'atlasMedia', attrs: { assetId, caption: legacyCaption } },
+    ] } },
+  })]);
+  await page.goto(`/#/book/${BOOK_B}?mode=journal`);
+  await expect(caption).toHaveValue(legacyCaption);
 
   expect(errors).toEqual([]);
 });
