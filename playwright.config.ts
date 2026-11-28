@@ -8,6 +8,9 @@ const staticSubpathPort = 4175;
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
+  // 地球贴图绘制和 WebGL 渲染都是 CPU 大户，核多的机器默认开 8 个 worker
+  // 会互相拖慢帧率，把依赖帧推进的交互测试拖到超时；固定成 CI 常见的 4 路并行。
+  workers: 4,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? 'github' : 'list',

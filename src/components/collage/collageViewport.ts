@@ -46,7 +46,7 @@ export function formatZoomPercent(zoom: number): string {
 }
 
 /**
- * Compute the largest paper dimensions (preserving the 9:8 logical aspect ratio)
+ * Compute the largest paper dimensions (preserving the 4:3 logical aspect ratio)
  * that fit inside `.workspace` without overlapping floating toolbars or clipping cover/clip decor.
  */
 export function computeFitPaperSize(bounds: CollageViewportBounds): PaperDisplaySize {
@@ -64,9 +64,10 @@ export function computeFitPaperSize(bounds: CollageViewportBounds): PaperDisplay
     return { width, height: Math.round(width / COLLAGE_ASPECT_RATIO) };
   }
 
-  // Reserve space for left tool rail (14+70+gap+19 cover), right dock/zoom bar, and top selection pill.
-  const horizontalReserve = 232;
-  const verticalReserve = 112;
+  // 桌面三栏布局下，左右工具轨与属性栏已由页面留白让出（见 CollageView.module.css 的桌面媒体块），
+  // 缩放条也移进了右栏，工作区内只剩顶部选中栏浮层；纵向留白只需容纳选中栏与内边距。
+  const horizontalReserve = 32;
+  const verticalReserve = 62;
   const maxWidth = Math.min(1120, Math.max(320, workspaceWidth - horizontalReserve));
   const maxHeight = Math.max(240, workspaceHeight - verticalReserve);
   const widthByHeight = maxHeight * COLLAGE_ASPECT_RATIO;

@@ -29,7 +29,7 @@ function Shell() {
   const paintedRibbon = pathname === '/' && artViewport && heroLayoutSupported;
   const ownHeader = usesInnerLayout(pathname);
   return (
-    <div className={styles.shell}>
+    <div className={pathname === '/' ? `${styles.shell} ${styles.home}` : styles.shell}>
       {paintedRibbon || ownHeader ? null : <SiteHeader />}
       <main>
         <Outlet />

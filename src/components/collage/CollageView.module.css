@@ -1,5 +1,5 @@
 /* Collage 自由拼贴正式界面：复古羊皮纸手账桌面 + 皮革封皮叠纸画布 + 手工纸浮层工具。
-   纸张保持 9:8 的 1800 × 1600 宽幅逻辑画布（兼容恢复 1200 × 1600 既有作品），左右面板均以浮层展开，不挤压、不改变画布坐标。 */
+   纸张保持 4:3 的 2133 × 1600 横版逻辑画布（兼容恢复 1200 / 1800 × 1600 既有作品，元素坐标不变、仅向右扩宽），左右面板均以浮层展开，不挤压、不改变画布坐标。 */
 
 .page {
   --desk-ink: #2d2015;
@@ -182,7 +182,7 @@
 .paper {
   position: relative;
   width: 100%;
-  aspect-ratio: 9 / 8;
+  aspect-ratio: 4 / 3;
   overflow: hidden;
   background: url('../../assets/collage-paper.jpg') center / 100% 100% no-repeat;
   -webkit-mask-image: url('../../assets/collage-paper-mask.png');
@@ -228,12 +228,12 @@
   background: linear-gradient(135deg, transparent 50%, rgb(132 96 52 / 0.16) 51%, rgb(255 247 230 / 0.28) 100%);
 }
 
-/* CollageStage 的唯一容器：宽高比与纸张精确一致，逻辑坐标仍由 1800 × 1600 映射。 */
+/* CollageStage 的唯一容器：宽高比与纸张精确一致，逻辑坐标仍由 2133 × 1600 映射。 */
 .canvas {
   position: relative;
   z-index: 1;
   width: 100%;
-  aspect-ratio: 9 / 8;
+  aspect-ratio: 4 / 3;
   background: transparent;
 }
 
@@ -490,10 +490,11 @@
 
 .toolPanel {
   position: absolute;
-  left: calc(100% + 10px);
-  top: 0;
+  z-index: 24;
+  top: 44px;
+  right: 14px;
   width: 298px;
-  border-radius: 6px 14px 14px 14px;
+  border-radius: 14px 6px 14px 14px;
 }
 
 .inspector {
@@ -1650,5 +1651,47 @@
   .inspector,
   .selectionBar {
     animation: none;
+  }
+}
+
+/* ---------- 桌面三栏 ----------
+ * 桌面端固定三栏：左侧工具轨与右侧属性栏由页面留白让出（94 / 330px），中栏纸面按工作区实测尺寸适配；
+ * 素材面板与属性面板同占右侧栏、互斥开关，因此开关面板不会改变纸张的尺寸或位置。
+ * 窄屏浮层布局见上方各媒体查询，本块仅作用于 901px 以上且高度充足的桌面窗口。 */
+
+@media (min-width: 901px) and (min-height: 501px) {
+  .page {
+    padding: 46px 330px 28px 94px;
+  }
+
+  .workspaceInner {
+    padding:
+      max(50px, calc(18px + 24px * var(--paper-scale)))
+      16px
+      62px;
+  }
+
+  /* 中栏的中心比整页中心左移 (94 - 330) / 2 = 118px，选中栏要跟着对中。 */
+  .selectionBar {
+    left: calc(50% - 118px);
+  }
+
+  /* 缩放条放进右侧预留栏，中栏纸面不必再为它让出高度。 */
+  .zoomBar {
+    right: 14px;
+    bottom: 40px;
+  }
+
+  /* 面板在缩放条上方收尾，互不遮挡。 */
+  .toolPanel,
+  .inspector {
+    max-height: calc(100% - 160px);
+  }
+}
+
+/* 素材面板占用右侧栏时收起书签把手，避免叠在面板上。 */
+@media (min-width: 901px) {
+  .page[data-panel]:not([data-panel='inspector']) .rightDock {
+    display: none;
   }
 }

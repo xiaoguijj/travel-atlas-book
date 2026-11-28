@@ -136,6 +136,51 @@ function CanvasItem({ item, assets, onSelect, onChange }: {
   );
 }
 
+/** 旋转把手底座沿用锚点配色，中间画一个黑色旋转符号。 */
+function rotateAnchorScene(context: Konva.Context, shape: Konva.Shape) {
+  const rect = shape as Konva.Rect;
+  const size = rect.width();
+  const corner = rect.cornerRadius();
+  const radius = Math.min(typeof corner === 'number' ? corner : 0, size / 2);
+  context.beginPath();
+  context.moveTo(radius, 0);
+  context.lineTo(size - radius, 0);
+  context.arc(size - radius, radius, radius, -Math.PI / 2, 0, false);
+  context.lineTo(size, size - radius);
+  context.arc(size - radius, size - radius, radius, 0, Math.PI / 2, false);
+  context.lineTo(radius, size);
+  context.arc(radius, size - radius, radius, Math.PI / 2, Math.PI, false);
+  context.lineTo(0, radius);
+  context.arc(radius, radius, radius, Math.PI, Math.PI * 1.5, false);
+  context.closePath();
+  context.fillStrokeShape(shape);
+
+  const center = size / 2;
+  const arc = size * 0.27;
+  const end = (Math.PI * 4) / 3;
+  const endX = center + arc * Math.cos(end);
+  const endY = center + arc * Math.sin(end);
+  const head = size * 0.24;
+  const tangentX = -Math.sin(end);
+  const tangentY = Math.cos(end);
+  const normalX = Math.cos(end);
+  const normalY = Math.sin(end);
+  context.beginPath();
+  context.arc(center, center, arc, -Math.PI / 3, end, false);
+  context.moveTo(endX - tangentX * head + normalX * head * 0.6, endY - tangentY * head + normalY * head * 0.6);
+  context.lineTo(endX, endY);
+  context.lineTo(endX - tangentX * head - normalX * head * 0.6, endY - tangentY * head - normalY * head * 0.6);
+  context.setAttr('strokeStyle', '#111');
+  context.setAttr('lineWidth', 1.4);
+  context.setAttr('lineCap', 'round');
+  context.setAttr('lineJoin', 'round');
+  context.stroke();
+}
+
+function styleAnchor(anchor: Konva.Rect) {
+  if (anchor.hasName('rotater')) anchor.sceneFunc(rotateAnchorScene);
+}
+
 function SelectionHandles({ selected, scale }: { selected: CollageItem | undefined; scale: number }) {
   const transformer = useRef<Konva.Transformer>(null);
   useLayoutEffect(() => {
@@ -152,7 +197,7 @@ function SelectionHandles({ selected, scale }: { selected: CollageItem | undefin
       anchorSize={13} rotateAnchorOffset={26}
       borderStroke="#96563b" borderStrokeWidth={1.6} borderDash={[5, 4]}
       anchorStroke="#8a4e35" anchorStrokeWidth={1.6}
-      anchorFill="#fff9ed" anchorCornerRadius={7}
+      anchorFill="#fff9ed" anchorCornerRadius={7} anchorStyleFunc={styleAnchor}
       rotateAnchorCursor="grab"
       boundBoxFunc={(previous, next) => {
         const minimum = MIN_ITEM_SIZE * scale;

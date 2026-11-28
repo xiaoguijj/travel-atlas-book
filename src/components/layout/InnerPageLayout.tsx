@@ -18,7 +18,7 @@ export interface InnerPageLayoutProps {
   maxWidth?: number | null;
   /** 内容区不再额外留内距：整屏画一类的页面自己带排版，多一档就会挤小画面 */
   flush?: boolean;
-  /** 视觉变体：default 为全站深青航海底；collage 为暖色羊皮纸手账桌面。 */
+  /** 视觉变体：default 为全站深青航海底；collage 为两种编辑器共用的暖色地图桌面。 */
   variant?: 'default' | 'collage';
   children: ReactNode;
 }

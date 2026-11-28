@@ -1,10 +1,10 @@
 import { getCityById } from './cities';
 import {
+  ACCEPTED_LEGACY_COLLAGE_WIDTHS,
   COLLAGE_CANVAS_HEIGHT,
   COLLAGE_CANVAS_WIDTH,
   DataError,
   JOURNAL_MEDIA_NODE_NAME,
-  LEGACY_COLLAGE_CANVAS_WIDTH,
   MAX_BOOK_TITLE_LENGTH,
   type CollageCanvas,
   type CollageItem,
@@ -144,11 +144,12 @@ export function assertCollageCanvas(canvas: CollageCanvas): void {
   if (!canvas || typeof canvas !== 'object') {
     throw new DataError('INVALID_COLLAGE', '拼贴内容不能为空');
   }
-  const validWidth = canvas.width === COLLAGE_CANVAS_WIDTH || canvas.width === LEGACY_COLLAGE_CANVAS_WIDTH;
+  const validWidth = canvas.width === COLLAGE_CANVAS_WIDTH
+    || (ACCEPTED_LEGACY_COLLAGE_WIDTHS as readonly number[]).includes(canvas.width);
   if (!validWidth || canvas.height !== COLLAGE_CANVAS_HEIGHT) {
     throw new DataError(
       'INVALID_COLLAGE',
-      `拼贴逻辑画布必须是 ${COLLAGE_CANVAS_WIDTH}×${COLLAGE_CANVAS_HEIGHT}（兼容 ${LEGACY_COLLAGE_CANVAS_WIDTH}×${COLLAGE_CANVAS_HEIGHT}）`,
+      `拼贴逻辑画布必须是 ${COLLAGE_CANVAS_WIDTH}×${COLLAGE_CANVAS_HEIGHT}（兼容 ${ACCEPTED_LEGACY_COLLAGE_WIDTHS.join('、')}×${COLLAGE_CANVAS_HEIGHT}）`,
       { width: canvas.width, height: canvas.height },
     );
   }

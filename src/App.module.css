@@ -5,6 +5,11 @@
   min-height: 100dvh;
 }
 
+/* 只替换首页插画外围的蓝底。纯地图来自用户提供的同一原图，已去掉印刷顶栏。 */
+.home {
+  background: #0b2c2c url('./assets/inner-bg-map.jpg') center / cover no-repeat;
+}
+
 /* 装饰层永远在内容之下，也不吃鼠标事件 */
 .shell > main {
   position: relative;

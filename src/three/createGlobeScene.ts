@@ -135,6 +135,8 @@ export function createGlobeScene(options: GlobeSceneOptions): GlobeSceneHandle {
   controls.enableDamping = true;
   controls.dampingFactor = cfg.controls.dampingFactor;
   controls.enablePan = false;
+  // 固定当前取景尺寸，滚轮、鼠标中键和双指手势都不能拉近或缩小地球。
+  controls.enableZoom = false;
   controls.rotateSpeed = cfg.controls.rotateSpeed;
   controls.zoomSpeed = cfg.controls.zoomSpeed;
   controls.minDistance = viewDistance * cfg.camera.zoom.min;

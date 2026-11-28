@@ -1,42 +1,59 @@
-/* ------------------------------------------------------------------ 素材格
- * 一格素材占三条横线的高度：图上留得出缩略图和一句说明，下面那行字也还会坐在印好的线上。
+/* ------------------------------------------------------------------ 素材
+ * 图片不加框，默认高度占三条横线。照片下方留一条横线写说明。
+ * 选中后四角浮出复制、取走、旋转、缩放四个圆钮，外观与贴纸层同一套。
  * --rule-step 由手账页按源图坐标设下来，这里所有尺寸都跟着画一起缩放。
  */
 
-.block {
-  display: flex;
+.item {
+  position: relative;
+  display: inline-flex;
   align-items: center;
-  gap: 1.1cqw;
-  box-sizing: border-box;
-  height: calc(var(--rule-step, 3.287cqw) * 3);
+  max-width: 100%;
   margin: 0;
-  padding: 0.45cqw 0.9cqw;
-  border: 1px dashed rgb(176 141 87 / 0.8);
-  border-radius: 4px;
-  background: rgb(247 240 227 / 0.12);
+  vertical-align: top;
 }
 
-.blockSelected {
-  border-style: solid;
-  border-color: rgb(176 141 87 / 1);
-  background: rgb(247 240 227 / 0.2);
-}
-
-.thumb {
-  height: 100%;
-  width: auto;
-  max-width: 34cqw;
-  object-fit: contain;
-  border-radius: 2px;
-}
-
-.meta {
+.photo {
   display: flex;
-  min-width: 0;
-  flex: 1;
   flex-direction: column;
-  justify-content: center;
-  gap: 2px;
+  align-items: flex-start;
+}
+
+.caption {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--rule-step, 3.287cqw);
+  padding: 0 2px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--tab-ink);
+  font-family: var(--tab-font-display);
+  font-size: 1.75cqw;
+}
+
+.caption::placeholder {
+  color: rgb(31 46 54 / 0.56);
+}
+
+.caption:focus-visible {
+  outline: 2px dashed var(--tab-brass);
+  outline-offset: -2px;
+}
+
+/* 图自己在里面转，这个壳不转：它量的才是素材没转时占的那块地方 */
+.frame {
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.itemImage {
+  height: calc(var(--rule-step, 3.287cqw) * var(--media-lines, 3));
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  transform: rotate(var(--media-rotation, 0deg));
 }
 
 .placeholder {
@@ -47,81 +64,7 @@
   line-height: 1.5;
 }
 
-.caption {
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 3px;
-  background: transparent;
-  color: var(--tab-ink);
-  font-family: var(--tab-font-display);
-  font-size: 1.75cqw;
-  line-height: 1.4;
-}
-
-.caption::placeholder {
-  color: rgb(31 46 54 / 0.32);
-}
-
-.assetId {
-  color: rgb(31 46 54 / 0.42);
-  font-family: var(--tab-font-ui);
-  font-size: 1.2cqw;
-  letter-spacing: 0.04em;
-}
-
-/* 命中区不低于 40px 这条规矩在纸上同样成立，所以本子留了三行高 */
-.remove {
-  flex: none;
-  min-height: 40px;
-  padding: 0 14px;
-  border: 1px solid rgb(176 141 87 / 0.7);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--tab-ink);
-  font-family: var(--tab-font-ui);
-  font-size: 12.5px;
-  letter-spacing: 0.06em;
-  cursor: pointer;
-  transition: border-color 180ms ease, background-color 180ms ease;
-}
-
-.remove:hover,
-.remove:focus-visible {
-  border-color: rgb(120 84 40 / 0.95);
-  background: rgb(247 240 227 / 0.35);
-}
-
-.caption:focus-visible,
-.remove:focus-visible,
-.thumb:focus-visible {
-  outline: 2px dashed rgb(176 141 87 / 0.9);
-  outline-offset: 2px;
-}
-
-/* 贴纸就是裁好的那张图本身：不加框、不占说明行，点选后右上角浮出取走小圆钮。 */
-.sticker {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  max-width: 100%;
-  margin: 0;
-  vertical-align: top;
-}
-
-.stickerImage {
-  height: calc(var(--rule-step, 3.287cqw) * 3);
-  width: auto;
-  max-width: 100%;
-  object-fit: contain;
-}
-
-.stickerSelected .stickerImage {
-  outline: 2px dashed rgb(176 141 87 / 0.9);
-  outline-offset: 2px;
-}
-
-.stickerRemove {
+.itemRemove {
   position: absolute;
   top: -10px;
   right: -10px;
@@ -140,17 +83,94 @@
   cursor: pointer;
 }
 
-.stickerRemove:hover,
-.stickerRemove:focus-visible {
+.itemRemove:hover,
+.itemRemove:focus-visible {
   background: rgb(247 240 227 / 1);
   border-color: rgb(120 84 40 / 0.95);
   outline: none;
 }
 
+/* 圆钮宿主：fixed 定位后不再被正文的滚动区裁掉，素材在第一行时上方的旋转钮也露得出来。
+ * 宿主自己不吃事件、没有尺寸，只有四个圆钮可点。 */
+.handles {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+/* 四个圆钮各管一件事，外观同一套：白底、黑图、黄铜描边。 */
+.duplicate,
+.remove,
+.rotate,
+.scale {
+  position: absolute;
+  display: block;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--tab-brass);
+  border-radius: 50%;
+  background: var(--tab-cream);
+  color: var(--tab-ink);
+  font-family: var(--tab-font-ui);
+  font-size: 12px;
+  font-variant-emoji: text;
+  line-height: 1;
+  pointer-events: auto;
+  touch-action: none;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+/* 圆钮显示时这一格必然处于选中状态，浏览器会按全局的选中文字色（米白）画钮里的符号，
+ * 和米白底混成一片；这里把选中态的颜色定回墨色。 */
+.handles button::selection,
+.itemRemove::selection {
+  color: var(--tab-ink);
+  background: transparent;
+}
+
+.duplicate,
+.remove {
+  cursor: pointer;
+}
+
+.rotate {
+  cursor: grab;
+}
+
+.rotate:active {
+  cursor: grabbing;
+}
+
+.scale {
+  cursor: nwse-resize;
+}
+
+.duplicate:hover,
+.duplicate:active,
+.rotate:hover,
+.rotate:active,
+.scale:hover,
+.scale:active {
+  background: var(--tab-old-paper);
+}
+
+/* 取走是破坏性动作，留一点陶土红当提醒 */
+.remove:hover,
+.remove:active {
+  border-color: var(--tab-terracotta);
+  background: rgb(169 108 80 / 0.22);
+}
+
 @media (max-width: 720px) {
-  /* 窄屏上 1cqw 太小，说明与编号改用固定下限，按钮照旧点得动 */
-  .placeholder,
-  .assetId {
+  /* 窄屏上 1cqw 太小，占位文字改用固定下限 */
+  .placeholder {
     font-size: 11.5px;
   }
 

@@ -143,7 +143,7 @@ describe('loading a Journal with the actual editor schema', () => {
     const normalized = getSchema(extensions).nodeFromJSON(stored.doc).toJSON();
     expect(normalized).not.toEqual(stored.doc);
     expect(normalized.content[0].content[0].marks).toEqual([{ type: 'bold' }, { type: 'italic' }, { type: 'underline' }]);
-    expect(normalized.content[1].attrs).toEqual({ assetId: 'photo:kept', caption: '' });
+    expect(normalized.content[1].attrs).toEqual({ assetId: 'photo:kept', caption: '', rotation: 0, lines: 3 });
   });
 
   it('preserves explicit null values in supported link attributes', () => {

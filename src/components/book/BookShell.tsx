@@ -151,9 +151,9 @@ function BookEditorShell({ book, city, mode, onBookSaved, stickers }: BookShellP
   return (
     <InnerPageLayout
       back={createModeBack(book.id)}
-      maxWidth={isCollage ? null : 1280}
-      flush={isCollage}
-      variant={isCollage ? 'collage' : 'default'}
+      maxWidth={null}
+      flush
+      variant="collage"
     >
       <div className={styles.shell} data-mode={mode}>
         <header className={styles.toolbar}>

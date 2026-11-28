@@ -151,7 +151,7 @@
     </td>
     <td valign="top" width="50%">
       <img src="docs/assets/readme/showcase-collage.jpg" width="100%" alt="Collage 宽幅自由拼贴" />
-      <p>基于 React Konva 构建 <code>1800×1600</code> 宽幅画布，支持照片、贴纸与楷体文字自由拖拽旋转、50%–200% 视口缩放与图层属性精调。</p>
+      <p>基于 React Konva 构建 <code>2133×1600</code>（4:3）横版画布，支持照片、贴纸与楷体文字自由拖拽旋转、50%–200% 视口缩放与图层属性精调。</p>
     </td>
   </tr>
 </table>
@@ -186,7 +186,7 @@
 
 ### Collage 自由拼贴
 
-**功能定位**：基于 **React Konva + Konva** 构建的宽幅自由拼贴工作台，放置于木纹桌案、左翻封面、铜质长尾夹与多层纸张阴影之中。底层逻辑画布固定为 `1800×1600`（9:8），并内置居中偏移迁移逻辑（`normalizeCollageItems`），可无变形兼容恢复早期 `1200×1600` 版本的拼贴作品。
+**功能定位**：基于 **React Konva + Konva** 构建的横版自由拼贴工作台，放置于木纹桌案、左翻封面、铜质长尾夹与多层纸张阴影之中。底层逻辑画布固定为 `2133×1600`（4:3），并兼容恢复历史 `1200×1600`（v1 竖版）与 `1800×1600`（此前 9:8 宽版）作品：旧档打开时仅向右扩宽显示，元素坐标、尺寸、旋转与文字一律不变，任何一次实际编辑后才以 2133 入库。
 
 **支持的操作与如何使用**：
 
@@ -330,7 +330,7 @@
 | 路由系统 | React Router DOM `6.28.0` | `createHashRouter` 管理深链（如 `/#/book/:bookId?mode=collage`），无需服务端 rewrite |
 | 3D 地球 | Three.js `0.169.0` | `SphereGeometry` 球体渲染、`OrbitControls`、`CanvasTexture` 油画地球与独立分包 |
 | 日记编辑器 | Tiptap `3.35.0`（Core / React / PM / StarterKit） | 横线日记富文本编辑、自定义 `atlasMedia` 媒体节点与 JSON 持久化 |
-| 拼贴画布 | React Konva `18.2.14` + Konva `10.10.0` | `1800×1600` 自由拼贴舞台（兼容迁移 `1200×1600`）、`Transformer` 变换与检查器 |
+| 拼贴画布 | React Konva `18.2.14` + Konva `10.10.0` | `2133×1600`（4:3）自由拼贴舞台（兼容 `1200×1600` 与 `1800×1600` 旧档，元素坐标不变）、`Transformer` 变换与检查器 |
 | 本地存储 | Dexie `4.4.7` | IndexedDB 五表模型（`books` / `photos` / `stamps` / `wishes` / `plans`）与跨表事务 |
 | 质量保障 | Vitest `3.2.4` + fake-indexeddb `6.2.8` + Playwright `1.65.1` | 数据仓储与模型单测、Chromium 全链路端到端及静态部署回归 |
 
